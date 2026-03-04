@@ -1,0 +1,202 @@
+    *{
+        margin: 0px;
+        box-sizing: border-box;
+        display: flex;
+    }
+
+    .container{
+        width: 100vw;
+        height: 100vh;
+    }
+
+    .background{
+        width: 100%;
+        height: 100%;
+        background-color: rgb(222, 88, 51);
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* COMPOSITION */
+    .ball-block{
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: fixed;
+
+        width: 15%;
+        height: 30%;
+
+        background: linear-gradient(45deg,rgba(123, 122, 121, 1) 0%, rgba(246, 244, 241, 1) 56%, rgba(246, 244, 241, 1) 85%);;
+
+        top:30vw;
+        margin-right: 35vw;
+        border-radius: 50%;
+    }
+
+    .pc-block{
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+
+        position: fixed;
+
+        width: 20%;
+        height: 55%;
+
+        background-color: rgb(225, 219, 209);
+    }
+
+    .pc-screen{
+        display: flex;
+        width: 80%;
+        height: 60%;
+
+        margin-bottom: 15%;
+        margin-top: 10%;
+
+        background: radial-gradient(circle,rgba(39, 39, 39, 1) 25%, rgba(71, 71, 71, 1) 100%, rgba(39, 39, 39, 1) 50%);
+    }
+
+    .pc-cdrom{
+        display: flex;
+        width: 30%;
+        height: 2%;
+
+        margin-bottom: 0%;
+        margin-left: 50%;
+
+        background-color: rgb(39, 39, 39);
+    }
+
+    .pc-shadow{
+        display: flex;
+        width: 100%;
+        height: 10%;
+
+        margin-top: 10%;
+        margin-bottom: 15%;
+
+        background-color: rgb(188, 184, 175);
+    }
+
+    .bottle-block{
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+
+        width: 10%;
+        height: 50%;
+
+        background-color: rgb(222, 88, 51);
+        
+        margin-top:15vw;
+        margin-left: 2vw;
+
+        top:30vw;
+        margin-left: 35vw;
+        border-radius: 50%;
+    }
+
+    .bottle{
+        display: flex;
+
+        width: 100%;
+        height: 100%;
+
+        border-radius: 10px;
+        border-top-right-radius: 50px;
+        border-top-left-radius: 50px;
+
+        background-color: rgb(246, 244, 241);
+        opacity: 0.6;
+    }
+
+    .bottle-neck{
+        display: flex;
+
+        width: 40%;
+        height: 15%;
+
+        background-color: rgb(246, 244, 241);
+        opacity: 0.6;
+    }
+
+    .bottle-cork{
+        display: flex;
+
+        width: 40%;
+        height: 10%;
+
+        background-color: rgb(149, 74, 33);
+        opacity:1;
+    }
+
+    .keyboard-block{
+        display: flex;
+        position: fixed;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+
+        width: 35vw;
+        height: 5vw;
+
+        top:75%;
+        left:35%;
+
+        gap: 10px;
+
+        background-color: rgb(155, 152, 144);
+    }
+
+    .keyrow{
+        display: flex;
+        flex-direction: row;
+        position: relative;
+        justify-content: center;
+
+        width: 80%;
+        height: 20%;
+        
+        gap: 10px;
+
+        background-color: rgb(110, 108, 102);
+    }
+
+    .key{
+        display: flex;
+        flex-direction: column;
+        position: relative;
+
+        width: 5%;
+        height: 100%;
+
+        background-color: rgb(185, 182, 172);
+    }
+    
+
+    .orange1{
+        display: flex;
+        position: fixed;
+        background: radial-gradient(circle,rgba(255, 165, 0, 1) 0%, rgba(255, 183, 51, 1) 50%, rgba(255, 165, 0, 1) 100%);
+        width: 8vw;
+        height: 8vw;
+        border-radius: 50%;
+        top: 8%;
+        left: 53%;
+    }
+
+    .orange2{
+        display: flex;
+        position: fixed;
+        background: radial-gradient(circle,rgba(255, 165, 0, 1) 0%, rgba(255, 183, 51, 1) 50%, rgba(255, 165, 0, 1) 100%);
+        width: 8vw;
+        height: 8vw;
+        border-radius: 50%;
+        bottom: 10%;
+        left: 35%;
+    }
