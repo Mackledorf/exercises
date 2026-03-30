@@ -215,6 +215,8 @@ input {
   scroll-behavior: smooth;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  display: flex; /* Ensure a clean flex stack */
+  flex-direction: column;
 }
 
 .pages::-webkit-scrollbar {
@@ -224,12 +226,17 @@ input {
 .page {
   width: 100%;
   height: 100vh;
+  min-height: 100vh; /* Prevent shrinkage or gaps */
   scroll-snap-align: start;
   display: flex;
   align-items: center;
   overflow: hidden;
   position: relative;
+  /* Reset margins/paddings that might cause gaps */
+  margin: 0;
+  padding: 0;
 }
+
 
 /* ============================================
    PAGE: Profile / Welcome
@@ -346,19 +353,31 @@ input {
 }
 
 .profile-right {
-  flex: 1;
+  flex: 0 0 58%; /* Match .page-right in other sections */
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
+  padding-left: 0;
 }
 
+.body-illustration {
+  width: auto;
+  height: clamp(500px, 85vh, 900px);
+  max-width: none;
+  object-fit: contain;
+  /* Centering logic consistent with other pages */
+  display: block;
+}
+
+/* Base Body Illustration Styling */
 .user-silhouette {
   width: clamp(250px, 35vw, 500px);
   height: auto;
   max-height: 90vh;
 }
+
 
 /* ============================================
    Shared: Content Card
@@ -368,17 +387,18 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 30px;
+  padding: 40px 30px 40px 60px; /* Matched to profile-left */
   z-index: 2;
 }
 
 .page-right {
-  flex: 1;
+  flex: 0 0 58%; /* Match profile-right and be explicit */
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  height: 100vh;
 }
+
 
 .content-card {
   width: 100%;
@@ -866,12 +886,16 @@ input {
    Progress Page — Right Panel
    ============================================ */
 .page-right-progress {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  padding: 40px 30px;
+  padding: 40px 30px 40px 60px; /* Aligned with panel padding */
   gap: 10px;
+  flex: 0 0 58%; /* Explicit 58% but distinct behavior */
+  z-index: 1;
 }
+
 
 .progress-right-top {
   display: flex;
