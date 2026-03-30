@@ -235,7 +235,7 @@ input {
    PAGE: Profile / Welcome
    ============================================ */
 .page-profile {
-  padding: 40px 60px;
+  padding: 0;
 }
 
 .profile-left {
@@ -245,6 +245,7 @@ input {
   justify-content: center;
   gap: 10px;
   z-index: 2;
+  padding: 40px 30px 40px 60px;
 }
 
 .profile-header {

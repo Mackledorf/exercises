@@ -2,10 +2,6 @@
 <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2048 2048">
   <defs>
     <style>
-      .cls-1 {
-        mask: url(#mask);
-      }
-
       .cls-2 {
         fill: #ffe790;
       }
@@ -14,9 +10,9 @@
         fill: url(#linear-gradient);
       }
     </style>
-    <mask id="mask" x="328.53" y="3" width="1390.93" height="2048" maskUnits="userSpaceOnUse">
-      <path class="cls-2" d="M328.53,1645.75c0-235.68,191.06-426.74,426.74-426.74h537.45c235.68,0,426.74,191.06,426.74,426.74v401.14H328.53v-401.14Z"/>
-    </mask>
+    <clipPath id="bodyClip">
+      <path d="M328.53,1645.75c0-235.68,191.06-426.74,426.74-426.74h537.45c235.68,0,426.74,191.06,426.74,426.74v401.14H328.53v-401.14Z"/>
+    </clipPath>
     <linearGradient id="linear-gradient" x1="998.81" y1="1650.54" x2="734.28" y2="1651.37" gradientTransform="translate(718 2678) scale(1 -1)" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ecbf5f"/>
       <stop offset="1" stop-color="#ffe790"/>
@@ -24,7 +20,7 @@
   </defs>
   <path class="cls-2" d="M328.53,1645.75c0-235.68,191.06-426.74,426.74-426.74h537.45c235.68,0,426.74,191.06,426.74,426.74v401.14H328.53v-401.14Z"/>
   <circle class="cls-2" cx="1024.1" cy="691.25" r="428.14"/>
-  <g class="cls-1">
+  <g clip-path="url(#bodyClip)">
     <rect class="cls-3" x="1452.23" y="3" width="264.53" height="2048"/>
   </g>
 </svg>
