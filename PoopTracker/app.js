@@ -223,10 +223,10 @@ function renderProgressFoodList() {
 // --- Render Day Progress Bars ---
 function renderDayView() {
   const bars = [
-    { label: 'Calories (kcal)', type: 'kcal', value: dailyTotals.kcal, goal: dailyGoals.kcal },
-    { label: 'Carbohydrates (g)', type: 'carb', value: dailyTotals.carb, goal: dailyGoals.carb },
-    { label: 'Protein (g)', type: 'pro', value: dailyTotals.pro, goal: dailyGoals.pro },
-    { label: 'Fat (g)', type: 'fat', value: dailyTotals.fat, goal: dailyGoals.fat },
+    { label: 'Calories', type: 'kcal', value: dailyTotals.kcal, goal: dailyGoals.kcal, unit: 'kcal' },
+    { label: 'Carbohydrates', type: 'carb', value: dailyTotals.carb, goal: dailyGoals.carb, unit: 'g' },
+    { label: 'Protein', type: 'pro', value: dailyTotals.pro, goal: dailyGoals.pro, unit: 'g' },
+    { label: 'Fat', type: 'fat', value: dailyTotals.fat, goal: dailyGoals.fat, unit: 'g' },
   ];
 
   dayView.innerHTML = bars.map(b => {
@@ -241,61 +241,64 @@ function renderDayView() {
           <div class="progress-bar-fill ${b.type}" style="width:${pct}%"></div>
         </div>
         <div class="progress-bar-values">
-          <span class="current">${b.value}</span>
-          <span>${b.goal}</span>
+          <span class="current">${b.value} ${b.unit}</span>
+          <span>${b.goal} ${b.unit}</span>
         </div>
       </div>
     `;
   }).join('');
 }
 
+
 // --- Render Week Chart ---
 function renderWeekChart() {
-  const w = 400, h = 200;
-  const padL = 60, padR = 20, padT = 20, padB = 30;
+  const w = 450, h = 250;
+  const padL = 40, padR = 10, padT = 30, padB = 40;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
-  const yMin = -500, yMax = 500;
+  
+  // Weekly data: [M, T, W, T, F, S, S]
+  const weekValues = [1820, 1950, 1720, 2100, 1890, 2200, 2010]; // Mocked based on average
+  const labels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const maxVal = 2500;
 
-  function yPos(val) {
-    return padT + chartH * (1 - (val - yMin) / (yMax - yMin));
-  }
-
-  function xPos(i) {
-    return padL + (i / (weekData.length - 1)) * chartW;
-  }
-
-  const gridLines = [500, 250, 0, -250, -500];
   let svg = `<svg viewBox="0 0 ${w} ${h}" class="week-chart-svg">`;
+  
+  // Horizontal grid lines
+  for (let i = 0; i <= 5; i++) {
+    const val = i * 500;
+    const y = padT + chartH * (1 - val / maxVal);
+    svg += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#ddd" stroke-width="1"/>`;
+    svg += `<text x="${padL - 6}" y="${y + 2.5}" text-anchor="end" fill="#999" font-size="8">${val}</text>`;
+  }
 
-  // Grid lines
-  gridLines.forEach(val => {
-    const y = yPos(val);
-    svg += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#888" stroke-dasharray="3,3" stroke-width="0.5"/>`;
-    const label = val > 0 ? `+${val}kcal` : val === 0 ? '+0kcal' : `${val}kcal`;
-    svg += `<text x="${padL - 6}" y="${y + 3}" text-anchor="end" fill="#999" font-size="8" font-family="Gotham Rounded, sans-serif" letter-spacing="0.03em">${label}</text>`;
+  // Cylindrical Bars
+  const barW = 24;
+  const slotW = chartW / 7;
+  
+  weekValues.forEach((val, i) => {
+    const x = padL + (i * slotW) + (slotW / 2);
+    const barH = (val / maxVal) * chartH;
+    const yEnd = h - padB;
+    const yTop = yEnd - barH;
+    
+    // Background slot (lighter)
+    svg += `<rect x="${x - barW/2}" y="${padT}" width="${barW}" height="${chartH}" rx="${barW/2}" ry="${barW/4}" class="week-bar-bg" fill="#ecebea" />`;
+    
+    // Fill Bar (Cylinder)
+    svg += `<rect x="${x - barW/2}" y="${yTop}" width="${barW}" height="${barH}" rx="${barW/2}" ry="${barW/4}" class="week-bar-fill" fill="#11c9e9" />`;
+    
+    // Top Ellipse of cylinder for 3D effect
+    svg += `<ellipse cx="${x}" cy="${yTop}" rx="${barW/2}" ry="${barW/4}" class="week-bar-top" fill="#2fd8f4" />`;
+    
+    // Label
+    svg += `<text x="${x}" y="${h - 12}" text-anchor="middle" fill="#888" font-size="9" font-weight="700">${labels[i]}</text>`;
   });
-
-  // AVG line
-  const avgY = yPos(weekAvg);
-  svg += `<line x1="${padL}" y1="${avgY}" x2="${w - padR}" y2="${avgY}" stroke="#ef4444" stroke-dasharray="4,3" stroke-width="1.2"/>`;
-  svg += `<text x="${w - padR + 2}" y="${avgY - 4}" fill="#ef4444" font-size="7" font-family="Gotham Rounded, sans-serif" font-weight="600" letter-spacing="0.02em">${weekAvg} kcal</text>`;
-  svg += `<text x="${w - padR + 2}" y="${avgY + 6}" fill="#ef4444" font-size="6" font-family="Gotham Rounded, sans-serif" letter-spacing="0.04em">AVG</text>`;
-
-  // Data dots
-  weekData.forEach((val, i) => {
-    const cx = xPos(i);
-    const cy = yPos(val);
-    svg += `<circle cx="${cx}" cy="${cy}" r="6" fill="var(--kcal)" opacity="0.9"/>`;
-  });
-
-  // X-axis labels
-  svg += `<text x="${padL}" y="${h - 6}" fill="#999" font-size="8" font-family="Gotham Rounded, sans-serif" letter-spacing="0.06em">WEEK</text>`;
-  svg += `<text x="${w - padR}" y="${h - 6}" fill="#999" font-size="8" font-family="Gotham Rounded, sans-serif" text-anchor="end" letter-spacing="0.06em">TODAY</text>`;
 
   svg += `</svg>`;
   weekView.innerHTML = `<div class="week-chart-container">${svg}</div>`;
 }
+
 
 // --- Touch / Swipe Handling ---
 let touchStartY = 0;
