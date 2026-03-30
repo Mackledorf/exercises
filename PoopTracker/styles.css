@@ -102,15 +102,17 @@ input {
   position: relative;
 }
 
-.nav-btn svg {
+.nav-btn svg,
+.nav-btn i {
   width: 26px;
   height: 26px;
+  color: #777;
   stroke: #777;
   fill: none;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke 0.25s ease;
+  transition: color 0.25s ease, stroke 0.25s ease;
 }
 
 .nav-btn:hover {
@@ -118,7 +120,9 @@ input {
   box-shadow: var(--neo-shadow-inset);
 }
 
-.nav-btn:hover svg {
+.nav-btn:hover svg,
+.nav-btn:hover i {
+  color: #999;
   stroke: #999;
 }
 
@@ -127,7 +131,9 @@ input {
   box-shadow: var(--neo-shadow-gold);
 }
 
-.nav-btn.active svg {
+.nav-btn.active svg,
+.nav-btn.active i {
+  color: #a08530;
   stroke: #a08530;
 }
 
@@ -198,9 +204,11 @@ input {
   flex-shrink: 0;
 }
 
-.welcome-icon svg {
+.welcome-icon svg,
+.welcome-icon i {
   width: 28px;
   height: 28px;
+  color: #a08530;
   stroke: #a08530;
   fill: none;
   stroke-width: 2;
@@ -253,9 +261,11 @@ input {
   box-shadow: var(--neo-shadow-inset);
 }
 
-.menu-icon svg {
+.menu-icon svg,
+.menu-icon i {
   width: 22px;
   height: 22px;
+  color: #777;
   stroke: #777;
   fill: none;
   stroke-width: 2;
@@ -373,9 +383,11 @@ input {
   color: #bbb;
 }
 
-.search-bar svg {
+.search-bar svg,
+.search-bar i {
   width: 18px;
   height: 18px;
+  color: #aaa;
   stroke: #aaa;
   fill: none;
 }
@@ -481,9 +493,11 @@ input {
   box-shadow: var(--neo-shadow-gold-inset);
 }
 
-.btn-nav svg {
+.btn-nav svg,
+.btn-nav i {
   width: 22px;
   height: 22px;
+  color: var(--text-dark);
   stroke: var(--text-dark);
   fill: none;
   stroke-width: 2.5;
@@ -687,9 +701,11 @@ input {
   box-shadow: var(--neo-shadow-light-inset);
 }
 
-.btn-toilet svg {
+.btn-toilet svg,
+.btn-toilet i {
   width: 20px;
   height: 20px;
+  color: var(--text-medium);
   stroke: var(--text-medium);
   fill: none;
   stroke-width: 2;

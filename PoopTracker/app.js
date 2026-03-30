@@ -35,7 +35,7 @@ const toggleBtns = document.querySelectorAll('.toggle-btn');
 let currentPage = 0;
 
 // --- Toilet Icon SVG (reusable) ---
-const toiletSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="5" rx="1"/><path d="M6 7h12v2a6 6 0 0 1-6 6 6 6 0 0 1-6-6V7z"/><path d="M9 15h6l.5 3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1l.5-3z"/></svg>`;
+const toiletSVG = `<i data-lucide="toilet"></i>`;
 
 // --- Navigation ---
 function goToPage(index) {
@@ -189,6 +189,9 @@ function renderDigestionList() {
       <button class="btn-toilet" data-id="${item.id}">${toiletSVG}</button>
     </div>
   `).join('');
+
+  // Re-initialize Lucide icons for dynamically added elements
+  if (window.lucide) lucide.createIcons();
 
   digestionList.querySelectorAll('.btn-toilet').forEach(btn => {
     btn.addEventListener('click', (e) => {
