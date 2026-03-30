@@ -1,4 +1,64 @@
 /* ============================================
+   POOP TRACKER — @font-face: Gotham Rounded
+   ============================================ */
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_lightitalic.otf') format('opentype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_book.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_bookitalic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_mediumitalic.otf') format('opentype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham Rounded';
+  src: url('fonts/gothamrnd_bolditalic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ============================================
    POOP TRACKER — Design Tokens & Variables
    ============================================ */
 :root {
@@ -41,7 +101,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Gotham Rounded', system-ui, -apple-system, sans-serif;
   background: var(--bg-dark);
   color: var(--text-dark);
   -webkit-font-smoothing: antialiased;
@@ -215,13 +275,14 @@ input {
 }
 
 .welcome-text {
-  font-family: 'Josefin Sans', sans-serif;
+  font-family: 'Gotham Rounded', sans-serif;
   font-weight: 300;
   font-style: italic;
-  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-size: clamp(3rem, 6vw, 5.5rem);
   color: var(--gold);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   line-height: 1;
+  text-transform: uppercase;
 }
 
 .profile-menu {
@@ -272,10 +333,10 @@ input {
 }
 
 .menu-label {
-  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
   font-weight: 300;
   color: var(--text-lighter);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -337,10 +398,11 @@ input {
 }
 
 .card-header h2 {
-  font-size: 1.6rem;
-  font-weight: 800;
+  font-size: 1.8rem;
+  font-weight: 900;
   color: var(--text-dark);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
 }
 
 .card-body {
@@ -374,7 +436,9 @@ input {
 
 .search-bar input {
   flex: 1;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   color: var(--text-dark);
   background: transparent;
 }
@@ -421,14 +485,16 @@ input {
 }
 
 .food-brand {
-  font-size: 0.7rem;
-  font-weight: 500;
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   color: var(--text-light);
 }
 
 .food-name {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
   color: var(--text-dark);
   white-space: nowrap;
   overflow: hidden;
@@ -448,15 +514,16 @@ input {
 }
 
 .macro-label {
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
 }
 
 .macro-value {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 .macro-kcal .macro-label,
@@ -511,8 +578,9 @@ input {
 }
 
 .detail-card .food-name {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
   margin-bottom: 2px;
   white-space: normal;
 }
@@ -520,6 +588,7 @@ input {
 .detail-card .food-brand {
   font-size: 0.85rem;
   font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--text-medium);
   margin-bottom: 16px;
 }
@@ -538,8 +607,9 @@ input {
 
 .field-group label {
   display: block;
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: var(--text-light);
   margin-bottom: 4px;
 }
@@ -549,7 +619,8 @@ input {
   border-radius: 14px;
   padding: 8px 14px;
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   color: var(--text-dark);
   box-shadow: var(--neo-shadow-light-inset);
 }
@@ -558,14 +629,15 @@ input {
   width: 100%;
   padding: 10px;
   border-radius: 20px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-dark);
   background: var(--gold);
   box-shadow: var(--neo-shadow-gold);
   transition: all 0.3s ease;
   margin-top: 6px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
 }
 
 .btn-add:hover {
@@ -588,8 +660,9 @@ input {
 
 .detail-bars-header {
   text-align: right;
-  font-size: 0.6rem;
-  font-weight: 600;
+  font-size: 0.55rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
   color: var(--text-light);
   margin-bottom: 2px;
 }
@@ -600,7 +673,8 @@ input {
 
 .bar-group .bar-label {
   font-size: 0.55rem;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: 0.03em;
   color: var(--text-medium);
   margin-bottom: 3px;
 }
@@ -658,16 +732,18 @@ input {
 }
 
 .digestion-time {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--text-dark);
   margin-right: 16px;
   white-space: nowrap;
 }
 
 .digestion-time span {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .digestion-info {
@@ -676,11 +752,13 @@ input {
 }
 
 .digestion-info .food-brand {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.02em;
 }
 
 .digestion-info .food-name {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
 }
 
 .btn-toilet {
@@ -730,16 +808,18 @@ input {
 }
 
 .progress-time {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--text-dark);
   margin-right: 14px;
   white-space: nowrap;
 }
 
 .progress-time span {
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .progress-food-info {
@@ -748,11 +828,13 @@ input {
 }
 
 .progress-food-info .food-brand {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.02em;
 }
 
 .progress-food-info .food-name {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
 }
 
 .progress-kcal {
@@ -762,14 +844,16 @@ input {
 }
 
 .progress-kcal .macro-label {
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   font-weight: 700;
+  letter-spacing: 0.06em;
   color: var(--kcal);
 }
 
 .progress-kcal .macro-value {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 800;
+  letter-spacing: 0.01em;
   color: var(--kcal);
 }
 
@@ -804,13 +888,14 @@ input {
 .toggle-btn {
   padding: 10px 28px;
   border-radius: 20px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-dark);
   background: var(--gold);
   box-shadow: var(--neo-shadow-gold);
   transition: all 0.25s ease;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
 }
 
 .toggle-btn:hover {
@@ -837,8 +922,9 @@ input {
 .progress-bar-header {
   display: flex;
   justify-content: space-between;
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
   color: var(--text-medium);
   margin-bottom: 4px;
 }
@@ -880,7 +966,8 @@ input {
   display: flex;
   justify-content: space-between;
   font-size: 0.65rem;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--text-light);
   margin-top: 2px;
 }
@@ -888,6 +975,7 @@ input {
 .progress-bar-values .current {
   color: var(--text-dark);
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 /* Week View — Chart */

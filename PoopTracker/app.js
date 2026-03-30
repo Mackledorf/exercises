@@ -273,14 +273,14 @@ function renderWeekChart() {
     const y = yPos(val);
     svg += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#888" stroke-dasharray="3,3" stroke-width="0.5"/>`;
     const label = val > 0 ? `+${val}kcal` : val === 0 ? '+0kcal' : `${val}kcal`;
-    svg += `<text x="${padL - 6}" y="${y + 3}" text-anchor="end" fill="#999" font-size="8" font-family="Inter, sans-serif">${label}</text>`;
+    svg += `<text x="${padL - 6}" y="${y + 3}" text-anchor="end" fill="#999" font-size="8" font-family="Gotham Rounded, sans-serif" letter-spacing="0.03em">${label}</text>`;
   });
 
   // AVG line
   const avgY = yPos(weekAvg);
   svg += `<line x1="${padL}" y1="${avgY}" x2="${w - padR}" y2="${avgY}" stroke="#ef4444" stroke-dasharray="4,3" stroke-width="1.2"/>`;
-  svg += `<text x="${w - padR + 2}" y="${avgY - 4}" fill="#ef4444" font-size="7" font-family="Inter, sans-serif" font-weight="600">${weekAvg} kcal</text>`;
-  svg += `<text x="${w - padR + 2}" y="${avgY + 6}" fill="#ef4444" font-size="6" font-family="Inter, sans-serif">AVG</text>`;
+  svg += `<text x="${w - padR + 2}" y="${avgY - 4}" fill="#ef4444" font-size="7" font-family="Gotham Rounded, sans-serif" font-weight="600" letter-spacing="0.02em">${weekAvg} kcal</text>`;
+  svg += `<text x="${w - padR + 2}" y="${avgY + 6}" fill="#ef4444" font-size="6" font-family="Gotham Rounded, sans-serif" letter-spacing="0.04em">AVG</text>`;
 
   // Data dots
   weekData.forEach((val, i) => {
@@ -290,8 +290,8 @@ function renderWeekChart() {
   });
 
   // X-axis labels
-  svg += `<text x="${padL}" y="${h - 6}" fill="#999" font-size="8" font-family="Inter, sans-serif">WEEK</text>`;
-  svg += `<text x="${w - padR}" y="${h - 6}" fill="#999" font-size="8" font-family="Inter, sans-serif" text-anchor="end">TODAY</text>`;
+  svg += `<text x="${padL}" y="${h - 6}" fill="#999" font-size="8" font-family="Gotham Rounded, sans-serif" letter-spacing="0.06em">WEEK</text>`;
+  svg += `<text x="${w - padR}" y="${h - 6}" fill="#999" font-size="8" font-family="Gotham Rounded, sans-serif" text-anchor="end" letter-spacing="0.06em">TODAY</text>`;
 
   svg += `</svg>`;
   weekView.innerHTML = `<div class="week-chart-container">${svg}</div>`;
