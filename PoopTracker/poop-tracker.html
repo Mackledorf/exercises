@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poop Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Josefin+Sans:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- ======== SIDEBAR NAV ======== -->
+    <nav class="sidebar">
+      <!-- Profile -->
+      <button class="nav-btn active" data-page="0">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7v1"/></svg>
+      </button>
+      <!-- Food -->
+      <button class="nav-btn" data-page="1">
+        <svg viewBox="0 0 24 24"><path d="M15 11V2l-4 4-4-4v9"/><path d="M3 15h18c0 4-3.5 7-9 7s-9-3-9-7z"/><path d="M12 15v7"/></svg>
+      </button>
+      <!-- Digestion (toilet) -->
+      <button class="nav-btn" data-page="2">
+        <svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="5" rx="1"/><path d="M6 7h12v2a6 6 0 0 1-6 6 6 6 0 0 1-6-6V7z"/><path d="M9 15h6l.5 3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1l.5-3z"/></svg>
+      </button>
+      <!-- Progress -->
+      <button class="nav-btn" data-page="3">
+        <svg viewBox="0 0 24 24"><path d="M3 20v-6M7 20v-10M11 20v-14M15 20v-10M19 20v-6"/><path d="M2 17l4.5-4 4 2 4.5-5 5-3"/><polyline points="18 5 22 5 22 9"/></svg>
+      </button>
+    </nav>
+
+    <!-- ======== PAGES CONTAINER ======== -->
+    <main class="pages" id="pages">
+
+      <!-- ======== PAGE 0: PROFILE / WELCOME ======== -->
+      <section class="page page-profile" id="page-profile">
+        <div class="profile-left">
+          <div class="profile-header">
+            <div class="welcome-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7v1"/></svg>
+            </div>
+            <h1 class="welcome-text">WELCOME</h1>
+          </div>
+          <nav class="profile-menu">
+            <button class="menu-item" data-goto="1">
+              <div class="menu-icon">
+                <svg viewBox="0 0 24 24"><path d="M15 11V2l-4 4-4-4v9"/><path d="M3 15h18c0 4-3.5 7-9 7s-9-3-9-7z"/><path d="M12 15v7"/></svg>
+              </div>
+              <span class="menu-label">&gt;TRACK FOOD</span>
+            </button>
+            <button class="menu-item" data-goto="2">
+              <div class="menu-icon">
+                <svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="5" rx="1"/><path d="M6 7h12v2a6 6 0 0 1-6 6 6 6 0 0 1-6-6V7z"/><path d="M9 15h6l.5 3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1l.5-3z"/></svg>
+              </div>
+              <span class="menu-label">&gt;POOP</span>
+            </button>
+            <button class="menu-item" data-goto="3">
+              <div class="menu-icon">
+                <svg viewBox="0 0 24 24"><path d="M3 20v-6M7 20v-10M11 20v-14M15 20v-10M19 20v-6"/><path d="M2 17l4.5-4 4 2 4.5-5 5-3"/><polyline points="18 5 22 5 22 9"/></svg>
+              </div>
+              <span class="menu-label">&gt;VIEW PROGRESS</span>
+            </button>
+          </nav>
+        </div>
+        <div class="profile-right">
+          <svg class="user-silhouette" viewBox="0 0 400 650">
+            <defs>
+              <linearGradient id="silGrad" x1="0" y1="0" x2="0.3" y2="1">
+                <stop offset="0%" stop-color="#f5dfa0"/>
+                <stop offset="100%" stop-color="#e0b840"/>
+              </linearGradient>
+            </defs>
+            <circle cx="200" cy="155" r="120" fill="url(#silGrad)"/>
+            <rect x="45" y="310" width="310" height="380" rx="80" fill="url(#silGrad)"/>
+          </svg>
+        </div>
+      </section>
+
+      <!-- ======== PAGE 1: FOOD LOG ======== -->
+      <section class="page" id="page-food">
+        <div class="page-left">
+          <!-- List View -->
+          <div class="content-card" id="food-list-view">
+            <div class="card-header"><h2>FOOD LOG</h2></div>
+            <div class="card-body">
+              <div class="search-bar">
+                <input type="text" placeholder="">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div id="food-list"></div>
+            </div>
+          </div>
+          <!-- Detail View -->
+          <div class="content-card hidden" id="food-detail-view">
+            <div class="card-header"><h2>FOOD LOG</h2></div>
+            <div class="card-body">
+              <div class="detail-nav">
+                <button class="btn-nav" id="btn-back">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button class="btn-nav" id="btn-home">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>
+                </button>
+              </div>
+              <div id="detail-content"></div>
+            </div>
+          </div>
+        </div>
+        <div class="page-right">
+          <!-- Stomach Illustration -->
+          <div class="organ-capsule">
+            <svg class="organ-svg" viewBox="0 0 200 300">
+              <defs>
+                <linearGradient id="stomachGrad" x1="0" y1="0" x2="0.8" y2="1">
+                  <stop offset="0%" stop-color="#d94e6a"/>
+                  <stop offset="100%" stop-color="#8a2240"/>
+                </linearGradient>
+              </defs>
+              <!-- Esophagus -->
+              <path d="M82 10 Q78 25 80 45" fill="none" stroke="#8a2240" stroke-width="4"/>
+              <path d="M98 10 Q102 25 100 45" fill="none" stroke="#8a2240" stroke-width="4"/>
+              <!-- Stomach body -->
+              <path d="M80 45 C70 50 50 70 40 110 C30 150 28 200 50 235 C70 260 100 270 125 255 C150 240 155 200 150 160 C145 120 130 80 115 60 C105 48 100 45 98 45"
+                    fill="url(#stomachGrad)" stroke="#6b1a30" stroke-width="3"/>
+              <!-- Inner curve -->
+              <path d="M88 60 C82 80 72 130 68 175 C64 215 78 248 100 258"
+                    fill="none" stroke="#6b1a30" stroke-width="2.5" opacity="0.6"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======== PAGE 2: DIGESTION ======== -->
+      <section class="page" id="page-digestion">
+        <div class="page-left">
+          <div class="content-card">
+            <div class="card-header"><h2>DIGESTION</h2></div>
+            <div class="card-body">
+              <div class="search-bar">
+                <input type="text" placeholder="">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div id="digestion-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="page-right">
+          <!-- Intestines Illustration -->
+          <div class="organ-capsule">
+            <svg class="organ-svg" viewBox="0 0 200 300">
+              <defs>
+                <linearGradient id="intestineGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#d94e6a"/>
+                  <stop offset="100%" stop-color="#8a2240"/>
+                </linearGradient>
+              </defs>
+              <!-- Winding intestine path -->
+              <path d="M100 25 C50 35 35 65 65 85 C95 105 155 95 160 125 C165 155 110 160 70 170 C30 180 25 210 55 230 C85 250 145 240 155 260 C165 280 130 290 100 290"
+                    fill="none" stroke="url(#intestineGrad)" stroke-width="20" stroke-linecap="round"/>
+              <!-- Highlight -->
+              <path d="M100 25 C50 35 35 65 65 85 C95 105 155 95 160 125 C165 155 110 160 70 170 C30 180 25 210 55 230 C85 250 145 240 155 260 C165 280 130 290 100 290"
+                    fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======== PAGE 3: PROGRESS ======== -->
+      <section class="page" id="page-progress">
+        <div class="page-left">
+          <div class="content-card">
+            <div class="card-header"><h2>MY PROGRESS</h2></div>
+            <div class="card-body">
+              <div class="search-bar">
+                <input type="text" placeholder="">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div id="progress-food-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="page-right page-right-progress">
+          <div class="progress-right-top">
+            <div class="progress-charts">
+              <div class="progress-toggle">
+                <button class="toggle-btn active" data-view="day">DAY</button>
+                <button class="toggle-btn" data-view="week">WEEK</button>
+              </div>
+              <div class="progress-view" id="day-view"></div>
+              <div class="progress-view hidden" id="week-view"></div>
+            </div>
+            <!-- Stacked Cylinder Chart -->
+            <div class="cylinder-container">
+              <svg class="cylinder-svg" viewBox="0 0 120 240">
+                <defs>
+                  <pattern id="diag" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(0,0,0,0.12)" stroke-width="2.5"/>
+                  </pattern>
+                  <linearGradient id="cylShade" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+                    <stop offset="50%" stop-color="rgba(255,255,255,0)"/>
+                    <stop offset="100%" stop-color="rgba(0,0,0,0.18)"/>
+                  </linearGradient>
+                </defs>
+                <!-- FAT (green, bottom) -->
+                <ellipse cx="60" cy="210" rx="48" ry="14" fill="#388e3c" stroke="#2d2d2d" stroke-width="2"/>
+                <rect x="12" y="170" width="96" height="40" fill="#4caf50"/>
+                <rect x="12" y="170" width="96" height="40" fill="url(#diag)"/>
+                <rect x="12" y="170" width="96" height="40" fill="url(#cylShade)"/>
+                <rect x="12" y="170" width="96" height="40" fill="none" stroke="#2d2d2d" stroke-width="2"/>
+                <ellipse cx="60" cy="170" rx="48" ry="14" fill="#66bb6a" stroke="#2d2d2d" stroke-width="2"/>
+                <!-- PROTEIN (purple) -->
+                <rect x="12" y="120" width="96" height="50" fill="#9b59b6"/>
+                <rect x="12" y="120" width="96" height="50" fill="url(#diag)"/>
+                <rect x="12" y="120" width="96" height="50" fill="url(#cylShade)"/>
+                <rect x="12" y="120" width="96" height="50" fill="none" stroke="#2d2d2d" stroke-width="2"/>
+                <ellipse cx="60" cy="120" rx="48" ry="14" fill="#b07cc5" stroke="#2d2d2d" stroke-width="2"/>
+                <!-- CARBS (coral) -->
+                <rect x="12" y="65" width="96" height="55" fill="#ef6c53"/>
+                <rect x="12" y="65" width="96" height="55" fill="url(#diag)"/>
+                <rect x="12" y="65" width="96" height="55" fill="url(#cylShade)"/>
+                <rect x="12" y="65" width="96" height="55" fill="none" stroke="#2d2d2d" stroke-width="2"/>
+                <ellipse cx="60" cy="65" rx="48" ry="14" fill="#f28a75" stroke="#2d2d2d" stroke-width="2"/>
+                <!-- CALORIES (cyan, top) -->
+                <rect x="12" y="25" width="96" height="40" fill="#00bcd4"/>
+                <rect x="12" y="25" width="96" height="40" fill="url(#diag)"/>
+                <rect x="12" y="25" width="96" height="40" fill="url(#cylShade)"/>
+                <rect x="12" y="25" width="96" height="40" fill="none" stroke="#2d2d2d" stroke-width="2"/>
+                <ellipse cx="60" cy="25" rx="48" ry="14" fill="#26c6da" stroke="#2d2d2d" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
