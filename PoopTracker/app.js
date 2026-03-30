@@ -31,6 +31,7 @@ const progressFoodList = document.getElementById('progress-food-list');
 const dayView = document.getElementById('day-view');
 const weekView = document.getElementById('week-view');
 const toggleBtns = document.querySelectorAll('.toggle-btn');
+const bodyColumn = document.getElementById('body-column');
 
 let currentPage = 0;
 
@@ -51,7 +52,22 @@ function updateNav(index) {
   navBtns.forEach((btn, i) => {
     btn.classList.toggle('active', i === index);
   });
+  // Hide body column on progress page (page 3)
+  if (bodyColumn) {
+    bodyColumn.style.display = index >= 3 ? 'none' : 'flex';
+  }
 }
+
+// Sync body-column scroll with pages scroll
+function syncBodyScroll() {
+  if (!bodyColumn) return;
+  const scrollTop = pages.scrollTop;
+  const pageHeight = window.innerHeight;
+  // Body column covers pages 0-2 (3 pages), translate it up as user scrolls
+  bodyColumn.style.transform = `translateY(-${scrollTop}px)`;
+}
+
+pages.addEventListener('scroll', syncBodyScroll, { passive: true });
 
 // Intersection Observer to track which page is visible
 const pageObserver = new IntersectionObserver((entries) => {

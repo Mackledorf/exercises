@@ -63,18 +63,6 @@
             </button>
           </nav>
         </div>
-        <div class="profile-right">
-          <svg class="user-silhouette" viewBox="0 0 400 650">
-            <defs>
-              <linearGradient id="silGrad" x1="0" y1="0" x2="0.3" y2="1">
-                <stop offset="0%" stop-color="#f5dfa0"/>
-                <stop offset="100%" stop-color="#e0b840"/>
-              </linearGradient>
-            </defs>
-            <circle cx="200" cy="155" r="120" fill="url(#silGrad)"/>
-            <rect x="45" y="310" width="310" height="380" rx="80" fill="url(#silGrad)"/>
-          </svg>
-        </div>
       </section>
 
       <!-- ======== PAGE 1: FOOD LOG ======== -->
@@ -107,28 +95,6 @@
             </div>
           </div>
         </div>
-        <div class="page-right">
-          <!-- Stomach Illustration -->
-          <div class="organ-capsule">
-            <svg class="organ-svg" viewBox="0 0 200 300">
-              <defs>
-                <linearGradient id="stomachGrad" x1="0" y1="0" x2="0.8" y2="1">
-                  <stop offset="0%" stop-color="#d94e6a"/>
-                  <stop offset="100%" stop-color="#8a2240"/>
-                </linearGradient>
-              </defs>
-              <!-- Esophagus -->
-              <path d="M82 10 Q78 25 80 45" fill="none" stroke="#8a2240" stroke-width="4"/>
-              <path d="M98 10 Q102 25 100 45" fill="none" stroke="#8a2240" stroke-width="4"/>
-              <!-- Stomach body -->
-              <path d="M80 45 C70 50 50 70 40 110 C30 150 28 200 50 235 C70 260 100 270 125 255 C150 240 155 200 150 160 C145 120 130 80 115 60 C105 48 100 45 98 45"
-                    fill="url(#stomachGrad)" stroke="#6b1a30" stroke-width="3"/>
-              <!-- Inner curve -->
-              <path d="M88 60 C82 80 72 130 68 175 C64 215 78 248 100 258"
-                    fill="none" stroke="#6b1a30" stroke-width="2.5" opacity="0.6"/>
-            </svg>
-          </div>
-        </div>
       </section>
 
       <!-- ======== PAGE 2: DIGESTION ======== -->
@@ -143,25 +109,6 @@
               </div>
               <div id="digestion-list"></div>
             </div>
-          </div>
-        </div>
-        <div class="page-right">
-          <!-- Intestines Illustration -->
-          <div class="organ-capsule">
-            <svg class="organ-svg" viewBox="0 0 200 300">
-              <defs>
-                <linearGradient id="intestineGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stop-color="#d94e6a"/>
-                  <stop offset="100%" stop-color="#8a2240"/>
-                </linearGradient>
-              </defs>
-              <!-- Winding intestine path -->
-              <path d="M100 25 C50 35 35 65 65 85 C95 105 155 95 160 125 C165 155 110 160 70 170 C30 180 25 210 55 230 C85 250 145 240 155 260 C165 280 130 290 100 290"
-                    fill="none" stroke="url(#intestineGrad)" stroke-width="20" stroke-linecap="round"/>
-              <!-- Highlight -->
-              <path d="M100 25 C50 35 35 65 65 85 C95 105 155 95 160 125 C165 155 110 160 70 170 C30 180 25 210 55 230 C85 250 145 240 155 260 C165 280 130 290 100 290"
-                    fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="8" stroke-linecap="round"/>
-            </svg>
           </div>
         </div>
       </section>
@@ -235,6 +182,89 @@
       </section>
 
     </main>
+
+    <!-- ======== BODY COLUMN — spans pages 0-2 ======== -->
+    <div class="body-column" id="body-column">
+      <!-- Page 0: Head + Shoulders -->
+      <div class="body-section body-section-profile">
+        <svg class="body-head" viewBox="0 0 400 500">
+          <defs>
+            <linearGradient id="silGrad" x1="0.3" y1="0" x2="0.7" y2="1">
+              <stop offset="0%" stop-color="#f5dfa0"/>
+              <stop offset="100%" stop-color="#dab040"/>
+            </linearGradient>
+          </defs>
+          <circle cx="200" cy="120" r="100" fill="url(#silGrad)"/>
+          <path d="M60 500 L60 340 Q60 260 140 260 L260 260 Q340 260 340 340 L340 500" fill="url(#silGrad)"/>
+        </svg>
+      </div>
+      <!-- Divider -->
+      <div class="body-divider"></div>
+      <!-- Page 1: Torso with Stomach -->
+      <div class="body-section body-section-organ">
+        <div class="body-torso">
+          <div class="organ-window">
+            <svg class="organ-svg" viewBox="0 0 220 280">
+              <defs>
+                <linearGradient id="stomachGrad" x1="0.2" y1="0" x2="0.8" y2="1">
+                  <stop offset="0%" stop-color="#c9506a"/>
+                  <stop offset="100%" stop-color="#7a1e38"/>
+                </linearGradient>
+                <radialGradient id="stomachHighlight" cx="0.35" cy="0.38" r="0.5">
+                  <stop offset="0%" stop-color="rgba(210,100,120,0.4)"/>
+                  <stop offset="100%" stop-color="rgba(210,100,120,0)"/>
+                </radialGradient>
+              </defs>
+              <!-- Background cavity -->
+              <rect x="10" y="10" width="200" height="260" rx="40" fill="#3d1020"/>
+              <rect x="10" y="10" width="200" height="260" rx="40" fill="url(#stomachHighlight)"/>
+              <!-- Border -->
+              <rect x="10" y="10" width="200" height="260" rx="40" fill="none" stroke="#9e3a52" stroke-width="6"/>
+              <!-- Esophagus -->
+              <path d="M95 18 C92 35 88 55 82 75" fill="none" stroke="#b55570" stroke-width="12" stroke-linecap="round"/>
+              <path d="M125 18 C128 35 132 55 138 70" fill="none" stroke="#b55570" stroke-width="12" stroke-linecap="round"/>
+              <!-- Stomach body -->
+              <path d="M82 75 C65 85 40 110 35 145 C30 185 45 220 75 235 C100 245 125 240 140 225 C155 210 165 185 160 155 C155 125 145 95 138 70"
+                    fill="#9e3a52" stroke="#b55570" stroke-width="5"/>
+              <!-- Inner highlight curve -->
+              <path d="M82 90 C72 110 55 145 50 180 C47 205 60 228 80 238"
+                    fill="none" stroke="#c06880" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+              <!-- Small inner fold -->
+              <path d="M90 120 C85 135 80 155 82 170"
+                    fill="none" stroke="#c06880" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <!-- Divider -->
+      <div class="body-divider"></div>
+      <!-- Page 2: Lower Torso with Intestines -->
+      <div class="body-section body-section-organ">
+        <div class="body-torso">
+          <div class="organ-window">
+            <svg class="organ-svg" viewBox="0 0 220 280">
+              <defs>
+                <linearGradient id="intestineGrad" x1="0.2" y1="0" x2="0.8" y2="1">
+                  <stop offset="0%" stop-color="#c9506a"/>
+                  <stop offset="100%" stop-color="#7a1e38"/>
+                </linearGradient>
+              </defs>
+              <!-- Background cavity -->
+              <rect x="10" y="10" width="200" height="260" rx="40" fill="#3d1020"/>
+              <!-- Border -->
+              <rect x="10" y="10" width="200" height="260" rx="40" fill="none" stroke="#9e3a52" stroke-width="6"/>
+              <!-- Intestine — S-curves winding down -->
+              <path d="M70 40 C70 40 160 40 160 70 C160 100 55 90 55 120 C55 150 160 140 160 170 C160 200 55 190 55 218 C55 245 110 250 140 250"
+                    fill="none" stroke="#b55570" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+              <!-- Highlight on intestine -->
+              <path d="M70 40 C70 40 160 40 160 70 C160 100 55 90 55 120 C55 150 160 140 160 170 C160 200 55 190 55 218 C55 245 110 250 140 250"
+                    fill="none" stroke="#c87088" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="app.js"></script>
