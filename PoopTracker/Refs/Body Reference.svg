@@ -10,17 +10,12 @@
         fill: url(#linear-gradient);
       }
     </style>
-    <clipPath id="bodyClip">
-      <path d="M328.53,1489.75c0-235.68,191.06-426.74,426.74-426.74h537.45c235.68,0,426.74,191.06,426.74,426.74v401.14H328.53v-401.14Z"/>
-    </clipPath>
-    <linearGradient id="linear-gradient" x1="998.81" y1="1650.54" x2="734.28" y2="1651.37" gradientTransform="translate(718 2522) scale(1 -1)" gradientUnits="userSpaceOnUse">
+    <linearGradient id="linear-gradient" x1="1716.9" y1="1413.33" x2="1457.23" y2="1414.14" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ecbf5f"/>
       <stop offset="1" stop-color="#ffe790"/>
     </linearGradient>
   </defs>
-  <path class="cls-2" d="M328.53,1489.75c0-235.68,191.06-426.74,426.74-426.74h537.45c235.68,0,426.74,191.06,426.74,426.74v401.14H328.53v-401.14Z"/>
-  <circle class="cls-2" cx="1024.1" cy="535.25" r="428.14"/>
-  <g clip-path="url(#bodyClip)">
-    <rect class="cls-3" x="1452.23" y="3" width="264.53" height="2048"/>
-  </g>
+  <path class="cls-2" d="M328.53,1411.13c0-235.68,191.06-426.74,426.74-426.74h537.45c235.68,0,426.74,191.06,426.74,426.74v401.14H328.53v-401.14Z"/>
+  <circle class="cls-2" cx="1024.1" cy="456.63" r="428.14"/>
+  <path class="cls-3" d="M1455.24,1812.27h264.53v-449.37c-17.8-158.22-122.12-290.26-264.53-347.69v797.06Z"/>
 </svg>
