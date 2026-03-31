@@ -1054,6 +1054,12 @@ input {
   object-position: center;
 }
 
+/* Page 0 body SVG has empty space above the head (y=263) while
+   Pages 1-2 have content from y≈0.  Shift up to align visually. */
+.profile-right .body-illustration {
+  transform: translateY(-6.4%);
+}
+
 /* ============================================
    Utility — Animations & Transitions
    ============================================ */
