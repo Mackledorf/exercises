@@ -1050,8 +1050,16 @@ input {
 .body-illustration {
   width: 100%;
   height: 100%;
+}
+
+/* Page 0: Profile (Head + Torso) alignment */
+.profile-right .body-illustration {
   object-fit: contain;
-  object-position: center;
+}
+
+/* Pages 1 & 2: Food Log & Digestion (Stomach & Intestines) alignment */
+.page-right .body-illustration {
+  object-fit: contain;
 }
 
 /* ============================================
