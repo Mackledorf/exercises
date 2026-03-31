@@ -353,29 +353,11 @@ input {
 }
 
 .profile-right {
-  flex: 0 0 58%; /* Match .page-right in other sections */
+  flex: 0 0 58%;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  overflow: hidden;
-  padding-left: 0;
-}
-
-.body-illustration {
-  width: auto;
-  height: clamp(500px, 85vh, 900px);
-  max-width: none;
-  object-fit: contain;
-  /* Centering logic consistent with other pages */
-  display: block;
-}
-
-/* Base Body Illustration Styling */
-.user-silhouette {
-  width: clamp(250px, 35vw, 500px);
-  height: auto;
-  max-height: 90vh;
 }
 
 
@@ -1063,7 +1045,7 @@ input {
 }
 
 /* ============================================
-   Body Illustrations (Stomach / Intestines)
+   Body Illustrations
    ============================================ */
 .body-illustration {
   width: 100%;
