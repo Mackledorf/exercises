@@ -1,0 +1,21 @@
+<html>
+    <head>
+        <title>Toggle</title>   
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js">
+       </script>
+        <link rel="stylesheet" href="../style.css">
+        <script src="../script.js"></script>
+    </head>
+    <body>
+        <h1>Toggle</h1>
+        <button>Click Me!</button>
+        <p id="msg-hello" class="toggle-msg">Hello</p>
+        <p id="msg-goodbye" class="toggle-msg" style="display: none">Goodbye</p>
+        <p><a href="../index.html">Go back to the main page</a></p>
+        <script>
+            $("button").click(function () {
+                $("#msg-hello, #msg-goodbye").toggle();
+            });
+        </script>
+    </body>
+</html>
