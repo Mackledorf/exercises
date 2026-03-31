@@ -76,13 +76,13 @@ body {
 
 .announcement {
     display: none;
-    background: yellow;
+    background: lightgreen;
     margin-top: 40px;
     font-size: 24px;
     padding: 6px;
 }
 
 #list{
-    color: hotpink;
+    color: orchid;
     font-family: 'Helvetica', sans-serif;
 }
