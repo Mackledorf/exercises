@@ -28,47 +28,73 @@
   const height = window.innerHeight;
   svg.attr("viewBox", [0, 0, width, height]);
 
-  // Dot-grid pattern
-  const defs = svg.append("defs");
-  defs.append("pattern")
-    .attr("id", "dot-grid")
-    .attr("width", GRID).attr("height", GRID)
-    .attr("patternUnits", "userSpaceOnUse")
-    .append("circle")
-      .attr("cx", GRID / 2).attr("cy", GRID / 2).attr("r", 0.8)
-      .attr("fill", "rgba(238,235,231,0.08)");
-
-  // Background rect with dot pattern
-  const bgRect = svg.append("rect")
-    .attr("width", "200%").attr("height", "200%")
-    .attr("x", "-50%").attr("y", "-50%")
-    .attr("fill", "url(#dot-grid)");
-
   const masterG = svg.append("g");
 
   // ── Zoom behavior ──────────────────────────────
   const zoom = d3.zoom()
     .scaleExtent([0.1, 10])
-    .on("zoom", onZoom);
+    .on("zoom", onZoom)
+    .filter(event => {
+      // Let our custom wheel handler manage scroll/pinch.
+      // D3 handles click-drag panning and programmatic transforms.
+      if (event.type === 'wheel') return false;
+      return !event.button;
+    });
+
+  // Trackpad / Scrollwheel — single custom handler
+  svg.on("wheel", (event) => {
+    if (currentView !== "board") return;
+    event.preventDefault();
+
+    if (event.ctrlKey) {
+      // Pinch-to-zoom (trackpad sends ctrl + wheel for pinch)
+      const factor = Math.pow(2, -event.deltaY * 0.01);
+      svg.call(zoom.scaleBy, factor, [event.clientX, event.clientY]);
+    } else {
+      // Two-finger translation (natural scrolling)
+      svg.call(zoom.translateBy, -event.deltaX / currentTransform.k, -event.deltaY / currentTransform.k);
+    }
+  }, { passive: false });
 
   svg.call(zoom);
 
   let currentTransform = d3.zoomIdentity;
 
+  // Minimap throttle
+  let minimapRAF = null;
+  function requestMinimapUpdate() {
+    if (!minimapRAF) {
+      minimapRAF = requestAnimationFrame(() => {
+        updateMinimap();
+        minimapRAF = null;
+      });
+    }
+  }
+
+  // Track semantic zoom level for CSS class toggles
+  let lastZoomTier = "normal"; // "normal" | "far" | "very-far"
+
   function onZoom(event) {
     currentTransform = event.transform;
+    const { x, y, k } = currentTransform;
+
     masterG.attr("transform", currentTransform);
 
-    // Move dot pattern with zoom
-    bgRect
-      .attr("transform", currentTransform)
-      .attr("x", -currentTransform.x / currentTransform.k - width)
-      .attr("y", -currentTransform.y / currentTransform.k - height)
-      .attr("width", width * 3 / currentTransform.k)
-      .attr("height", height * 3 / currentTransform.k);
+    // Sync CSS background grid (GPU-accelerated)
+    const canvasNode = svg.node();
+    canvasNode.style.backgroundPosition = `${x}px ${y}px`;
+    canvasNode.style.backgroundSize = `${GRID * k}px ${GRID * k}px`;
 
-    zoomLabel.textContent = Math.round(currentTransform.k * 100) + "%";
-    updateMinimap();
+    // Semantic zoom via CSS classes (no per-element queries)
+    const tier = k < 0.3 ? "very-far" : k < 0.6 ? "far" : "normal";
+    if (tier !== lastZoomTier) {
+      masterG.classed("zoom-far", tier === "far")
+             .classed("zoom-very-far", tier === "very-far");
+      lastZoomTier = tier;
+    }
+
+    zoomLabel.textContent = Math.round(k * 100) + "%";
+    requestMinimapUpdate();
   }
 
   // ── Render dispatcher ──────────────────────────
@@ -214,44 +240,104 @@
       .attr("class", "pin-group")
       .attr("transform", d => `translate(${d.x},${d.y})`);
 
+    // Display layer — foreignObject for images (no pointer events)
     pinGroups.append("foreignObject")
       .attr("class", "pin-card-fo")
       .attr("width", PIN_W)
-      .attr("height", PIN_H)
+      .attr("height", 600)
       .attr("x", -PIN_W / 2)
       .attr("y", -PIN_H / 2)
+      .style("pointer-events", "none")
       .append("xhtml:div")
       .attr("class", "pin-card")
       .html(d => {
         const src = d.imageData || d.imageUrl;
-        const titleHtml = d.title ? `<div class="pin-title">${escapeHtml(d.title)}</div>` : "";
-        return `<img src="${encodeURI(src)}" alt="${escapeHtml(d.title)}" loading="lazy" />${titleHtml}`;
+        const tags = d.tags && d.tags.length ? d.tags : [];
+        const tagsHtml = tags.length
+          ? `<div class="pin-tags">${tags.map(t => `<span class="pin-tag">${escapeHtml(t)}</span>`).join("")}</div>`
+          : "";
+        return `<img src="${encodeURI(src)}" alt="${escapeHtml(tags.join(', '))}" loading="lazy" />${tagsHtml}`;
       });
 
-    // Drag + snap
-    const drag = d3.drag()
-      .on("start", function (event, d) {
-        d3.select(this).raise();
-        d3.select(this).select(".pin-card").classed("dragging", true);
-      })
-      .on("drag", function (event, d) {
-        d.x = event.x;
-        d.y = event.y;
-        d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
-      })
-      .on("end", function (event, d) {
-        // Snap to grid
-        d.x = Math.round(d.x / GRID) * GRID;
-        d.y = Math.round(d.y / GRID) * GRID;
-        d3.select(this)
-          .transition().duration(120)
-          .attr("transform", `translate(${d.x},${d.y})`);
-        d3.select(this).select(".pin-card").classed("dragging", false);
-        Store.updatePin(d.id, { x: d.x, y: d.y });
-        updateMinimap();
+    // Interaction layer — invisible SVG rect on top for drag + click
+    pinGroups.append("rect")
+      .attr("class", "pin-hit-area")
+      .attr("width", PIN_W)
+      .attr("height", PIN_H)
+      .attr("x", -PIN_W / 2)
+      .attr("y", -PIN_H / 2)
+      .attr("fill", "transparent")
+      .attr("cursor", "grab");
+
+    // Drag + click via pointer events on the SVG hit-area rect
+    pinGroups.each(function (d) {
+      const gEl = this;
+      const hitRect = gEl.querySelector(".pin-hit-area");
+      let startX, startY, dragging, totalDist;
+
+      hitRect.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startX = e.clientX;
+        startY = e.clientY;
+        dragging = false;
+        totalDist = 0;
+        hitRect.setPointerCapture(e.pointerId);
+        d3.select(gEl).raise();
+        // Disable pan while dragging a pin
+        svg.on(".zoom", null);
       });
 
-    pinGroups.call(drag);
+      hitRect.addEventListener("pointermove", (e) => {
+        if (startX == null) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        startX = e.clientX;
+        startY = e.clientY;
+        totalDist += Math.abs(dx) + Math.abs(dy);
+        if (totalDist > 4) dragging = true;
+        if (!dragging) return;
+
+        d.x += dx / currentTransform.k;
+        d.y += dy / currentTransform.k;
+        gEl.setAttribute("transform", `translate(${d.x},${d.y})`);
+        gEl.querySelector(".pin-card")?.classList.add("dragging");
+        hitRect.style.cursor = "grabbing";
+      });
+
+      function finishDrag(e) {
+        if (startX == null) return;
+        hitRect.releasePointerCapture(e.pointerId);
+
+        if (dragging) {
+          d.x = Math.round(d.x / GRID) * GRID;
+          d.y = Math.round(d.y / GRID) * GRID;
+          d3.select(gEl)
+            .transition().duration(120)
+            .attr("transform", `translate(${d.x},${d.y})`);
+          gEl.querySelector(".pin-card")?.classList.remove("dragging");
+          hitRect.style.cursor = "grab";
+          Store.updatePin(d.id, { x: d.x, y: d.y });
+          updateMinimap();
+        } else {
+          openEditPinModal(d);
+        }
+
+        startX = startY = null;
+        dragging = false;
+        svg.call(zoom);
+      }
+
+      hitRect.addEventListener("pointerup", finishDrag);
+      hitRect.addEventListener("pointercancel", (e) => {
+        startX = startY = null;
+        dragging = false;
+        gEl.querySelector(".pin-card")?.classList.remove("dragging");
+        hitRect.style.cursor = "grab";
+        svg.call(zoom);
+      });
+    });
 
     // Zoom to fit pins, or center if empty
     if (pins.length > 0) {
@@ -431,22 +517,44 @@
     e.preventDefault();
     if (!activeBoardId) return;
 
-    const title = document.getElementById("pin-title").value.trim();
+    const tags = currentPinTags.slice();
+    const pinId = document.getElementById("pin-id").value;
     const activeSource = document.querySelector(".pin-source-toggle .toggle-btn.active")?.dataset.source;
 
     if (activeSource === "url") {
       const url = document.getElementById("pin-url").value.trim();
       if (!url) return;
-      addPinAndRender({ boardId: activeBoardId, title, imageUrl: url });
-      closeModal("modal-pin");
+      
+      if (pinId) {
+        Store.updatePin(pinId, { tags, imageUrl: url, imageData: null });
+        renderBoard(activeBoardId);
+        closeModal("modal-pin");
+      } else {
+        addPinAndRender({ boardId: activeBoardId, tags, imageUrl: url });
+        closeModal("modal-pin");
+      }
       e.target.reset();
       resetPinToggle();
     } else {
       const file = document.getElementById("pin-file").files[0];
+      if (!file && pinId) {
+        Store.updatePin(pinId, { tags });
+        renderBoard(activeBoardId);
+        closeModal("modal-pin");
+        e.target.reset();
+        resetPinToggle();
+        return;
+      }
       if (!file) return;
+
       const reader = new FileReader();
       reader.onload = () => {
-        addPinAndRender({ boardId: activeBoardId, title, imageData: reader.result });
+        if (pinId) {
+          Store.updatePin(pinId, { tags, imageData: reader.result, imageUrl: null });
+          renderBoard(activeBoardId);
+        } else {
+          addPinAndRender({ boardId: activeBoardId, tags, imageData: reader.result });
+        }
         closeModal("modal-pin");
         e.target.reset();
         resetPinToggle();
@@ -469,11 +577,73 @@
     renderBoard(activeBoardId);
   }
 
+  // ── Tag Input ──────────────────────────────────
+  let currentPinTags = [];
+
+  function renderTagList() {
+    const list = document.getElementById("tag-list");
+    list.innerHTML = currentPinTags.map((t, i) =>
+      `<span class="tag-pill">${escapeHtml(t)}<button type="button" data-idx="${i}">&times;</button></span>`
+    ).join("");
+  }
+
+  document.getElementById("pin-tags-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const val = e.target.value.trim().replace(/,$/g, "");
+      if (val && !currentPinTags.includes(val)) {
+        currentPinTags.push(val);
+        renderTagList();
+      }
+      e.target.value = "";
+    }
+    if (e.key === "Backspace" && e.target.value === "" && currentPinTags.length) {
+      currentPinTags.pop();
+      renderTagList();
+    }
+  });
+
+  document.getElementById("tag-list").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-idx]");
+    if (!btn) return;
+    currentPinTags.splice(Number(btn.dataset.idx), 1);
+    renderTagList();
+  });
+
   function resetPinToggle() {
     document.querySelectorAll(".pin-source-toggle .toggle-btn").forEach((b, i) =>
       b.classList.toggle("active", i === 0));
     document.getElementById("pin-url-panel").hidden = false;
     document.getElementById("pin-file-panel").hidden = true;
+    
+    // Reset to Add Pin mode
+    document.getElementById("modal-pin-title").textContent = "Add Pin";
+    document.getElementById("pin-id").value = "";
+    document.querySelector("#form-pin button[type='submit']").textContent = "Add Pin";
+    currentPinTags = [];
+    renderTagList();
+    document.getElementById("pin-tags-input").value = "";
+  }
+
+  function openEditPinModal(pin) {
+    resetPinToggle(); // Start from clean state
+    
+    document.getElementById("modal-pin-title").textContent = "Edit Pin";
+    document.getElementById("pin-id").value = pin.id;
+    currentPinTags = Array.isArray(pin.tags) ? pin.tags.slice() : [];
+    renderTagList();
+    document.querySelector("#form-pin button[type='submit']").textContent = "Update";
+
+    if (pin.imageUrl) {
+      document.getElementById("pin-url").value = pin.imageUrl;
+      // Ensure URL panel is shown
+      document.querySelector(".pin-source-toggle [data-source='url']").click();
+    } else {
+      // If it's a file, we can't easily set file input, but we can switch tabs
+      document.querySelector(".pin-source-toggle [data-source='file']").click();
+    }
+
+    openModal("modal-pin");
   }
 
   // ── Button bindings ────────────────────────────

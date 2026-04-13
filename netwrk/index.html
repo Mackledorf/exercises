@@ -75,14 +75,18 @@
     </div>
   </div>
 
-  <!-- Add Pin Modal -->
+  <!-- Add / Edit Pin Modal -->
   <div class="modal-overlay" id="modal-pin" hidden>
     <div class="modal">
-      <h2>Add Pin</h2>
+      <h2 id="modal-pin-title">Add Pin</h2>
       <form id="form-pin" autocomplete="off">
+        <input type="hidden" id="pin-id">
         <label>
-          Title
-          <input type="text" id="pin-title" maxlength="80" placeholder="Optional title">
+          Tags
+          <div class="tag-input-wrap" id="tag-input-wrap">
+            <div class="tag-list" id="tag-list"></div>
+            <input type="text" id="pin-tags-input" placeholder="Type a tag and press Enter">
+          </div>
         </label>
         <div class="pin-source-toggle">
           <button type="button" class="toggle-btn active" data-source="url">Image URL</button>

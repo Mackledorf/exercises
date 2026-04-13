@@ -78,12 +78,12 @@ const Store = (function () {
     return _load().pins;
   }
 
-  function addPin({ boardId, title, imageUrl, imageData, source, arenaBlockId, x, y }) {
+  function addPin({ boardId, tags, imageUrl, imageData, source, arenaBlockId, x, y }) {
     const data = _load();
     const pin = {
       id: _uid(),
       boardId,
-      title: title || "",
+      tags: Array.isArray(tags) ? tags : [],
       imageUrl: imageUrl || "",
       imageData: imageData || null, // base64 data URL for uploads
       source: source || "local",

@@ -33,6 +33,9 @@ html, body {
   height: 100%;
   display: block;
   cursor: grab;
+  /* Faster CSS-based Dot Grid */
+  background-image: radial-gradient(circle, rgba(238, 235, 231, 0.08) 0.8px, transparent 0.8px);
+  background-size: 24px 24px;
 }
 
 #canvas:active {
@@ -83,7 +86,9 @@ html, body {
   opacity: 0.4;
 }
 
-/* ── Pin cards (Level 2 — zoomed in) ──────────── */
+.pin-group {
+  will-change: transform;
+}
 
 .pin-card-fo {
   overflow: visible;
@@ -97,13 +102,10 @@ html, body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
   transition: box-shadow 0.2s ease;
   width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .pin-card:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
 }
 
 .pin-card.dragging {
@@ -113,21 +115,39 @@ html, body {
 
 .pin-card img {
   width: 100%;
-  flex: 1;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
   display: block;
   pointer-events: none;
   user-select: none;
 }
 
-.pin-card .pin-title {
-  padding: 6px 8px;
-  font-size: 10px;
+.pin-card .pin-tags {
+  padding: 4px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.pin-card .pin-tag {
+  font-size: 9px;
   color: var(--text);
+  background: rgba(238, 235, 231, 0.08);
+  border-radius: 3px;
+  padding: 1px 5px;
+  opacity: 0.7;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0.6;
+}
+
+/* ── Semantic Zoom Culling (CSS-driven) ───────── */
+
+.zoom-far .pin-tags,
+.zoom-very-far .pin-tags {
+  display: none;
+}
+
+.zoom-very-far .pin-card img {
+  opacity: 0.2;
 }
 
 /* ── Top bar ──────────────────────────────────── */
@@ -442,6 +462,67 @@ html, body {
 
 .pin-source-panel[hidden] {
   display: none;
+}
+
+/* ── Tag Input ────────────────────────────────── */
+
+.tag-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  background: var(--alt-grey);
+  border: 1px solid rgba(238, 235, 231, 0.1);
+  border-radius: 6px;
+  padding: 6px 8px;
+  min-height: 36px;
+  cursor: text;
+}
+
+.tag-input-wrap:focus-within {
+  border-color: rgba(238, 235, 231, 0.25);
+}
+
+.tag-list {
+  display: contents;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(238, 235, 231, 0.1);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.tag-pill button {
+  background: none;
+  border: none;
+  color: var(--text);
+  opacity: 0.5;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 1px;
+}
+
+.tag-pill button:hover {
+  opacity: 1;
+}
+
+#pin-tags-input {
+  flex: 1;
+  min-width: 80px;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 12px;
 }
 
 /* ── File upload ──────────────────────────────── */
