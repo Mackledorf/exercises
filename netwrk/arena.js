@@ -14,7 +14,7 @@ const Arena = (function () {
   const REDIRECT_URI = window.location.origin + window.location.pathname;
   const AUTH_URL     = "https://www.are.na/oauth/authorize";
   const TOKEN_URL    = "https://api.are.na/v3/oauth/token";
-  const API_BASE     = "https://api.are.na/v2";
+  const API_BASE     = "https://api.are.na/v3";
 
   // ── PKCE helpers ───────────────────────────────
 
@@ -107,12 +107,18 @@ const Arena = (function () {
   }
 
   async function fetchChannels() {
-    const res = await fetch(API_BASE + "/me/channels?per=100", {
+    // Step 1: get authenticated user's slug
+    const meRes = await fetch(API_BASE + "/me", { headers: authHeaders() });
+    if (!meRes.ok) throw new Error("Failed to fetch user: " + meRes.status);
+    const me = await meRes.json();
+
+    // Step 2: get user's channels
+    const res = await fetch(API_BASE + "/users/" + encodeURIComponent(me.slug) + "/contents?per=100&type=Channel", {
       headers: authHeaders(),
     });
     if (!res.ok) throw new Error("Failed to fetch channels: " + res.status);
-    const data = await res.json();
-    return data.channels || data || [];
+    const body = await res.json();
+    return (body.data || []).filter(item => item.type === "Channel");
   }
 
   async function fetchChannelContents(slug, page) {
@@ -147,10 +153,10 @@ const Arena = (function () {
 
       while (hasMore) {
         const data = await fetchChannelContents(ch.slug, page);
-        const contents = data.contents || data.data || [];
+        const contents = data.data || [];
 
         for (const block of contents) {
-          if (block.class !== "Image" && block.class !== "Link" && block.class !== "Media") continue;
+          if (block.type !== "Image" && block.type !== "Link" && block.type !== "Embed") continue;
 
           const imageUrl =
             block.image?.display?.url ||
@@ -169,7 +175,7 @@ const Arena = (function () {
 
           Store.addPin({
             boardId:      board.id,
-            title:        block.title || "",
+            tags:         block.title ? [block.title] : [],
             imageUrl:     imageUrl,
             source:       "arena",
             arenaBlockId: block.id,
@@ -180,7 +186,7 @@ const Arena = (function () {
           pinIndex++;
         }
 
-        hasMore = data.current_page < data.total_pages;
+        hasMore = data.meta?.has_more_pages === true;
         page++;
       }
 

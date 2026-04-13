@@ -56,9 +56,113 @@
     }
   }, { passive: false });
 
-  svg.call(zoom);
+  svg.call(zoom)
+    .on("dblclick.zoom", null); // Disable double-click zoom
+
+  // Block browser default double-tap-to-zoom (especially on mobile/trackpads)
+  document.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+  }, { passive: false });
 
   let currentTransform = d3.zoomIdentity;
+
+  // ── Quick-add bubble (SVG circle inside masterG) ───
+  let pendingPinPos = null;
+  let quickAddG = null;
+  let quickAddActive = false;
+  let quickAddTimeout = null;
+
+  function showQuickAdd(clientX, clientY) {
+    if (currentView !== "board") return;
+
+    // Convert screen coords to world coords, snap to grid
+    const wx = (clientX - currentTransform.x) / currentTransform.k;
+    const wy = (clientY - currentTransform.y) / currentTransform.k;
+    const sx = Math.round(wx / GRID) * GRID;
+    const sy = Math.round(wy / GRID) * GRID;
+
+    // Save position before any reset
+    pendingPinPos = { x: sx, y: sy };
+
+    // Reset existing bubble and timer
+    removeQuickAddDOM();
+    if (quickAddTimeout) clearTimeout(quickAddTimeout);
+
+    quickAddG = masterG.append("g")
+      .attr("class", "quick-add-group")
+      .attr("transform", `translate(${sx},${sy})`)
+      .style("cursor", "pointer");
+
+    // White circle
+    quickAddG.append("circle")
+      .attr("r", 18)
+      .attr("fill", "#fff")
+      .attr("class", "quick-add-circle");
+
+    // Plus text
+    quickAddG.append("text")
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "central")
+      .attr("fill", "#1e1e1e")
+      .attr("font-size", 20)
+      .attr("font-weight", 300)
+      .style("pointer-events", "none")
+      .text("+");
+
+    quickAddActive = true;
+
+    // Auto-hide after 3 seconds
+    quickAddTimeout = setTimeout(() => {
+      hideQuickAdd();
+    }, 3000);
+  }
+
+  function removeQuickAddDOM() {
+    if (quickAddG) {
+      quickAddG.remove();
+      quickAddG = null;
+    }
+    quickAddActive = false;
+  }
+
+  function hideQuickAdd() {
+    removeQuickAddDOM();
+    pendingPinPos = null;
+    if (quickAddTimeout) {
+      clearTimeout(quickAddTimeout);
+      quickAddTimeout = null;
+    }
+  }
+
+  // Listen for clicks on empty canvas area (board view only)
+  svg.on("click.quickadd", (event) => {
+    if (currentView !== "board") return;
+    // Don't re-trigger if clicking the bubble itself
+    if (quickAddActive && quickAddG) {
+      const target = event.target;
+      if (quickAddG.node().contains(target)) return;
+    }
+
+    // Only allow if clicking background (svg or the transparent hit-rect)
+    // AND NOT if clicking a pin's interaction layer
+    if (event.target.classList && event.target.classList.contains("pin-hit-area")) return;
+
+    if (event.target !== svg.node() && event.target.tagName !== "rect") return;
+    showQuickAdd(event.clientX, event.clientY);
+  });
+
+  // Separate listener for clicks on the bubble (use mousedown to beat svg click)
+  svg.on("mousedown.quickadd-click", (event) => {
+    if (!quickAddActive || !quickAddG || !pendingPinPos || !activeBoardId) return;
+    if (quickAddG.node().contains(event.target)) {
+      event.stopPropagation();
+      event.preventDefault();
+      const pos = { ...pendingPinPos };
+      hideQuickAdd(); // fully cleanup bubble + timeout
+      pendingPinPos = pos; // restore pos for modal
+      openModal("modal-pin");
+    }
+  });
 
   // Minimap throttle
   let minimapRAF = null;
@@ -111,7 +215,7 @@
       document.getElementById("zoom-indicator").style.display = "none";
       minimapEl.style.display = "none";
     } else if (currentView === "board") {
-      svg.call(zoom); // Re-enable zoom in board view
+      svg.call(zoom).on("dblclick.zoom", null); // Re-enable zoom in board view
       document.getElementById("zoom-indicator").style.display = "block";
       minimapEl.style.display = "block";
       renderBoard(activeBoardId);
@@ -247,16 +351,13 @@
       .attr("height", 600)
       .attr("x", -PIN_W / 2)
       .attr("y", -PIN_H / 2)
-      .style("pointer-events", "none")
+      .attr("pointer-events", "none") // Use SVG attribute
+      .style("pointer-events", "none") // Use CSS style
       .append("xhtml:div")
       .attr("class", "pin-card")
       .html(d => {
         const src = d.imageData || d.imageUrl;
-        const tags = d.tags && d.tags.length ? d.tags : [];
-        const tagsHtml = tags.length
-          ? `<div class="pin-tags">${tags.map(t => `<span class="pin-tag">${escapeHtml(t)}</span>`).join("")}</div>`
-          : "";
-        return `<img src="${encodeURI(src)}" alt="${escapeHtml(tags.join(', '))}" loading="lazy" />${tagsHtml}`;
+        return `<img src="${encodeURI(src)}" alt="Pin" loading="lazy" />`;
       });
 
     // Interaction layer — invisible SVG rect on top for drag + click
@@ -269,73 +370,96 @@
       .attr("fill", "transparent")
       .attr("cursor", "grab");
 
-    // Drag + click via pointer events on the SVG hit-area rect
+    // ── Pin drag via native pointer events on SVG hit-rect ──
+    // We bypass d3.drag / getScreenCTM because foreignObject breaks
+    // SVG coordinate resolution. Instead we use clientX/Y and the
+    // known zoom transform to compute world-space positions.
+
+    function screenToWorld(clientX, clientY) {
+      return [
+        (clientX - currentTransform.x) / currentTransform.k,
+        (clientY - currentTransform.y) / currentTransform.k,
+      ];
+    }
+
     pinGroups.each(function (d) {
       const gEl = this;
       const hitRect = gEl.querySelector(".pin-hit-area");
-      let startX, startY, dragging, totalDist;
+      let originX, originY, startWX, startWY, moved;
 
       hitRect.addEventListener("pointerdown", (e) => {
         if (e.button !== 0) return;
-        e.preventDefault();
         e.stopPropagation();
-        startX = e.clientX;
-        startY = e.clientY;
-        dragging = false;
-        totalDist = 0;
         hitRect.setPointerCapture(e.pointerId);
+
+        // Record positions at drag start (absolute, not incremental)
+        originX = d.x;
+        originY = d.y;
+        [startWX, startWY] = screenToWorld(e.clientX, e.clientY);
+        moved = false;
+
         d3.select(gEl).raise();
-        // Disable pan while dragging a pin
+        gEl.querySelector(".pin-card")?.classList.add("dragging");
+        hitRect.style.cursor = "grabbing";
+
+        // Freeze viewport so currentTransform stays constant
         svg.on(".zoom", null);
       });
 
       hitRect.addEventListener("pointermove", (e) => {
-        if (startX == null) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        startX = e.clientX;
-        startY = e.clientY;
-        totalDist += Math.abs(dx) + Math.abs(dy);
-        if (totalDist > 4) dragging = true;
-        if (!dragging) return;
+        if (originX == null) return;
 
-        d.x += dx / currentTransform.k;
-        d.y += dy / currentTransform.k;
+        const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+        d.x = originX + (wx - startWX);
+        d.y = originY + (wy - startWY);
+
+        if (!moved && (Math.abs(d.x - originX) + Math.abs(d.y - originY) > 3)) {
+          moved = true;
+        }
+
         gEl.setAttribute("transform", `translate(${d.x},${d.y})`);
-        gEl.querySelector(".pin-card")?.classList.add("dragging");
-        hitRect.style.cursor = "grabbing";
       });
 
-      function finishDrag(e) {
-        if (startX == null) return;
+      function endDrag(e) {
+        if (originX == null) return;
         hitRect.releasePointerCapture(e.pointerId);
 
-        if (dragging) {
+        gEl.querySelector(".pin-card")?.classList.remove("dragging");
+        hitRect.style.cursor = "grab";
+
+        // Re-enable viewport zoom
+        svg.call(zoom).on("dblclick.zoom", null);
+
+        if (moved) {
+          // Magnetic snap to grid
           d.x = Math.round(d.x / GRID) * GRID;
           d.y = Math.round(d.y / GRID) * GRID;
           d3.select(gEl)
-            .transition().duration(120)
+            .transition().duration(150)
             .attr("transform", `translate(${d.x},${d.y})`);
-          gEl.querySelector(".pin-card")?.classList.remove("dragging");
-          hitRect.style.cursor = "grab";
           Store.updatePin(d.id, { x: d.x, y: d.y });
           updateMinimap();
         } else {
+          // Click — open edit modal
+          d.x = originX;
+          d.y = originY;
           openEditPinModal(d);
         }
 
-        startX = startY = null;
-        dragging = false;
-        svg.call(zoom);
+        originX = originY = null;
       }
 
-      hitRect.addEventListener("pointerup", finishDrag);
-      hitRect.addEventListener("pointercancel", (e) => {
-        startX = startY = null;
-        dragging = false;
+      hitRect.addEventListener("pointerup", endDrag);
+      hitRect.addEventListener("pointercancel", () => {
         gEl.querySelector(".pin-card")?.classList.remove("dragging");
         hitRect.style.cursor = "grab";
-        svg.call(zoom);
+        svg.call(zoom).on("dblclick.zoom", null);
+        if (originX != null) {
+          d.x = originX;
+          d.y = originY;
+          gEl.setAttribute("transform", `translate(${d.x},${d.y})`);
+        }
+        originX = originY = null;
       });
     });
 
@@ -564,14 +688,20 @@
   });
 
   function addPinAndRender(pinData) {
-    // Place new pin near viewport center, snapped to grid
-    const cx = (-currentTransform.x + width / 2) / currentTransform.k;
-    const cy = (-currentTransform.y + height / 2) / currentTransform.k;
-    // Slight random offset so pins don't stack exactly
-    const ox = (Math.random() - 0.5) * 200;
-    const oy = (Math.random() - 0.5) * 200;
-    pinData.x = Math.round((cx + ox) / GRID) * GRID;
-    pinData.y = Math.round((cy + oy) / GRID) * GRID;
+    // Use pending position from quick-add bubble if available
+    if (pendingPinPos) {
+      pinData.x = pendingPinPos.x;
+      pinData.y = pendingPinPos.y;
+      pendingPinPos = null;
+    } else {
+      // Place new pin near viewport center, snapped to grid
+      const cx = (-currentTransform.x + width / 2) / currentTransform.k;
+      const cy = (-currentTransform.y + height / 2) / currentTransform.k;
+      const ox = (Math.random() - 0.5) * 200;
+      const oy = (Math.random() - 0.5) * 200;
+      pinData.x = Math.round((cx + ox) / GRID) * GRID;
+      pinData.y = Math.round((cy + oy) / GRID) * GRID;
+    }
 
     Store.addPin(pinData);
     renderBoard(activeBoardId);
@@ -741,8 +871,12 @@
   // ── Init ───────────────────────────────────────
   // Handle Are.na callback on page load
   if (typeof Arena !== "undefined") {
-    Arena.handleCallback().then(imported => {
-      if (imported) render();
+    Arena.handleCallback().then(authed => {
+      if (authed) {
+        refreshArenaModal();
+        openModal("modal-arena");
+        render();
+      }
     });
   }
 

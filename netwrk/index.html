@@ -77,35 +77,42 @@
 
   <!-- Add / Edit Pin Modal -->
   <div class="modal-overlay" id="modal-pin" hidden>
-    <div class="modal">
-      <h2 id="modal-pin-title">Add Pin</h2>
+    <div class="modal modal-pin-redesign">
       <form id="form-pin" autocomplete="off">
         <input type="hidden" id="pin-id">
-        <label>
-          Tags
+
+        <h2 id="modal-pin-title">Add Pin</h2>
+
+        <!-- Image section -->
+        <div class="pin-section">
+          <div class="pin-source-toggle">
+            <button type="button" class="toggle-btn active" data-source="url">Paste URL</button>
+            <button type="button" class="toggle-btn" data-source="file">Upload</button>
+          </div>
+          <div class="pin-source-panel" id="pin-url-panel">
+            <input type="url" id="pin-url" placeholder="https://example.com/image.jpg">
+          </div>
+          <div class="pin-source-panel" id="pin-file-panel" hidden>
+            <label class="file-drop">
+              <input type="file" id="pin-file" accept="image/*">
+              <span class="file-drop-label">Drop image here or <u>browse</u></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Tags section -->
+        <div class="pin-section">
+          <span class="pin-field-label">Tags</span>
           <div class="tag-input-wrap" id="tag-input-wrap">
             <div class="tag-list" id="tag-list"></div>
-            <input type="text" id="pin-tags-input" placeholder="Type a tag and press Enter">
+            <input type="text" id="pin-tags-input" placeholder="Add a tag…">
           </div>
-        </label>
-        <div class="pin-source-toggle">
-          <button type="button" class="toggle-btn active" data-source="url">Image URL</button>
-          <button type="button" class="toggle-btn" data-source="file">Upload File</button>
+          <span class="pin-field-hint">Press Enter or comma to add</span>
         </div>
-        <div class="pin-source-panel" id="pin-url-panel">
-          <label>
-            <input type="url" id="pin-url" placeholder="https://example.com/image.jpg">
-          </label>
-        </div>
-        <div class="pin-source-panel" id="pin-file-panel" hidden>
-          <label class="file-drop">
-            <input type="file" id="pin-file" accept="image/*">
-            <span>Click or drag an image</span>
-          </label>
-        </div>
+
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
-          <button type="submit" class="btn btn-primary">Add Pin</button>
+          <button type="submit" class="btn btn-primary" id="btn-pin-submit">Add Pin</button>
         </div>
       </form>
     </div>
