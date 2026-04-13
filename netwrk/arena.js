@@ -10,10 +10,10 @@ const Arena = (function () {
   //  Register your app at: https://dev.are.na/oauth/applications
   //  Set redirect URI to wherever you host this page.
 
-  const CLIENT_ID    = "YOUR_ARENA_CLIENT_ID";   // ← replace
+  const CLIENT_ID    = "1WBky_zP1ihhOw5bwO0kzyo-QU0M0e0zIcTUcmrd2oQ";
   const REDIRECT_URI = window.location.origin + window.location.pathname;
-  const AUTH_URL     = "https://dev.are.na/oauth/authorize";
-  const TOKEN_URL    = "https://dev.are.na/oauth/token";
+  const AUTH_URL     = "https://www.are.na/oauth/authorize";
+  const TOKEN_URL    = "https://api.are.na/v3/oauth/token";
   const API_BASE     = "https://api.are.na/v2";
 
   // ── PKCE helpers ───────────────────────────────
@@ -43,12 +43,13 @@ const Arena = (function () {
     const verifier = generateVerifier();
     const challenge = await generateChallenge(verifier);
 
-    sessionStorage.setItem("arena_verifier", verifier);
+    localStorage.setItem("arena_verifier", verifier);
 
     const params = new URLSearchParams({
       client_id:             CLIENT_ID,
       redirect_uri:          REDIRECT_URI,
       response_type:         "code",
+      scope:                 "read",
       code_challenge:        challenge,
       code_challenge_method: "S256",
     });
@@ -61,9 +62,9 @@ const Arena = (function () {
     const code = url.searchParams.get("code");
     if (!code) return false;
 
-    const verifier = sessionStorage.getItem("arena_verifier");
+    const verifier = localStorage.getItem("arena_verifier");
     if (!verifier) {
-      console.warn("Arena: no PKCE verifier found in session");
+      console.warn("Arena: no PKCE verifier found in storage");
       return false;
     }
 
@@ -88,7 +89,7 @@ const Arena = (function () {
 
       const data = await res.json();
       Store.setArenaToken(data.access_token, Date.now() + (data.expires_in || 7200) * 1000);
-      sessionStorage.removeItem("arena_verifier");
+      localStorage.removeItem("arena_verifier");
 
       return true;
     } catch (err) {
