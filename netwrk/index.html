@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>netwrk</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <span class="topbar-title">netwrk</span>
+    <nav class="topbar-breadcrumb" id="breadcrumb">
+      <span class="crumb active" data-view="home">All Boards</span>
+    </nav>
+    <span class="topbar-zoom" id="zoom-indicator">100%</span>
+  </header>
+
+  <!-- Empty state (shown when no boards exist) -->
+  <div class="empty-state" id="empty-state">
+    <h1>netwrk</h1>
+    <p>Your visual pin network starts here.</p>
+    <div class="empty-actions">
+      <button class="btn btn-primary" id="btn-new-board">Create a Board</button>
+      <button class="btn btn-secondary" id="btn-connect-arena">Connect Are.na</button>
+    </div>
+  </div>
+
+  <!-- Main SVG canvas -->
+  <svg id="canvas"></svg>
+
+  <!-- Floating action buttons (visible when boards exist) -->
+  <div class="fab-group" id="fab-group">
+    <button class="btn fab" id="fab-add-board" title="New Board">+</button>
+    <button class="btn fab fab-sm" id="fab-arena" title="Connect Are.na">A</button>
+  </div>
+
+  <!-- Minimap -->
+  <canvas id="minimap" width="180" height="120"></canvas>
+
+  <!-- ═══ Modals ═══ -->
+
+  <!-- Create / Edit Board Modal -->
+  <div class="modal-overlay" id="modal-board" hidden>
+    <div class="modal">
+      <h2>New Board</h2>
+      <form id="form-board" autocomplete="off">
+        <label>
+          Name
+          <input type="text" id="board-name" required maxlength="60" placeholder="e.g. Brutalism">
+        </label>
+        <label>
+          Description
+          <textarea id="board-desc" rows="2" maxlength="200" placeholder="Optional description"></textarea>
+        </label>
+        <label>
+          Color
+          <div class="color-swatches" id="board-colors">
+            <button type="button" class="swatch selected" data-color="#E8927C" style="background:#E8927C"></button>
+            <button type="button" class="swatch" data-color="#7CA1E8" style="background:#7CA1E8"></button>
+            <button type="button" class="swatch" data-color="#A8E87C" style="background:#A8E87C"></button>
+            <button type="button" class="swatch" data-color="#E8D77C" style="background:#E8D77C"></button>
+            <button type="button" class="swatch" data-color="#CB7CE8" style="background:#CB7CE8"></button>
+            <button type="button" class="swatch" data-color="#E87CA1" style="background:#E87CA1"></button>
+            <button type="button" class="swatch" data-color="#7CE8D7" style="background:#7CE8D7"></button>
+            <button type="button" class="swatch" data-color="#EEEBE7" style="background:#EEEBE7"></button>
+          </div>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Board</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Pin Modal -->
+  <div class="modal-overlay" id="modal-pin" hidden>
+    <div class="modal">
+      <h2>Add Pin</h2>
+      <form id="form-pin" autocomplete="off">
+        <label>
+          Title
+          <input type="text" id="pin-title" maxlength="80" placeholder="Optional title">
+        </label>
+        <div class="pin-source-toggle">
+          <button type="button" class="toggle-btn active" data-source="url">Image URL</button>
+          <button type="button" class="toggle-btn" data-source="file">Upload File</button>
+        </div>
+        <div class="pin-source-panel" id="pin-url-panel">
+          <label>
+            <input type="url" id="pin-url" placeholder="https://example.com/image.jpg">
+          </label>
+        </div>
+        <div class="pin-source-panel" id="pin-file-panel" hidden>
+          <label class="file-drop">
+            <input type="file" id="pin-file" accept="image/*">
+            <span>Click or drag an image</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Pin</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Are.na Import Modal -->
+  <div class="modal-overlay" id="modal-arena" hidden>
+    <div class="modal modal-wide">
+      <h2>Import from Are.na</h2>
+      <div id="arena-content">
+        <p class="arena-status">Connect your Are.na account to import channels as boards.</p>
+        <button class="btn btn-primary" id="btn-arena-auth">Authorize Are.na</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-dismiss>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="store.js"></script>
+  <script src="arena.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
