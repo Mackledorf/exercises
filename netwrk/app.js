@@ -5,14 +5,19 @@
 
   // ── Constants ──────────────────────────────────
   const GRID          = 24;     // dot-grid spacing (matches CSS)
-  const PIN_W         = 140;    // pin card width
-  const PIN_H         = 180;    // pin card height
+  const PIN_W         = 144;    // pin card width (aligned to 24 * 6)
+  const PIN_H         = 192;    // pin card height (aligned to 24 * 8)
+  const PIN_GAP       = 8;      // min visual gap between pins when edge-snapping
+  const SNAP_THRESH   = 12;     // proximity in world px for edge-snap to activate
   const TRANSITION_MS = 500;
-  const BOARD_SPREAD  = 280;    // spacing between board nodes
+  const BOARD_SPREAD  = 288;    // spacing between board nodes (24 * 12)
+  const WHEEL_ZOOM_SENS = 0.01;
+  const ZOOM_SETTLE_MS = 150;
 
   // ── State ──────────────────────────────────────
-  let currentView  = "home";   // "home" | "board"
+  let currentView   = "home";   // "home" | "board"
   let activeBoardId = null;
+  let selectedPinId = null;     // id of currently-selected pin
 
   // ── DOM ────────────────────────────────────────
   const svg         = d3.select("#canvas");
@@ -31,8 +36,10 @@
   const masterG = svg.append("g");
 
   // ── Zoom behavior ──────────────────────────────
+  // Limit zoom-out to 30% (when culling starts)
+  // Limit zoom-in to 500%
   const zoom = d3.zoom()
-    .scaleExtent([0.1, 10])
+    .scaleExtent([0.3, 5.0])
     .on("zoom", onZoom)
     .filter(event => {
       // Let our custom wheel handler manage scroll/pinch.
@@ -40,21 +47,6 @@
       if (event.type === 'wheel') return false;
       return !event.button;
     });
-
-  // Trackpad / Scrollwheel — single custom handler
-  svg.on("wheel", (event) => {
-    if (currentView !== "board") return;
-    event.preventDefault();
-
-    if (event.ctrlKey) {
-      // Pinch-to-zoom (trackpad sends ctrl + wheel for pinch)
-      const factor = Math.pow(2, -event.deltaY * 0.01);
-      svg.call(zoom.scaleBy, factor, [event.clientX, event.clientY]);
-    } else {
-      // Two-finger translation (natural scrolling)
-      svg.call(zoom.translateBy, -event.deltaX / currentTransform.k, -event.deltaY / currentTransform.k);
-    }
-  }, { passive: false });
 
   svg.call(zoom)
     .on("dblclick.zoom", null); // Disable double-click zoom
@@ -65,6 +57,117 @@
   }, { passive: false });
 
   let currentTransform = d3.zoomIdentity;
+  let zoomSettleTimer = null;
+  let isZooming = false;
+
+  // Batch high-frequency wheel events into one transform update per frame.
+  const wheelState = {
+    raf: null,
+    panX: 0,
+    panY: 0,
+    zoomLog2: 0,
+    zoomX: 0,
+    zoomY: 0,
+    hasZoom: false,
+  };
+
+  function applyGridTransform(transform) {
+    const { x, y, k } = transform;
+    const canvasNode = svg.node();
+    canvasNode.style.backgroundPosition = `${x}px ${y}px`;
+    canvasNode.style.backgroundSize = `${GRID * k}px ${GRID * k}px`;
+  }
+
+  function resetWheelState() {
+    wheelState.panX = 0;
+    wheelState.panY = 0;
+    wheelState.zoomLog2 = 0;
+    wheelState.hasZoom = false;
+  }
+
+  function finishZoomInteraction() {
+    isZooming = false;
+    document.body.classList.remove("is-zooming");
+    applyGridTransform(currentTransform);
+    requestMinimapUpdate();
+  }
+
+  function cancelZoomInteraction() {
+    if (zoomSettleTimer) {
+      clearTimeout(zoomSettleTimer);
+      zoomSettleTimer = null;
+    }
+    isZooming = false;
+    document.body.classList.remove("is-zooming");
+  }
+
+  function scheduleZoomSettle() {
+    if (zoomSettleTimer) clearTimeout(zoomSettleTimer);
+    zoomSettleTimer = setTimeout(() => {
+      zoomSettleTimer = null;
+      finishZoomInteraction();
+    }, ZOOM_SETTLE_MS);
+  }
+
+  function startZoomInteraction() {
+    if (!isZooming) {
+      isZooming = true;
+      document.body.classList.add("is-zooming");
+    }
+    scheduleZoomSettle();
+  }
+
+  function flushWheelFrame() {
+    wheelState.raf = null;
+    if (currentView !== "board") {
+      resetWheelState();
+      return;
+    }
+
+    if (wheelState.panX !== 0 || wheelState.panY !== 0) {
+      svg.call(
+        zoom.translateBy,
+        wheelState.panX / currentTransform.k,
+        wheelState.panY / currentTransform.k
+      );
+    }
+
+    if (wheelState.hasZoom && wheelState.zoomLog2 !== 0) {
+      svg.call(
+        zoom.scaleBy,
+        Math.pow(2, wheelState.zoomLog2),
+        [wheelState.zoomX, wheelState.zoomY]
+      );
+    }
+
+    resetWheelState();
+  }
+
+  function queueWheelFrame() {
+    if (!wheelState.raf) {
+      wheelState.raf = requestAnimationFrame(flushWheelFrame);
+    }
+  }
+
+  // Trackpad / Scrollwheel — single custom handler
+  svg.on("wheel", (event) => {
+    if (currentView !== "board") return;
+    event.preventDefault();
+
+    if (event.ctrlKey) {
+      // Pinch-to-zoom (trackpad sends ctrl + wheel for pinch)
+      wheelState.zoomLog2 += -event.deltaY * WHEEL_ZOOM_SENS;
+      wheelState.zoomX = event.clientX;
+      wheelState.zoomY = event.clientY;
+      wheelState.hasZoom = true;
+    } else {
+      // Two-finger translation (natural scrolling)
+      wheelState.panX += -event.deltaX;
+      wheelState.panY += -event.deltaY;
+    }
+
+    queueWheelFrame();
+  }, { passive: false });
 
   // ── Quick-add bubble (SVG circle inside masterG) ───
   let pendingPinPos = null;
@@ -137,6 +240,14 @@
   // Listen for clicks on empty canvas area (board view only)
   svg.on("click.quickadd", (event) => {
     if (currentView !== "board") return;
+
+    // Deselect pin when clicking outside any pin group
+    const wasSelected = !!selectedPinId;
+    if (!event.target.closest?.("g.pin-group")) deselectPin();
+
+    // If we just deselected a pin, prevent the quick-add from appearing on this click
+    if (wasSelected) return;
+
     // Don't re-trigger if clicking the bubble itself
     if (quickAddActive && quickAddG) {
       const target = event.target;
@@ -178,16 +289,30 @@
   // Track semantic zoom level for CSS class toggles
   let lastZoomTier = "normal"; // "normal" | "far" | "very-far"
 
+  // ── Keyboard shortcuts ─────────────────────────
+  document.addEventListener("keydown", (e) => {
+    // Only handle if in board view and not currently typing in a form/input
+    if (activeBoardId && selectedPinId) {
+      const isInput = ["INPUT", "TEXTAREA"].includes(e.target.tagName) || e.target.isContentEditable;
+      if (isInput) return;
+
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        Store.deletePin(selectedPinId);
+        deselectPin();
+        renderBoard(activeBoardId);
+      }
+    }
+  });
+
   function onZoom(event) {
     currentTransform = event.transform;
-    const { x, y, k } = currentTransform;
+    const { k } = currentTransform;
 
     masterG.attr("transform", currentTransform);
 
-    // Sync CSS background grid (GPU-accelerated)
-    const canvasNode = svg.node();
-    canvasNode.style.backgroundPosition = `${x}px ${y}px`;
-    canvasNode.style.backgroundSize = `${GRID * k}px ${GRID * k}px`;
+    if (currentView === "board") startZoomInteraction();
+    else applyGridTransform(currentTransform);
 
     // Semantic zoom via CSS classes (no per-element queries)
     const tier = k < 0.3 ? "very-far" : k < 0.6 ? "far" : "normal";
@@ -198,7 +323,6 @@
     }
 
     zoomLabel.textContent = Math.round(k * 100) + "%";
-    requestMinimapUpdate();
   }
 
   // ── Render dispatcher ──────────────────────────
@@ -210,6 +334,7 @@
     fabGroup.hidden = !hasBoards;
 
     if (currentView === "home") {
+      cancelZoomInteraction();
       renderHome(boards);
       svg.on(".zoom", null); // Disable zoom on home page
       document.getElementById("zoom-indicator").style.display = "none";
@@ -303,7 +428,16 @@
     render();
   }
 
+  // ── Coordinate conversion (module-level) ───────
+  function screenToWorld(clientX, clientY) {
+    return [
+      (clientX - currentTransform.x) / currentTransform.k,
+      (clientY - currentTransform.y) / currentTransform.k,
+    ];
+  }
+
   function renderBoard(boardId) {
+    selectedPinId = null;
     masterG.selectAll("*").remove();
 
     const board = Store.getBoard(boardId);
@@ -337,49 +471,167 @@
         .text("Click \u201C+ Add Pin\u201D to start building this board");
     }
 
+    // ── Pre-load images to get natural dimensions ──
+    function loadPinImages(pins) {
+      return Promise.all(pins.map(d => new Promise(resolve => {
+        if (d._pw && d._ph) { resolve(); return; }
+        const img = new Image();
+        img.onload = () => {
+          const aspect = img.naturalHeight / img.naturalWidth;
+          d._aspect = aspect;
+          d._pw = d.pinW || PIN_W;
+          d._ph = Math.round(d._pw * aspect);
+          resolve();
+        };
+        img.onerror = () => {
+          d._aspect = PIN_H / PIN_W;
+          d._pw = d.pinW || PIN_W;
+          d._ph = PIN_H;
+          resolve();
+        };
+        img.src = d.imageData || d.imageUrl;
+      })));
+    }
+
+    loadPinImages(pins).then(() => {
     // Render pin cards
     const pinGroups = masterG.selectAll("g.pin-group")
       .data(pins, d => d.id)
       .join("g")
       .attr("class", "pin-group")
+      .attr("data-id", d => d.id)
       .attr("transform", d => `translate(${d.x},${d.y})`);
 
-    // Display layer — foreignObject for images (no pointer events)
-    pinGroups.append("foreignObject")
-      .attr("class", "pin-card-fo")
-      .attr("width", PIN_W)
-      .attr("height", 600)
-      .attr("x", -PIN_W / 2)
-      .attr("y", -PIN_H / 2)
-      .attr("pointer-events", "none") // Use SVG attribute
-      .style("pointer-events", "none") // Use CSS style
-      .append("xhtml:div")
-      .attr("class", "pin-card")
-      .html(d => {
-        const src = d.imageData || d.imageUrl;
-        return `<img src="${encodeURI(src)}" alt="Pin" loading="lazy" />`;
-      });
+    // ── SVG defs for pin styling ──
+    const defs = masterG.append("defs");
+
+    // Per-pin clip paths for rounded corners (each pin has unique size)
+    pins.forEach(d => {
+      defs.append("clipPath")
+        .attr("id", `pin-clip-${d.id}`)
+        .append("rect")
+        .attr("width", d._pw)
+        .attr("height", d._ph)
+        .attr("x", -d._pw / 2)
+        .attr("y", -d._ph / 2)
+        .attr("rx", 6)
+        .attr("ry", 6);
+    });
+
+    // Drop shadow filter
+    const shadowFilter = defs.append("filter")
+      .attr("id", "pin-shadow")
+      .attr("x", "-50%").attr("y", "-50%")
+      .attr("width", "200%").attr("height", "200%");
+    shadowFilter.append("feDropShadow")
+      .attr("dx", 0).attr("dy", 2)
+      .attr("stdDeviation", 4)
+      .attr("flood-color", "rgba(0,0,0,0.4)");
+
+    // Elevated shadow for dragging
+    const dragShadowFilter = defs.append("filter")
+      .attr("id", "pin-shadow-drag")
+      .attr("x", "-50%").attr("y", "-50%")
+      .attr("width", "200%").attr("height", "200%");
+    dragShadowFilter.append("feDropShadow")
+      .attr("dx", 0).attr("dy", 6)
+      .attr("stdDeviation", 12)
+      .attr("flood-color", "rgba(0,0,0,0.6)");
+
+    // Background rect (card body) — per-pin size
+    pinGroups.append("rect")
+      .attr("class", "pin-bg")
+      .attr("width", d => d._pw)
+      .attr("height", d => d._ph)
+      .attr("x", d => -d._pw / 2)
+      .attr("y", d => -d._ph / 2)
+      .attr("rx", 6)
+      .attr("ry", 6)
+      .attr("fill", "#2c2c2c");
+
+    // SVG <image> — per-pin size, no preserveAspectRatio needed since box matches
+    pinGroups.append("image")
+      .attr("class", "pin-img")
+      .attr("href", d => d.imageData || d.imageUrl)
+      .attr("width", d => d._pw)
+      .attr("height", d => d._ph)
+      .attr("x", d => -d._pw / 2)
+      .attr("y", d => -d._ph / 2)
+      .attr("preserveAspectRatio", "xMidYMid meet")
+      .attr("clip-path", d => `url(#pin-clip-${d.id})`)
+      .attr("pointer-events", "none");
 
     // Interaction layer — invisible SVG rect on top for drag + click
     pinGroups.append("rect")
       .attr("class", "pin-hit-area")
-      .attr("width", PIN_W)
-      .attr("height", PIN_H)
-      .attr("x", -PIN_W / 2)
-      .attr("y", -PIN_H / 2)
+      .attr("width", d => d._pw)
+      .attr("height", d => d._ph)
+      .attr("x", d => -d._pw / 2)
+      .attr("y", d => -d._ph / 2)
       .attr("fill", "transparent")
       .attr("cursor", "grab");
 
-    // ── Pin drag via native pointer events on SVG hit-rect ──
-    // We bypass d3.drag / getScreenCTM because foreignObject breaks
-    // SVG coordinate resolution. Instead we use clientX/Y and the
-    // known zoom transform to compute world-space positions.
+    // Apply shadow filter to each pin group
+    pinGroups.attr("filter", "url(#pin-shadow)");
 
-    function screenToWorld(clientX, clientY) {
-      return [
-        (clientX - currentTransform.x) / currentTransform.k,
-        (clientY - currentTransform.y) / currentTransform.k,
-      ];
+    // ── Pin drag via native pointer events on SVG hit-rect ──
+
+    // Edge-snap: try to align with nearest sibling pin edges (+gap), fall back to grid
+    function snapPosition(d, pins) {
+      const myL = d.x - d._pw / 2, myR = d.x + d._pw / 2;
+      const myT = d.y - d._ph / 2, myB = d.y + d._ph / 2;
+
+      let bestX = null, bestDX = SNAP_THRESH + 1;
+      let bestY = null, bestDY = SNAP_THRESH + 1;
+
+      for (const p of pins) {
+        if (p.id === d.id) continue;
+        const pw = p._pw || PIN_W, ph = p._ph || PIN_H;
+        const pL = p.x - pw / 2, pR = p.x + pw / 2;
+        const pT = p.y - ph / 2, pB = p.y + ph / 2;
+
+        // ── X-axis candidates ──
+        // My left edge → their right edge + gap
+        const dxLR = Math.abs(myL - (pR + PIN_GAP));
+        if (dxLR < bestDX) { bestDX = dxLR; bestX = pR + PIN_GAP + d._pw / 2; }
+        // My right edge → their left edge - gap
+        const dxRL = Math.abs(myR - (pL - PIN_GAP));
+        if (dxRL < bestDX) { bestDX = dxRL; bestX = pL - PIN_GAP - d._pw / 2; }
+        // Left-to-left alignment
+        const dxLL = Math.abs(myL - pL);
+        if (dxLL < bestDX) { bestDX = dxLL; bestX = pL + d._pw / 2; }
+        // Right-to-right alignment
+        const dxRR = Math.abs(myR - pR);
+        if (dxRR < bestDX) { bestDX = dxRR; bestX = pR - d._pw / 2; }
+        // Center-to-center X
+        const dxCC = Math.abs(d.x - p.x);
+        if (dxCC < bestDX) { bestDX = dxCC; bestX = p.x; }
+
+        // ── Y-axis candidates ──
+        // My top → their bottom + gap
+        const dyTB = Math.abs(myT - (pB + PIN_GAP));
+        if (dyTB < bestDY) { bestDY = dyTB; bestY = pB + PIN_GAP + d._ph / 2; }
+        // My bottom → their top - gap
+        const dyBT = Math.abs(myB - (pT - PIN_GAP));
+        if (dyBT < bestDY) { bestDY = dyBT; bestY = pT - PIN_GAP - d._ph / 2; }
+        // Top-to-top
+        const dyTT = Math.abs(myT - pT);
+        if (dyTT < bestDY) { bestDY = dyTT; bestY = pT + d._ph / 2; }
+        // Bottom-to-bottom
+        const dyBB = Math.abs(myB - pB);
+        if (dyBB < bestDY) { bestDY = dyBB; bestY = pB - d._ph / 2; }
+        // Center-to-center Y
+        const dyCCy = Math.abs(d.y - p.y);
+        if (dyCCy < bestDY) { bestDY = dyCCy; bestY = p.y; }
+      }
+
+      // Use edge snap if within threshold, otherwise grid snap
+      d.x = (bestX !== null && bestDX <= SNAP_THRESH)
+        ? bestX
+        : Math.round(d.x / GRID) * GRID;
+      d.y = (bestY !== null && bestDY <= SNAP_THRESH)
+        ? bestY
+        : Math.round(d.y / GRID) * GRID;
     }
 
     pinGroups.each(function (d) {
@@ -392,14 +644,13 @@
         e.stopPropagation();
         hitRect.setPointerCapture(e.pointerId);
 
-        // Record positions at drag start (absolute, not incremental)
         originX = d.x;
         originY = d.y;
         [startWX, startWY] = screenToWorld(e.clientX, e.clientY);
         moved = false;
 
         d3.select(gEl).raise();
-        gEl.querySelector(".pin-card")?.classList.add("dragging");
+        d3.select(gEl).attr("filter", "url(#pin-shadow-drag)").attr("opacity", 0.92);
         hitRect.style.cursor = "grabbing";
 
         // Freeze viewport so currentTransform stays constant
@@ -424,34 +675,35 @@
         if (originX == null) return;
         hitRect.releasePointerCapture(e.pointerId);
 
-        gEl.querySelector(".pin-card")?.classList.remove("dragging");
+        d3.select(gEl).attr("filter", "url(#pin-shadow)").attr("opacity", 1);
         hitRect.style.cursor = "grab";
 
         // Re-enable viewport zoom
         svg.call(zoom).on("dblclick.zoom", null);
 
         if (moved) {
-          // Magnetic snap to grid
-          d.x = Math.round(d.x / GRID) * GRID;
-          d.y = Math.round(d.y / GRID) * GRID;
+          snapPosition(d, pins);
           d3.select(gEl)
             .transition().duration(150)
             .attr("transform", `translate(${d.x},${d.y})`);
           Store.updatePin(d.id, { x: d.x, y: d.y });
           updateMinimap();
         } else {
-          // Click — open edit modal
           d.x = originX;
           d.y = originY;
-          openEditPinModal(d);
+          selectPin(d, gEl);
         }
 
         originX = originY = null;
       }
 
       hitRect.addEventListener("pointerup", endDrag);
+      hitRect.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        openEditPinModal(d);
+      });
       hitRect.addEventListener("pointercancel", () => {
-        gEl.querySelector(".pin-card")?.classList.remove("dragging");
+        d3.select(gEl).attr("filter", "url(#pin-shadow)").attr("opacity", 1);
         hitRect.style.cursor = "grab";
         svg.call(zoom).on("dblclick.zoom", null);
         if (originX != null) {
@@ -482,6 +734,157 @@
       svg.transition().duration(TRANSITION_MS)
         .call(zoom.transform, d3.zoomIdentity);
     }
+    }); // end loadPinImages().then
+  }
+
+  // ── Pin Selection + Resize ─────────────────────
+  const PIN_HANDLE_R = 5;
+  const PIN_SEL_EDIT_H = 26;
+  const PIN_SEL_EDIT_W = 54;
+
+  function deselectPin() {
+    if (!selectedPinId) return;
+    masterG.select(`g.pin-group[data-id="${selectedPinId}"]`)
+      .selectAll(".pin-select-outline, .pin-handle, .pin-sel-edit")
+      .remove();
+    selectedPinId = null;
+  }
+
+  function selectPin(d, gEl) {
+    deselectPin();
+    selectedPinId = d.id;
+    d3.select(gEl).raise();
+    const sel = d3.select(gEl);
+
+    // White stroke outline
+    sel.append("rect")
+      .attr("class", "pin-select-outline")
+      .attr("x", -d._pw / 2).attr("y", -d._ph / 2)
+      .attr("width", d._pw).attr("height", d._ph)
+      .attr("rx", 6).attr("ry", 6);
+
+    // "Edit" SVG pill button under the pin
+    const editG = sel.append("g")
+      .attr("class", "pin-sel-edit")
+      .attr("transform", `translate(0, ${d._ph / 2 + 12})`);
+
+    editG.append("rect")
+      .attr("class", "pin-sel-edit-bg")
+      .attr("x", -PIN_SEL_EDIT_W / 2).attr("y", 0)
+      .attr("width", PIN_SEL_EDIT_W).attr("height", PIN_SEL_EDIT_H)
+      .attr("rx", PIN_SEL_EDIT_H / 2);
+
+    editG.append("text")
+      .attr("class", "pin-sel-edit-label")
+      .attr("x", 0).attr("y", PIN_SEL_EDIT_H / 2)
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "central")
+      .text("Edit");
+
+    editG.on("click", (e) => { e.stopPropagation(); openEditPinModal(d); });
+    editG.on("pointerdown", (e) => e.stopPropagation());
+
+    // Corner handles + resize
+    [
+      { key: "tl", cursor: "nwse-resize" },
+      { key: "tr", cursor: "nesw-resize" },
+      { key: "br", cursor: "nwse-resize" },
+      { key: "bl", cursor: "nesw-resize" },
+    ].forEach(({ key, cursor }) => {
+      const getX = (pw) => (key === "tl" || key === "bl") ? -pw / 2 : pw / 2;
+      const getY = (ph) => (key === "tl" || key === "tr") ? -ph / 2 : ph / 2;
+
+      const hNode = sel.append("circle")
+        .attr("class", "pin-handle")
+        .attr("data-corner", key)
+        .attr("cx", getX(d._pw)).attr("cy", getY(d._ph))
+        .attr("r", PIN_HANDLE_R)
+        .attr("cursor", cursor)
+        .node();
+
+      let resizing = false;
+      let pivotX, pivotY; // The opposite corner that stays fixed
+
+      hNode.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        hNode.setPointerCapture(e.pointerId);
+        resizing = true;
+        svg.on(".zoom", null);
+
+        // Pivot is the opposite corner in world space
+        pivotX = d.x + ((key === "tl" || key === "bl") ? d._pw / 2 : -d._pw / 2);
+        pivotY = d.y + ((key === "tl" || key === "tr") ? d._ph / 2 : -d._ph / 2);
+      });
+
+      hNode.addEventListener("pointermove", (e) => {
+        if (!resizing) return;
+        const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+        
+        // Target width based on distance from pivot to pointer along X
+        let targetW = Math.abs(wx - pivotX);
+        targetW = Math.max(70, Math.min(560, Math.round(targetW / GRID) * GRID));
+        
+        const targetH = Math.round(targetW * d._aspect);
+        
+        // Update pin width/height
+        d._pw = targetW;
+        d._ph = targetH;
+
+        // The center must shift because the pivot corner is fixed.
+        // New center is half-way between pivot and the new corner position.
+        const sigX = (key === "tl" || key === "bl") ? -1 : 1;
+        const sigY = (key === "tl" || key === "tr") ? -1 : 1;
+        
+        d.x = pivotX + (sigX * d._pw / 2);
+        d.y = pivotY + (sigY * d._ph / 2);
+
+        // Update SVG group transform
+        gEl.setAttribute("transform", `translate(${d.x},${d.y})`);
+
+        // Update all sized elements within the group (which is now centered at the new d.x/d.y)
+        const g = d3.select(gEl);
+        const setBox = (s) => s
+          .attr("x", -d._pw / 2).attr("y", -d._ph / 2)
+          .attr("width", d._pw).attr("height", d._ph);
+        
+        setBox(g.select(".pin-bg"));
+        setBox(g.select(".pin-img"));
+        setBox(g.select(".pin-hit-area"));
+        setBox(g.select(".pin-select-outline"));
+
+        // Update clip path rect
+        d3.select(`#pin-clip-${d.id} rect`)
+          .attr("x", -d._pw / 2).attr("y", -d._ph / 2)
+          .attr("width", d._pw).attr("height", d._ph);
+
+        // Reposition corner circles
+        g.selectAll(".pin-handle").each(function () {
+          const k = this.dataset.corner;
+          this.setAttribute("cx", (k === "tl" || k === "bl") ? -d._pw / 2 : d._pw / 2);
+          this.setAttribute("cy", (k === "tl" || k === "tr") ? -d._ph / 2 : d._ph / 2);
+        });
+
+        // Reposition edit button (under pin)
+        g.select(".pin-sel-edit")
+          .attr("transform", `translate(0, ${d._ph / 2 + 12})`);
+      });
+
+      hNode.addEventListener("pointerup", (e) => {
+        if (!resizing) return;
+        resizing = false;
+        hNode.releasePointerCapture(e.pointerId);
+        svg.call(zoom).on("dblclick.zoom", null);
+        d.pinW = d._pw;
+        Store.updatePin(d.id, { x: d.x, y: d.y, pinW: d._pw });
+        updateMinimap();
+      });
+
+      hNode.addEventListener("pointercancel", () => {
+        resizing = false;
+        svg.call(zoom).on("dblclick.zoom", null);
+      });
+    });
   }
 
   // ── Breadcrumb ─────────────────────────────────
@@ -750,9 +1153,12 @@
     document.getElementById("modal-pin-title").textContent = "Add Pin";
     document.getElementById("pin-id").value = "";
     document.querySelector("#form-pin button[type='submit']").textContent = "Add Pin";
+    document.getElementById("btn-pin-delete").hidden = true;
     currentPinTags = [];
     renderTagList();
     document.getElementById("pin-tags-input").value = "";
+    document.getElementById("pin-url").value = "";
+    document.getElementById("pin-file").value = "";
   }
 
   function openEditPinModal(pin) {
@@ -763,6 +1169,7 @@
     currentPinTags = Array.isArray(pin.tags) ? pin.tags.slice() : [];
     renderTagList();
     document.querySelector("#form-pin button[type='submit']").textContent = "Update";
+    document.getElementById("btn-pin-delete").hidden = false;
 
     if (pin.imageUrl) {
       document.getElementById("pin-url").value = pin.imageUrl;
@@ -775,6 +1182,96 @@
 
     openModal("modal-pin");
   }
+
+  // ── Delete Pin Flow ────────────────────────────
+  let pinToDelete = null;
+
+  document.getElementById("btn-pin-delete").addEventListener("click", () => {
+    pinToDelete = document.getElementById("pin-id").value;
+    if (pinToDelete) {
+      openModal("modal-delete");
+    }
+  });
+
+  document.getElementById("btn-confirm-delete").addEventListener("click", () => {
+    if (pinToDelete) {
+      Store.deletePin(pinToDelete);
+      closeAllModals();
+      renderBoard(activeBoardId);
+      pinToDelete = null;
+    }
+  });
+
+  function closeAllModals() {
+    document.querySelectorAll(".modal-overlay").forEach(m => m.hidden = true);
+  }
+
+  // ── Global file drop-to-pin ────────────────────
+  // Drop image files from the OS onto the canvas → auto-create pin at drop position
+  const SUPPORTED_DROP_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+
+  const dropOverlay = document.getElementById("drop-overlay");
+
+  let dragEnterCount = 0;
+
+  document.addEventListener("dragenter", (e) => {
+    if (currentView !== "board") return;
+    const hasFile = e.dataTransfer && [...e.dataTransfer.items].some(
+      it => it.kind === "file" && SUPPORTED_DROP_TYPES.includes(it.type)
+    );
+    if (!hasFile) return;
+    dragEnterCount++;
+    dropOverlay.hidden = false;
+  });
+
+  document.addEventListener("dragleave", (e) => {
+    dragEnterCount--;
+    if (dragEnterCount <= 0) {
+      dragEnterCount = 0;
+      dropOverlay.hidden = true;
+    }
+  });
+
+  document.addEventListener("dragover", (e) => {
+    e.preventDefault();
+  });
+
+  document.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dragEnterCount = 0;
+    dropOverlay.hidden = true;
+
+    if (currentView !== "board") return;
+
+    const files = [...e.dataTransfer.files].filter(
+      f => SUPPORTED_DROP_TYPES.includes(f.type)
+    );
+    if (!files.length) return;
+
+    // Convert drop screen coords to world coords
+    const dropWorldX = (e.clientX - currentTransform.x) / currentTransform.k;
+    const dropWorldY = (e.clientY - currentTransform.y) / currentTransform.k;
+
+    files.forEach((file, i) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Stagger multiple drops on the grid
+        const offset = i * GRID * 2;
+        const px = Math.round((dropWorldX + offset) / GRID) * GRID;
+        const py = Math.round((dropWorldY + offset) / GRID) * GRID;
+        Store.addPin({
+          boardId: activeBoardId,
+          tags: [],
+          imageData: reader.result,
+          source: "local",
+          x: px,
+          y: py,
+        });
+        if (i === files.length - 1) renderBoard(activeBoardId);
+      };
+      reader.readAsDataURL(file);
+    });
+  });
 
   // ── Button bindings ────────────────────────────
   document.getElementById("btn-new-board").addEventListener("click", () => openModal("modal-board"));

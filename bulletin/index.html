@@ -3,23 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>netwrk</title>
+  <title>bulletin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bellota&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <!-- Top bar -->
   <header class="topbar">
-    <span class="topbar-title">netwrk</span>
     <nav class="topbar-breadcrumb" id="breadcrumb">
-      <span class="crumb active" data-view="home">All Boards</span>
+      <span class="crumb active" data-view="home">My Boards</span>
     </nav>
-    <span class="topbar-zoom" id="zoom-indicator">100%</span>
+    <span class="topbar-logo" id="topbar-logo">Bulletin</span>
+    <div class="topbar-right">
+      <span class="topbar-profile" id="topbar-profile">Profile</span>
+    </div>
   </header>
 
   <!-- Empty state (shown when no boards exist) -->
   <div class="empty-state" id="empty-state">
-    <h1>netwrk</h1>
+    <h1>bulletin</h1>
     <p>Your visual pin network starts here.</p>
     <div class="empty-actions">
       <button class="btn btn-primary" id="btn-new-board">Create a Board</button>
@@ -32,12 +37,47 @@
 
   <!-- Floating action buttons (visible when boards exist) -->
   <div class="fab-group" id="fab-group">
-    <button class="btn fab" id="fab-add-board" title="New Board">+</button>
-    <button class="btn fab fab-sm" id="fab-arena" title="Connect Are.na">A</button>
+  </div>
+
+  <!-- Bottom-left action buttons -->
+  <div class="fab-group fab-group-left">
+    <button class="fab" id="btn-map-pin-house" title="Map Pin House">
+      <i data-lucide="map-pin-house"></i>
+    </button>
   </div>
 
   <!-- Minimap -->
-  <canvas id="minimap" width="180" height="120"></canvas>
+  <div class="minimap-container">
+    <span class="topbar-zoom" id="zoom-indicator">100%</span>
+    <canvas id="minimap" width="180" height="120"></canvas>
+  </div>
+
+  <!-- Profile view -->
+  <div id="profile-view" hidden>
+    <div class="profile-container">
+      <section class="profile-section">
+        <h2 class="profile-section-title">My Boards</h2>
+        <div class="profile-boards-grid" id="profile-boards-grid"></div>
+      </section>
+      <section class="profile-section">
+        <h2 class="profile-section-title">Saved Pins</h2>
+        <div class="profile-pins-row" id="profile-pins-row"></div>
+      </section>
+      <section class="profile-section">
+        <h2 class="profile-section-title">Connected Services</h2>
+        <div class="profile-services">
+          <button class="btn btn-secondary" id="btn-profile-arena">Connect Are.na</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Drop overlay (shown when dragging image files over the window) -->
+  <div id="drop-overlay" hidden>
+    <div class="drop-overlay-inner">
+      <span>Drop to add pin</span>
+    </div>
+  </div>
 
   <!-- ═══ Modals ═══ -->
 
@@ -111,10 +151,23 @@
         </div>
 
         <div class="modal-actions">
+          <button type="button" id="btn-pin-delete" class="btn btn-danger" style="margin-right:auto" hidden>Delete</button>
           <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
           <button type="submit" class="btn btn-primary" id="btn-pin-submit">Add Pin</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="modal-delete" hidden>
+    <div class="modal">
+      <h2>Delete Pin?</h2>
+      <p>This action cannot be undone. Are you sure you want to remove this pin?</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
+        <button type="button" id="btn-confirm-delete" class="btn btn-danger">Yes, Delete</button>
+      </div>
     </div>
   </div>
 
@@ -132,9 +185,11 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="store.js"></script>
   <script src="arena.js"></script>
   <script src="app.js"></script>
+  <script>lucide.createIcons();</script>
 </body>
 </html>

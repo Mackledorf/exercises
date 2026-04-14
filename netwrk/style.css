@@ -80,6 +80,11 @@ html, body {
   /* Faster CSS-based Dot Grid */
   background-image: radial-gradient(circle, rgba(238, 235, 231, 0.08) 0.8px, transparent 0.8px);
   background-size: 24px 24px;
+  transition: background-image 0.12s ease;
+}
+
+body.is-zooming #canvas {
+  background-image: none;
 }
 
 #canvas:active {
@@ -152,45 +157,20 @@ html, body {
 }
 
 .pin-group {
-  will-change: transform;
+  transition: filter 0.15s ease;
 }
 
-.pin-card-fo {
-  overflow: visible;
+.pin-img {
   pointer-events: none;
 }
 
-.pin-card {
-  background: var(--alt-grey);
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
-  transition: box-shadow 0.2s ease;
-  width: 100%;
+.pin-bg {
   pointer-events: none;
-}
-
-.pin-card:hover {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
-}
-
-.pin-card.dragging {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
-  opacity: 0.92;
-}
-
-.pin-card img {
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  pointer-events: none;
-  user-select: none;
 }
 
 /* ── Semantic Zoom Culling (CSS-driven) ───────── */
 
-.zoom-very-far .pin-card {
+.zoom-very-far .pin-group {
   display: none;
 }
 
@@ -639,13 +619,16 @@ html, body {
 
 .file-drop {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100px;
+  height: 140px;
   border: 1.5px dashed rgba(238, 235, 231, 0.12);
   border-radius: 10px;
   cursor: pointer;
   transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .file-drop:hover {
@@ -658,10 +641,30 @@ html, body {
 }
 
 .file-drop-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 13px;
   text-transform: none;
   font-weight: 400;
   opacity: 0.35;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.file-drop-label::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 24px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'%3E%3C/path%3E%3Cpolyline points='17 8 12 3 7 8'%3E%3C/polyline%3E%3Cline x1='12' y1='3' x2='12' y2='15'%3E%3C/line%3E%3C/svg%3E") no-repeat center;
+  mask-size: contain;
+  margin-bottom: 2px;
 }
 
 .file-drop-label u {
@@ -680,6 +683,98 @@ html, body {
   margin-top: 28px;
   padding-top: 20px;
   border-top: 1px solid rgba(238, 235, 231, 0.06);
+}
+
+.btn-danger {
+  background: #E87C7C;
+  color: #1e1e1e;
+}
+
+.btn-danger:hover {
+  background: #f19a9a;
+}
+
+.btn-danger:active {
+  background: #d66464;
+}
+
+/* ── Pin selection + resize handles ─────────────── */
+
+.pin-select-outline {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.pin-handle {
+  fill: white;
+  stroke: rgba(30, 30, 30, 0.35);
+  stroke-width: 1;
+}
+
+.pin-handle:hover {
+  fill: rgba(255, 255, 255, 0.85);
+}
+
+.pin-sel-edit-bg {
+  fill: rgba(238, 235, 231, 0.1);
+  stroke: rgba(238, 235, 231, 0.22);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: fill 0.12s;
+}
+
+.pin-sel-edit:hover .pin-sel-edit-bg {
+  fill: rgba(238, 235, 231, 0.2);
+}
+
+.pin-sel-edit-label {
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: rgba(238, 235, 231, 0.75);
+  pointer-events: none;
+}
+
+/* ── Global drop overlay ─────────────────────── */
+
+#drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: rgba(238, 235, 231, 0.04);
+  border: 2px dashed rgba(238, 235, 231, 0.3);
+  border-radius: 12px;
+  margin: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: drop-pulse 1s ease-in-out infinite alternate;
+}
+
+#drop-overlay[hidden] {
+  display: none;
+}
+
+.drop-overlay-inner {
+  background: rgba(30, 30, 30, 0.85);
+  border: 1px solid rgba(238, 235, 231, 0.12);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 13px;
+  font-family: inherit;
+  color: rgba(238, 235, 231, 0.6);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@keyframes drop-pulse {
+  from { border-color: rgba(238, 235, 231, 0.2); }
+  to   { border-color: rgba(238, 235, 231, 0.45); }
 }
 
 /* ── Are.na import ────────────────────────────── */

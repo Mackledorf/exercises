@@ -1,6 +1,6 @@
 # Pinterest API Integration — Future Reference
 
-netwrk currently uses Are.na (client-side OAuth PKCE). Pinterest **requires a backend server** because the OAuth flow uses a `client_secret` that must never be exposed in browser code.
+bulletin currently uses Are.na (client-side OAuth PKCE). Pinterest **requires a backend server** because the OAuth flow uses a `client_secret` that must never be exposed in browser code.
 
 This document captures everything needed to add Pinterest support later.
 
@@ -147,7 +147,7 @@ Response:
 ## 4. Backend Architecture (Required)
 
 ```
-Browser (netwrk frontend)
+Browser (bulletin frontend)
     │
     ├── GET /api/pinterest/auth     → redirects to Pinterest OAuth
     ├── GET /api/pinterest/callback → exchanges code for token, stores it
@@ -212,9 +212,9 @@ app.listen(3000);
 
 ---
 
-## 5. Mapping Pinterest → netwrk data model
+## 5. Mapping Pinterest → bulletin data model
 
-| Pinterest | netwrk |
+| Pinterest | bulletin |
 |-----------|--------|
 | Board `.id` | `board.pinterestBoardId` |
 | Board `.name` | `board.name` |

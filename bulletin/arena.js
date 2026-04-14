@@ -1,4 +1,4 @@
-/* ── netwrk · arena.js ─ Are.na OAuth PKCE + API ── */
+/* ── bulletin · arena.js ─ Are.na OAuth PKCE + API ── */
 
 const Arena = (function () {
   "use strict";

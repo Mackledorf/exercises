@@ -1,9 +1,9 @@
-/* ── netwrk · store.js ─ localStorage persistence ── */
+/* ── bulletin · store.js ─ localStorage persistence ── */
 
 const Store = (function () {
   "use strict";
 
-  const STORAGE_KEY = "netwrk_data";
+  const STORAGE_KEY = "bulletin_data";
 
   // ── Internal helpers ────────────────────────────
   function _load() {
@@ -78,10 +78,11 @@ const Store = (function () {
     return _load().pins;
   }
 
-  function addPin({ boardId, tags, imageUrl, imageData, source, arenaBlockId, x, y }) {
+  function addPin({ id, boardId, tags, imageUrl, imageData, source, arenaBlockId, x, y, pinW, createdAt }) {
     const data = _load();
+    const pinId = id || _uid();
     const pin = {
-      id: _uid(),
+      id: pinId,
       boardId,
       tags: Array.isArray(tags) ? tags : [],
       imageUrl: imageUrl || "",
@@ -90,9 +91,14 @@ const Store = (function () {
       arenaBlockId: arenaBlockId || null,
       x: x ?? 0,
       y: y ?? 0,
-      createdAt: Date.now(),
+      pinW: pinW ?? null,
+      createdAt: createdAt ?? Date.now(),
     };
-    data.pins.push(pin);
+
+    const existingIndex = data.pins.findIndex(p => p.id === pinId);
+    if (existingIndex >= 0) data.pins[existingIndex] = pin;
+    else data.pins.push(pin);
+
     _save(data);
     return pin;
   }
