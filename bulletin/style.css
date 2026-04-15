@@ -5,7 +5,7 @@
   src: url('fonts/FoundersGroteskMonoLight.otf') format('opentype');
   font-weight: 300;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -13,7 +13,7 @@
   src: url('fonts/FoundersGroteskMonoRegular.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -21,7 +21,7 @@
   src: url('fonts/FoundersGroteskMonoMedium.otf') format('opentype');
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -29,7 +29,7 @@
   src: url('fonts/FoundersGroteskMonoDemiBold.otf') format('opentype');
   font-weight: 600;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -37,7 +37,7 @@
   src: url('fonts/FoundersGroteskMonoBold.otf') format('opentype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* ── Reset & Base ──────────────────────────────── */
@@ -165,6 +165,22 @@ html, body {
   cursor: pointer;
 }
 
+.board-edit-icon {
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: auto !important;
+}
+
+.board-node:hover .board-edit-icon,
+.board-edit-icon:hover {
+  opacity: 0.8 !important;
+}
+
+.board-edit-icon:hover i {
+  opacity: 1 !important;
+}
+
 .board-label {
   fill: var(--text);
   font-size: 22px;
@@ -266,6 +282,10 @@ body.board-transition-enter-active .pin-group {
 }
 
 body.board-transition-exit-active .board-node {
+  opacity: 0;
+}
+
+body.board-transition-mask-canvas #canvas {
   opacity: 0;
 }
 
@@ -527,27 +547,34 @@ body.profile-mode .topbar {
 
 /* ── Saved pins masonry grid ─────────────────── */
 
-.profile-pins-row {
+.profile-pins-row,
+.saved-pins-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
 }
 
-.profile-pins-col {
+.profile-pins-col,
+.saved-pins-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.profile-pin-tile {
+.profile-pin-tile,
+.saved-pin-tile {
   width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
   border-radius: 10px;
   overflow: hidden;
   background: var(--alt-grey);
 }
 
-.profile-pin-tile img {
+.profile-pin-tile img,
+.saved-pin-tile img {
   width: 100%;
   height: auto;
   display: block;
@@ -556,6 +583,78 @@ body.profile-mode .topbar {
 
 .profile-pins-row .profile-empty-msg {
   grid-column: 1 / -1;
+}
+
+.saved-pins-grid .profile-empty-msg {
+  grid-column: 1 / -1;
+}
+
+.saved-pins-grid-modal {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.saved-pin-tile {
+  position: relative;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, opacity 0.14s ease;
+}
+
+.saved-pin-tile:hover {
+  transform: translateY(-1px);
+}
+
+.saved-pin-tile.is-selected {
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.32);
+}
+
+.saved-pin-tile.is-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.saved-pin-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(23, 23, 23, 0.34);
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+}
+
+.saved-pin-check-icon {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.saved-pin-tile.is-selected .saved-pin-check {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(255, 255, 255, 0.94);
+  color: #171717;
+}
+
+.saved-pin-tile.is-selected .saved-pin-check-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.saved-pin-tile.is-disabled .saved-pin-check {
+  opacity: 0.7;
 }
 
 .profile-empty-msg {
@@ -1060,6 +1159,24 @@ body.zoom-ui-hidden .fab-center-group.visible {
 
 .pin-source-panel {
   margin-top: 10px;
+}
+
+.pin-saved-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.pin-saved-header .pin-field-label {
+  margin-bottom: 0;
+}
+
+.pin-saved-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.55;
 }
 
 .file-drop {

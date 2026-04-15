@@ -6,7 +6,7 @@
   <title>bulletin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bellota&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bellota&display=block" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,7 +24,7 @@
 
   <!-- Empty state (shown when no boards exist) -->
   <div class="empty-state" id="empty-state">
-    <h1>bulletin</h1>
+    <h1>Bulletin</h1>
     <p>Your visual pin network starts here.</p>
     <div class="empty-actions">
       <button class="btn btn-primary" id="btn-new-board">Create a Board</button>
@@ -84,8 +84,9 @@
   <!-- Create / Edit Board Modal -->
   <div class="modal-overlay" id="modal-board" hidden>
     <div class="modal">
-      <h2>New Board</h2>
+      <h2 id="modal-board-title">New Board</h2>
       <form id="form-board" autocomplete="off">
+        <input type="hidden" id="board-id">
         <label>
           Name
           <input type="text" id="board-name" required maxlength="60" placeholder="e.g. Brutalism">
@@ -109,7 +110,8 @@
         </label>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
-          <button type="submit" class="btn btn-primary">Create Board</button>
+          <button type="button" class="btn btn-danger" id="btn-delete-board" hidden>Delete Board</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-board">Create Board</button>
         </div>
       </form>
     </div>
@@ -126,17 +128,25 @@
         <!-- Image section -->
         <div class="pin-section">
           <div class="pin-source-toggle">
-            <button type="button" class="toggle-btn active" data-source="url">Paste URL</button>
-            <button type="button" class="toggle-btn" data-source="file">Upload</button>
+            <button type="button" class="toggle-btn active" data-source="file">Upload</button>
+            <button type="button" class="toggle-btn" data-source="url">Paste URL</button>
+            <button type="button" class="toggle-btn" data-source="saved" id="pin-saved-toggle">Saved Pins</button>
           </div>
-          <div class="pin-source-panel" id="pin-url-panel">
-            <input type="url" id="pin-url" placeholder="https://example.com/image.jpg">
-          </div>
-          <div class="pin-source-panel" id="pin-file-panel" hidden>
+          <div class="pin-source-panel" id="pin-file-panel">
             <label class="file-drop">
               <input type="file" id="pin-file" accept="image/*">
               <span class="file-drop-label">Drop image here or <u>browse</u></span>
             </label>
+          </div>
+          <div class="pin-source-panel" id="pin-url-panel" hidden>
+            <input type="url" id="pin-url" placeholder="https://example.com/image.jpg">
+          </div>
+          <div class="pin-source-panel" id="pin-saved-panel" hidden>
+            <div class="pin-saved-header">
+              <span class="pin-field-label">Saved Pins</span>
+              <span class="pin-saved-meta" id="pin-saved-meta">0 selected</span>
+            </div>
+            <div class="saved-pins-grid saved-pins-grid-modal" id="pin-saved-grid"></div>
           </div>
         </div>
 
@@ -151,7 +161,7 @@
         </div>
 
         <div class="modal-actions">
-          <button type="button" id="btn-pin-delete" class="btn btn-danger" style="margin-right:auto" hidden>Delete</button>
+          <button type="button" id="btn-pin-delete" class="btn btn-danger" style="margin-right:auto" hidden>Remove</button>
           <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
           <button type="submit" class="btn btn-primary" id="btn-pin-submit">Add Pin</button>
         </div>

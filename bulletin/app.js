@@ -24,6 +24,7 @@
   const BOARD_PREVIEW_MAX_W = 220;
   const BOARD_PREVIEW_MAX_H = 148;
   const BOARD_PREVIEW_PAD = 96;
+  const HOME_WHEEL_GUARD_MS = 220;
   const HOME_GRID_CELL_W = 296;
   const HOME_GRID_CELL_H = 264;
   const HOME_GRID_PAD_X = 80;
@@ -107,6 +108,8 @@
   let boardNavTransition = null;
   let boardNavTransitionSeq = 0;
   let homePreviewHydrateQueued = false;
+  let suppressHomeWheelUntil = 0;
+  let pendingHomeViewportGuard = false;
 
   function measureBoardActionRowWidth() {
     const probe = document.createElement("div");
@@ -168,6 +171,13 @@
       if (currentView !== "home") return;
       render();
     });
+  }
+
+  function resetViewportToIdentity() {
+    currentTransform = d3.zoomIdentity;
+    masterG.attr("transform", currentTransform);
+    applyGridTransform(currentTransform, true);
+    svg.property("__zoom", d3.zoomIdentity);
   }
 
   function getPanBoundsWorld() {
@@ -284,6 +294,24 @@
     wheelState.panY = 0;
     wheelState.zoomLog2 = 0;
     wheelState.hasZoom = false;
+  }
+
+  function clearViewportInputCarryover() {
+    if (zoomRenderRAF) {
+      cancelAnimationFrame(zoomRenderRAF);
+      zoomRenderRAF = null;
+    }
+
+    if (wheelState.raf) {
+      cancelAnimationFrame(wheelState.raf);
+      wheelState.raf = null;
+    }
+
+    resetWheelState();
+  }
+
+  function guardHomeWheelInput() {
+    suppressHomeWheelUntil = Date.now() + HOME_WHEEL_GUARD_MS;
   }
 
   function finishZoomInteraction() {
@@ -432,6 +460,33 @@
     return d3.zoomIdentity.translate(tx, ty).scale(scale);
   }
 
+  function getBoardPlaceholderPinId(boardId) {
+    return `__empty-board-placeholder__${boardId}`;
+  }
+
+  function createBoardPlaceholderPin(boardId) {
+    // Synthetic hidden pin used only for camera fit + nav transition math.
+    const pw = Math.max(120, width - 320);
+    const ph = Math.max(120, height - 320);
+    return {
+      id: getBoardPlaceholderPinId(boardId),
+      x: width / 2,
+      y: height / 2,
+      pinW: pw,
+      _pw: pw,
+      _aspect: ph / pw,
+      _ph: ph,
+      _placeholder: true,
+      imageUrl: "",
+    };
+  }
+
+  function getBoardPinsForFitAndTransition(boardId) {
+    const pins = Store.getPins(boardId);
+    if (pins.length > 0) return pins;
+    return [createBoardPlaceholderPin(boardId)];
+  }
+
   function normalizeRect(rect) {
     return {
       left: Number.isFinite(rect.left) ? rect.left : 0,
@@ -519,7 +574,7 @@
   }
 
   function getBoardPinsForTransition(boardId) {
-    return Store.getPins(boardId).map((pin) => {
+    return getBoardPinsForFitAndTransition(boardId).map((pin) => {
       const src = getPinImageSrc(pin);
       const aspect = imageAspectCache.get(src) || pin._aspect || (PIN_H / PIN_W);
       const pw = pin.pinW || pin._pw || PIN_W;
@@ -531,6 +586,7 @@
         pw,
         ph,
         src,
+        isPlaceholder: !!pin._placeholder,
       };
     });
   }
@@ -540,6 +596,7 @@
     const pinRects = pins.map((pin) => ({
       id: pin.id,
       src: pin.src,
+      isPlaceholder: pin.isPlaceholder,
       rect: worldRectToScreenRect(pin.x, pin.y, pin.pw, pin.ph, transform),
     }));
     const cardRect = unionRects(pinRects.map((pin) => pin.rect)) || {
@@ -584,18 +641,38 @@
     const pos = posMap.get(boardId);
     if (!pos) return null;
 
-    const pins = getBoardPinsForTransition(boardId);
-    if (pins.length === 0) {
+    const boardPins = Store.getPins(boardId);
+    if (boardPins.length === 0) {
+      const previewCenterX = pos.x;
+      const previewCenterY = pos.y + BOARD_PREVIEW_OFFSET_Y;
       return {
+        anchor: {
+          x: previewCenterX,
+          y: previewCenterY,
+        },
         cardRect: {
           left: pos.x - 130,
           top: pos.y - 36,
           width: 260,
           height: 170,
         },
-        pins: [],
+        pins: [
+          {
+            id: getBoardPlaceholderPinId(boardId),
+            src: "",
+            isPlaceholder: true,
+            rect: {
+              left: previewCenterX - 1,
+              top: previewCenterY - 1,
+              width: 2,
+              height: 2,
+            },
+          },
+        ],
       };
     }
+
+    const pins = getBoardPinsForTransition(boardId);
 
     const bounds = getPinsWorldBounds(pins);
     if (!bounds) return null;
@@ -705,6 +782,7 @@
     boardNavTransition.layer.classList.remove("visible");
     document.body.classList.remove("board-transition-enter-active");
     document.body.classList.remove("board-transition-exit-active");
+    document.body.classList.remove("board-transition-mask-canvas");
     boardNavTransition = null;
   }
 
@@ -726,6 +804,7 @@
     const targetPins = targetGeometry.pins || [];
     targetPins.forEach((targetPin) => {
       const sourcePin = sourcePinsById.get(targetPin.id);
+      const isPlaceholderPin = !!targetPin.isPlaceholder || !!(sourcePin && sourcePin.isPlaceholder);
       const fromRect = sourcePin ? sourcePin.rect : scaleRectFromCenter(sourceGeometry.cardRect, 0.18);
       const fromSrc = sourcePin && sourcePin.src ? sourcePin.src : "";
 
@@ -733,6 +812,7 @@
       pinNode.className = "board-nav-transition-pin";
       if (!fromSrc) pinNode.classList.add("skeleton");
       setOverlayRect(pinNode, fromRect);
+      if (isPlaceholderPin) pinNode.style.opacity = "0";
 
       if (fromSrc) {
         const img = document.createElement("img");
@@ -746,6 +826,7 @@
       requestAnimationFrame(() => {
         pinNode.style.transition = `left ${BOARD_NAV_OVERLAY_MS}ms cubic-bezier(0.22, 1, 0.36, 1), top ${BOARD_NAV_OVERLAY_MS}ms cubic-bezier(0.22, 1, 0.36, 1), width ${BOARD_NAV_OVERLAY_MS}ms cubic-bezier(0.22, 1, 0.36, 1), height ${BOARD_NAV_OVERLAY_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${BOARD_NAV_OVERLAY_MS}ms ease`;
         setOverlayRect(pinNode, targetPin.rect);
+        pinNode.style.opacity = isPlaceholderPin ? "0" : "1";
         if (fromSrc && targetPin.src && fromSrc !== targetPin.src) {
           const img = pinNode.querySelector("img");
           if (img) img.src = targetPin.src;
@@ -761,6 +842,7 @@
 
     document.body.classList.toggle("board-transition-enter-active", direction === "enter");
     document.body.classList.toggle("board-transition-exit-active", direction === "exit");
+    document.body.classList.toggle("board-transition-mask-canvas", direction === "exit");
 
     boardNavTransition = {
       seq,
@@ -808,6 +890,11 @@
   svg.on("wheel", (event) => {
     if (currentView !== "board" && currentView !== "home") return;
     event.preventDefault();
+
+    if (currentView === "home" && Date.now() < suppressHomeWheelUntil) {
+      resetWheelState();
+      return;
+    }
 
     if (event.ctrlKey) {
       // Pinch-to-zoom (trackpad sends ctrl + wheel for pinch)
@@ -1048,8 +1135,8 @@
 
     const movedEntries = [];
     nextPositions.forEach((nextPos, pinId) => {
-      const pin = Store.getPin(pinId);
-      if (!pin || pin.boardId !== activeBoardId) return;
+      const pin = Store.getPin(pinId, activeBoardId);
+      if (!pin) return;
 
       const snappedX = snapX ? roundToGrid(nextPos.x) : nextPos.x;
       const snappedY = snapY ? roundToGrid(nextPos.y) : nextPos.y;
@@ -1058,7 +1145,7 @@
 
       if (fromPos.x === toPos.x && fromPos.y === toPos.y) return;
 
-      Store.updatePin(pinId, toPos);
+      Store.updatePinPlacement(pinId, activeBoardId, toPos);
       syncRenderedPinPosition(pinId, toPos.x, toPos.y);
 
       movedEntries.push({
@@ -1302,7 +1389,7 @@
       const pos = { ...pendingPinPos };
       hideQuickAdd(); // fully cleanup bubble + timeout
       pendingPinPos = pos; // restore pos for modal
-      openModal("modal-pin");
+      openAddPinModal();
     }
   });
 
@@ -1441,13 +1528,13 @@
     if (isSelectionModeEnabled() && multiSelectedPinIds.size > 0 && (e.key === "Backspace" || e.key === "Delete")) {
       e.preventDefault();
       const pinsToDelete = Array.from(multiSelectedPinIds)
-        .map((id) => Store.getPin(id))
+        .map((id) => Store.getPin(id, activeBoardId))
         .filter((pin) => !!pin);
 
       if (pinsToDelete.length > 0) {
         pinsToDelete.forEach((pin) => {
           removePinMoveHistory(pin.id);
-          Store.deletePin(pin.id);
+          Store.detachPinFromBoard(pin.id, activeBoardId);
         });
 
         pushPinHistory({
@@ -1564,12 +1651,12 @@
   }
 
   function deletePinWithHistory(pinId) {
-    const pin = Store.getPin(pinId);
+    const pin = Store.getPin(pinId, activeBoardId);
     if (!pin) return false;
 
     removePinMoveHistory(pinId);
     rememberPinDelete(pin);
-    Store.deletePin(pinId);
+    Store.detachPinFromBoard(pinId, activeBoardId);
     return true;
   }
 
@@ -1593,10 +1680,10 @@
   }
 
   function applyPinMoveHistoryEntry(entry, position) {
-    const pin = Store.getPin(entry.pinId);
-    if (!pin || pin.boardId !== entry.boardId) return false;
+    const pin = Store.getPin(entry.pinId, entry.boardId);
+    if (!pin) return false;
 
-    Store.updatePin(entry.pinId, { x: position.x, y: position.y });
+    Store.updatePinPlacement(entry.pinId, entry.boardId, { x: position.x, y: position.y });
 
     if (currentView === "board" && activeBoardId === entry.boardId) {
       syncRenderedPinPosition(entry.pinId, position.x, position.y);
@@ -1607,10 +1694,10 @@
   }
 
   function applyPinResizeHistoryEntry(entry, state) {
-    const pin = Store.getPin(entry.pinId);
-    if (!pin || pin.boardId !== entry.boardId) return false;
+    const pin = Store.getPin(entry.pinId, entry.boardId);
+    if (!pin) return false;
 
-    Store.updatePin(entry.pinId, {
+    Store.updatePinPlacement(entry.pinId, entry.boardId, {
       x: state.x,
       y: state.y,
       pinW: state.pinW,
@@ -1625,9 +1712,9 @@
 
   function applyPinAddHistoryEntry(entry, isUndo) {
     if (isUndo) {
-      const pin = Store.getPin(entry.pinId);
-      if (!pin || pin.boardId !== entry.boardId) return false;
-      Store.deletePin(entry.pinId);
+      const pin = Store.getPin(entry.pinId, entry.boardId);
+      if (!pin) return false;
+      Store.detachPinFromBoard(entry.pinId, entry.boardId);
       if (!suppressHistoryRender && currentView === "board" && activeBoardId === entry.boardId) {
         if (selectedPinId === entry.pinId) deselectPin();
         renderBoard(entry.boardId);
@@ -1649,9 +1736,9 @@
       return true;
     }
 
-    const pin = Store.getPin(entry.pinId);
-    if (!pin || pin.boardId !== entry.boardId) return false;
-    Store.deletePin(entry.pinId);
+    const pin = Store.getPin(entry.pinId, entry.boardId);
+    if (!pin) return false;
+    Store.detachPinFromBoard(entry.pinId, entry.boardId);
     if (!suppressHistoryRender && currentView === "board" && activeBoardId === entry.boardId) {
       if (selectedPinId === entry.pinId) deselectPin();
       renderBoard(entry.boardId);
@@ -1832,6 +1919,7 @@
       fabGroup.hidden = true;
       profileView.hidden = false;
       cancelZoomInteraction();
+      resetViewportToIdentity();
       svg.on(".zoom", null);
       document.getElementById("zoom-indicator").style.display = "none";
       if (minimapContainerEl) minimapContainerEl.style.display = "none";
@@ -1846,6 +1934,12 @@
         document.body.classList.remove("zoom-ui-hidden");
         svg.node().style.removeProperty("cursor");
         cancelZoomInteraction();
+        if (pendingHomeViewportGuard) {
+          clearViewportInputCarryover();
+          guardHomeWheelInput();
+          pendingHomeViewportGuard = false;
+        }
+        resetViewportToIdentity();
         renderHome(boards);
         svg.call(zoom).on("dblclick.zoom", null); // Enable movable grid pan on home page
         document.getElementById("zoom-indicator").style.display = "none";
@@ -1884,10 +1978,7 @@
     updateBreadcrumb(null);
 
     // Snap camera to identity so world coords match screen coords (no stale transform).
-    currentTransform = d3.zoomIdentity;
-    masterG.attr("transform", currentTransform);
-    applyGridTransform(currentTransform, true);
-    svg.property("__zoom", d3.zoomIdentity);
+    resetViewportToIdentity();
 
     // Position boards in a fixed responsive grid for the My Boards page.
     const usableW = Math.max(1, width - HOME_GRID_PAD_X * 2);
@@ -1920,11 +2011,39 @@
       .style("cursor", "pointer");
 
     // Board name label
-    boardGroups.append("text")
+    const label = boardGroups.append("text")
       .attr("class", "board-label")
       .attr("y", 0)
       .text(d => d.name)
       .attr("fill", d => d.color);
+
+    // Board edit icon
+    boardGroups.append("foreignObject")
+      .attr("class", "board-edit-icon")
+      .attr("width", 24)
+      .attr("height", 24)
+      .each(function(d) {
+        // Measure the actual width of the text element to get precise alignment
+        const group = d3.select(this.parentNode);
+        const textNode = group.select(".board-label").node();
+        const textWidth = textNode ? textNode.getBBox().width : (d.name.length * 8);
+        d3.select(this).attr("transform", `translate(${textWidth / 2 + 10}, -12)`);
+      })
+      .attr("pointer-events", "all")
+      .html(`
+        <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.01); pointer-events: all; cursor: pointer;">
+          <i data-lucide="square-pen" style="width: 16px; height: 16px; stroke: #EEEBE7; stroke-width: 1.5; pointer-events: none;"></i>
+        </div>
+      `)
+      .on("click", (event, d) => {
+        event.stopPropagation();
+        openEditBoardModal(d);
+      });
+    
+    // Initialize icons for the newly added board nodes
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
 
     // Pin count subtitle
     boardGroups.append("text")
@@ -2046,7 +2165,8 @@
     setSelectionModeActive(false);
 
     if (currentView === "home") {
-      const pins = Store.getPins(boardId);
+      resetViewportToIdentity();
+      const pins = getBoardPinsForFitAndTransition(boardId);
       const targetTransform = computeBoardFitTransform(pins);
       const pinBounds = getPinsWorldBounds(pins);
       const board = Store.getBoard(boardId);
@@ -2085,11 +2205,8 @@
     if (currentView === "board") {
       const boardId = activeBoardId;
       const board = Store.getBoard(boardId);
-      const pins = Store.getPins(boardId);
-      const pinBounds = getPinsWorldBounds(pins);
       const sourceGeometry = captureBoardGeometryFromDOM() || getBoardPinsScreenGeometry(boardId, currentTransform);
       const targetGeometry = computeHomeBoardPreviewGeometry(boardId);
-      const targetAnchor = targetGeometry ? targetGeometry.anchor : null;
 
       if (sourceGeometry && targetGeometry) {
         playBoardNavTransition("exit", board, sourceGeometry, targetGeometry);
@@ -2098,12 +2215,10 @@
       runZoomTransition(d3.zoomIdentity, () => {
         currentView = "home";
         activeBoardId = null;
+        pendingHomeViewportGuard = true;
+        resetViewportToIdentity();
         render();
-      }, (pinBounds && targetAnchor) ? {
-        anchorWorld: { x: pinBounds.cx, y: pinBounds.cy },
-        anchorScreen: targetAnchor,
-        skipConstrain: true,
-      } : { lockPan: true });
+      });
       return;
     }
 
@@ -2173,7 +2288,7 @@
       addPinBtn.id = "fab-add-pin";
       addPinBtn.className = "btn btn-primary fab-add-pin-btn";
       addPinBtn.textContent = "+ Add Pin";
-      addPinBtn.addEventListener("click", () => openModal("modal-pin"));
+      addPinBtn.addEventListener("click", () => openAddPinModal());
       
       const selectBtn = document.createElement("button");
       selectBtn.id = "btn-selection-mode";
@@ -2504,7 +2619,7 @@
             node.transition().duration(150).attr("transform", `translate(${pin.x},${pin.y})`);
 
             if (!didMove) return;
-            Store.updatePin(id, { x: pin.x, y: pin.y });
+            Store.updatePinPlacement(id, boardId, { x: pin.x, y: pin.y });
             movedEntries.push({
               type: "move",
               pinId: id,
@@ -2601,7 +2716,7 @@
     if (skipNextBoardAutoFit) {
       skipNextBoardAutoFit = false;
     } else {
-      runZoomTransition(computeBoardFitTransform(pins));
+      runZoomTransition(computeBoardFitTransform(pins.length > 0 ? pins : getBoardPinsForFitAndTransition(boardId)));
     }
 
     if (!shouldShowVeil) hideBoardLoadingVeil();
@@ -2758,7 +2873,7 @@
 
         svg.call(zoom).on("dblclick.zoom", null);
         d.pinW = d._pw;
-        Store.updatePin(d.id, { x: d.x, y: d.y, pinW: d._pw });
+        Store.updatePinPlacement(d.id, activeBoardId, { x: d.x, y: d.y, pinW: d._pw });
         rememberPinResize(
           d.id,
           activeBoardId,
@@ -2810,6 +2925,135 @@
   function hideAddPinButton() {
     const btn = document.getElementById("fab-add-pin");
     if (btn) btn.classList.remove("visible");
+  }
+
+  function getSavedPinsWithImages() {
+    const seenSharedPins = new Set();
+
+    return Store.getAllPins()
+      .filter((pin) => pin.imageData || pin.imageUrl)
+      .sort((a, b) => {
+        const aCreatedAt = Number.isFinite(a.createdAt) ? a.createdAt : Number(a.createdAt) || 0;
+        const bCreatedAt = Number.isFinite(b.createdAt) ? b.createdAt : Number(b.createdAt) || 0;
+        return bCreatedAt - aCreatedAt;
+      })
+      .filter((pin) => {
+        const sharedPinId = pin.sharedPinId || pin.id;
+        if (seenSharedPins.has(sharedPinId)) return false;
+        seenSharedPins.add(sharedPinId);
+        return true;
+      });
+  }
+
+  function renderSavedPinGrid(container, pins, options = {}) {
+    const {
+      columnCount = 4,
+      selectable = false,
+      selectedIds = new Set(),
+      disabledIds = new Set(),
+      onTileClick = null,
+      emptyMessage = "No saved pins yet.",
+    } = options;
+
+    container.innerHTML = "";
+    container.style.gridTemplateColumns = `repeat(${columnCount}, minmax(0, 1fr))`;
+
+    if (pins.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "profile-empty-msg";
+      empty.textContent = emptyMessage;
+      container.appendChild(empty);
+      return;
+    }
+
+    const columns = Array.from({ length: columnCount }, () => {
+      const col = document.createElement("div");
+      col.className = container.id === "profile-pins-row" ? "profile-pins-col" : "saved-pins-col";
+      container.appendChild(col);
+      return col;
+    });
+
+    pins.forEach((pin, idx) => {
+      const tile = document.createElement("button");
+      const isSelected = selectable && selectedIds.has(pin.id);
+      const isDisabled = selectable && disabledIds.has(pin.id);
+      tile.type = "button";
+      tile.className = `${container.id === "profile-pins-row" ? "profile-pin-tile" : "saved-pin-tile"}${isSelected ? " is-selected" : ""}${isDisabled ? " is-disabled" : ""}`;
+      tile.disabled = isDisabled;
+      tile.setAttribute("aria-pressed", isSelected ? "true" : "false");
+
+      const img = document.createElement("img");
+      img.src = pin.imageData || pin.imageUrl;
+      img.alt = pin.tags ? pin.tags.join(", ") : "";
+      tile.appendChild(img);
+
+      if (selectable) {
+        const badge = document.createElement("span");
+        badge.className = "saved-pin-check";
+        badge.setAttribute("aria-hidden", "true");
+        badge.innerHTML = "<span class=\"saved-pin-check-icon\">&check;</span>";
+        tile.appendChild(badge);
+      }
+
+      if (selectable && !isDisabled && typeof onTileClick === "function") {
+        tile.addEventListener("click", () => onTileClick(pin));
+      }
+
+      columns[idx % columnCount].appendChild(tile);
+    });
+  }
+
+  function renderSavedPinsPicker() {
+    const grid = document.getElementById("pin-saved-grid");
+    const meta = document.getElementById("pin-saved-meta");
+    if (!grid || !meta) return;
+
+    const pins = getSavedPinsWithImages();
+    renderSavedPinGrid(grid, pins, {
+      columnCount: 5,
+      selectable: true,
+      selectedIds: selectedSavedPinIds,
+      emptyMessage: "No saved pins available.",
+      onTileClick: (pin) => {
+        if (selectedSavedPinIds.has(pin.id)) selectedSavedPinIds.delete(pin.id);
+        else selectedSavedPinIds.add(pin.id);
+        renderSavedPinsPicker();
+      },
+    });
+
+    meta.textContent = `${selectedSavedPinIds.size} selected`;
+  }
+
+  function openAddPinModal() {
+    resetPinToggle();
+    renderSavedPinsPicker();
+    openModal("modal-pin");
+  }
+
+  function getNewPinPlacement(index = 0) {
+    if (pendingPinPos) {
+      const basePos = { x: pendingPinPos.x, y: pendingPinPos.y };
+      if (index === 0) {
+        pendingPinPos = null;
+        return basePos;
+      }
+
+      return {
+        x: basePos.x + (index % 3) * GRID * 2,
+        y: basePos.y + Math.floor(index / 3) * GRID * 2,
+      };
+    }
+
+    const cx = (-currentTransform.x + width / 2) / currentTransform.k;
+    const cy = (-currentTransform.y + height / 2) / currentTransform.k;
+    const column = index % 3;
+    const row = Math.floor(index / 3);
+    const ox = (column - 1) * GRID * 2;
+    const oy = row * GRID * 2;
+    return {
+      x: Math.round((cx + ox) / GRID) * GRID,
+      y: Math.round((cy + oy) / GRID) * GRID,
+    };
   }
 
   // ── Profile View ───────────────────────────────
@@ -2882,43 +3126,9 @@
     });
 
     // ── Saved pins row ──
-    const allPins = Store.getAllPins();
+    const allPins = getSavedPinsWithImages();
     const pinsRow = document.getElementById("profile-pins-row");
-    pinsRow.innerHTML = "";
-
-    const pinsWithImages = allPins
-      .filter(p => p.imageData || p.imageUrl)
-      .sort((a, b) => {
-        const aCreatedAt = Number.isFinite(a.createdAt) ? a.createdAt : Number(a.createdAt) || 0;
-        const bCreatedAt = Number.isFinite(b.createdAt) ? b.createdAt : Number(b.createdAt) || 0;
-        return bCreatedAt - aCreatedAt;
-      });
-
-    if (pinsWithImages.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "profile-empty-msg";
-      empty.textContent = "No saved pins yet.";
-      pinsRow.appendChild(empty);
-    }
-
-    const COL_COUNT = 4;
-    const columns = Array.from({ length: COL_COUNT }, () => {
-      const col = document.createElement("div");
-      col.className = "profile-pins-col";
-      pinsRow.appendChild(col);
-      return col;
-    });
-
-    pinsWithImages.forEach((pin, idx) => {
-      const tile = document.createElement("div");
-      tile.className = "profile-pin-tile";
-
-      const img = document.createElement("img");
-      img.src = pin.imageData || pin.imageUrl;
-      img.alt = pin.tags ? pin.tags.join(", ") : "";
-      tile.appendChild(img);
-      columns[idx % COL_COUNT].appendChild(tile);
-    });
+    renderSavedPinGrid(pinsRow, allPins, { columnCount: 4, emptyMessage: "No saved pins yet." });
   }
 
 
@@ -3060,8 +3270,52 @@
     document.getElementById(id).hidden = false;
   }
 
+  function openEditBoardModal(board) {
+    const title = document.getElementById("modal-board-title");
+    const nameInput = document.getElementById("board-name");
+    const idInput = document.getElementById("board-id");
+    const descInput = document.getElementById("board-desc");
+    const deleteBtn = document.getElementById("btn-delete-board");
+    const saveBtn = document.getElementById("btn-save-board");
+
+    title.textContent = "Edit Board";
+    nameInput.value = board.name;
+    idInput.value = board.id;
+    descInput.value = board.description || "";
+    deleteBtn.hidden = false;
+    saveBtn.textContent = "Save Changes";
+
+    // Set swatch
+    document.querySelectorAll("#board-colors .swatch").forEach(s => {
+      s.classList.toggle("selected", s.dataset.color === board.color);
+    });
+
+    openModal("modal-board");
+  }
+
   function closeModal(id) {
-    document.getElementById(id).hidden = true;
+    const el = document.getElementById(id);
+    el.hidden = true;
+
+    // Reset board modal if it was open
+    if (id === "modal-board") {
+      const title = document.getElementById("modal-board-title");
+      const nameInput = document.getElementById("board-name");
+      const idInput = document.getElementById("board-id");
+      const descInput = document.getElementById("board-desc");
+      const deleteBtn = document.getElementById("btn-delete-board");
+      const saveBtn = document.getElementById("btn-save-board");
+
+      title.textContent = "New Board";
+      nameInput.value = "";
+      idInput.value = "";
+      descInput.value = "";
+      deleteBtn.hidden = true;
+      saveBtn.textContent = "Create Board";
+
+      document.querySelectorAll("#board-colors .swatch").forEach((s, i) =>
+        s.classList.toggle("selected", i === 0));
+    }
   }
 
   // Close on overlay click or [data-dismiss]
@@ -3084,26 +3338,44 @@
     swatch.classList.add("selected");
   });
 
-  // ── Create Board form ──────────────────────────
+  // ── Create/Edit Board form ──────────────────────────
   document.getElementById("form-board").addEventListener("submit", e => {
     e.preventDefault();
+    const id    = document.getElementById("board-id").value;
     const name  = document.getElementById("board-name").value.trim();
     const desc  = document.getElementById("board-desc").value.trim();
     const color = document.querySelector("#board-colors .swatch.selected")?.dataset.color || "#EEEBE7";
 
     if (!name) return;
 
-    Store.addBoard({ name, description: desc, color });
+    if (id) {
+      Store.updateBoard(id, { name, description: desc, color });
+    } else {
+      Store.addBoard({ name, description: desc, color });
+    }
+
     closeModal("modal-board");
     e.target.reset();
-    // Re-select first swatch
-    document.querySelectorAll("#board-colors .swatch").forEach((s, i) =>
-      s.classList.toggle("selected", i === 0));
 
     currentView = "home";
     activeBoardId = null;
     render();
   });
+
+  const deleteBtn = document.getElementById("btn-delete-board");
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", () => {
+      const id = document.getElementById("board-id").value;
+      if (!id) return;
+      if (confirm("Are you sure you want to delete this board? This action cannot be undone.")) {
+        Store.deleteBoard(id);
+        closeModal("modal-board");
+        currentView = "home";
+        activeBoardId = null;
+        render();
+      }
+    });
+  }
 
   // ── Add Pin form ───────────────────────────────
   // Source toggle
@@ -3113,6 +3385,8 @@
       btn.classList.add("active");
       document.getElementById("pin-url-panel").hidden  = btn.dataset.source !== "url";
       document.getElementById("pin-file-panel").hidden = btn.dataset.source !== "file";
+      document.getElementById("pin-saved-panel").hidden = btn.dataset.source !== "saved";
+      if (btn.dataset.source === "saved") renderSavedPinsPicker();
     });
   });
 
@@ -3138,7 +3412,7 @@
       }
       e.target.reset();
       resetPinToggle();
-    } else {
+    } else if (activeSource === "file") {
       const file = document.getElementById("pin-file").files[0];
       if (!file && pinId) {
         Store.updatePin(pinId, { tags });
@@ -3163,6 +3437,34 @@
         resetPinToggle();
       };
       reader.readAsDataURL(file);
+    } else if (activeSource === "saved") {
+      if (selectedSavedPinIds.size === 0) return;
+
+      Array.from(selectedSavedPinIds).forEach((selectedPinId, index) => {
+        const placement = getNewPinPlacement(index);
+        const sourcePin = Store.getPin(selectedPinId);
+        if (!sourcePin) return;
+
+        const attachedPin = Store.addPin({
+          sharedPinId: sourcePin.sharedPinId || sourcePin.id,
+          boardId: activeBoardId,
+          tags: Array.isArray(sourcePin.tags) ? sourcePin.tags.slice() : [],
+          imageUrl: sourcePin.imageUrl,
+          imageData: sourcePin.imageData,
+          source: sourcePin.source,
+          arenaBlockId: sourcePin.arenaBlockId,
+          createdAt: sourcePin.createdAt,
+          x: placement.x,
+          y: placement.y,
+          pinW: sourcePin.pinW ?? null,
+        });
+        if (attachedPin) rememberPinAdd(attachedPin);
+      });
+
+      closeModal("modal-pin");
+      e.target.reset();
+      resetPinToggle();
+      renderBoard(activeBoardId);
     }
   });
 
@@ -3189,6 +3491,7 @@
 
   // ── Tag Input ──────────────────────────────────
   let currentPinTags = [];
+  let selectedSavedPinIds = new Set();
 
   function renderTagList() {
     const list = document.getElementById("tag-list");
@@ -3223,16 +3526,21 @@
   function resetPinToggle() {
     document.querySelectorAll(".pin-source-toggle .toggle-btn").forEach((b, i) =>
       b.classList.toggle("active", i === 0));
-    document.getElementById("pin-url-panel").hidden = false;
-    document.getElementById("pin-file-panel").hidden = true;
+    document.getElementById("pin-url-panel").hidden = true;
+    document.getElementById("pin-file-panel").hidden = false;
+    document.getElementById("pin-saved-panel").hidden = true;
+    document.getElementById("pin-saved-toggle").hidden = false;
     
     // Reset to Add Pin mode
     document.getElementById("modal-pin-title").textContent = "Add Pin";
     document.getElementById("pin-id").value = "";
     document.querySelector("#form-pin button[type='submit']").textContent = "Add Pin";
+    document.getElementById("btn-pin-delete").textContent = "Remove";
     document.getElementById("btn-pin-delete").hidden = true;
     currentPinTags = [];
+    selectedSavedPinIds.clear();
     renderTagList();
+    renderSavedPinsPicker();
     document.getElementById("pin-tags-input").value = "";
     document.getElementById("pin-url").value = "";
     document.getElementById("pin-file").value = "";
@@ -3246,7 +3554,10 @@
     currentPinTags = Array.isArray(pin.tags) ? pin.tags.slice() : [];
     renderTagList();
     document.querySelector("#form-pin button[type='submit']").textContent = "Update";
+    document.getElementById("btn-pin-delete").textContent = "Remove";
     document.getElementById("btn-pin-delete").hidden = false;
+    document.getElementById("pin-saved-toggle").hidden = true;
+    document.getElementById("pin-saved-panel").hidden = true;
 
     if (pin.imageUrl) {
       document.getElementById("pin-url").value = pin.imageUrl;
@@ -3482,7 +3793,15 @@
     });
   }
 
-  render();
+  // Use FontFaceSet to block initial render until fonts are ready,
+  // preventing the "wrong typeface" flicker.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      render();
+    });
+  } else {
+    render();
+  }
 
   topbarLogo.addEventListener("click", () => {
     hideAddPinButton();
