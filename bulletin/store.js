@@ -71,6 +71,7 @@ const Store = (function () {
       boards: Array.isArray(data?.boards) ? data.boards : [],
       pins: Array.isArray(data?.pins) ? data.pins.map(_normalizePin) : [],
       arena: data?.arena && typeof data.arena === "object" ? data.arena : {},
+      groups: Array.isArray(data?.groups) ? data.groups : [],
     };
 
     next.pins = next.pins.filter((pin) => pin.boardIds.length > 0);
@@ -83,7 +84,7 @@ const Store = (function () {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) return _normalizeData(JSON.parse(raw));
     } catch (e) { /* ignore corrupt data */ }
-    return { boards: [], pins: [], arena: {} };
+    return { boards: [], pins: [], arena: {}, groups: [] };
   }
 
   function _save(data) {
@@ -104,7 +105,7 @@ const Store = (function () {
     return _load().boards.find(b => b.id === id) || null;
   }
 
-  function addBoard({ name, description, color, source, arenaChannelId }) {
+  function addBoard({ name, description, color, source, arenaChannelId, groupId }) {
     const data = _load();
     const board = {
       id: _uid(),
@@ -114,6 +115,7 @@ const Store = (function () {
       source: source || "local",
       arenaChannelId: arenaChannelId || null,
       createdAt: Date.now(),
+      groupId: groupId || null,
     };
     data.boards.push(board);
     _save(data);
@@ -135,6 +137,41 @@ const Store = (function () {
     data.pins = data.pins
       .map((pin) => detachPinFromBoardInternal(pin, id))
       .filter((pin) => pin.boardIds.length > 0);
+    _save(data);
+  }
+
+  // ── Groups ─────────────────────────────────────
+  function getGroups() {
+    return _load().groups || [];
+  }
+
+  function addGroup({ name }) {
+    const data = _load();
+    if (!data.groups) data.groups = [];
+    const group = { id: _uid(), name: name || "Untitled Group", createdAt: Date.now() };
+    data.groups.push(group);
+    _save(data);
+    return group;
+  }
+
+  function updateGroup(id, changes) {
+    const data = _load();
+    if (!data.groups) data.groups = [];
+    const group = data.groups.find(g => g.id === id);
+    if (!group) return null;
+    Object.assign(group, changes);
+    _save(data);
+    return group;
+  }
+
+  function deleteGroup(id) {
+    const data = _load();
+    if (!data.groups) data.groups = [];
+    data.groups = data.groups.filter(g => g.id !== id);
+    // Un-group boards that belonged to this group
+    data.boards = data.boards.map(b =>
+      b.groupId === id ? Object.assign({}, b, { groupId: null }) : b
+    );
     _save(data);
   }
 
@@ -305,6 +342,10 @@ const Store = (function () {
     addBoard,
     updateBoard,
     deleteBoard,
+    getGroups,
+    addGroup,
+    updateGroup,
+    deleteGroup,
     getPins,
     getPin,
     getAllPins,

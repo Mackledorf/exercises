@@ -29,6 +29,8 @@
   const HOME_GRID_CELL_H = 264;
   const HOME_GRID_PAD_X = 80;
   const HOME_GRID_PAD_Y = 110;
+  const HOME_SECTION_GAP   = 52;   // vertical gap between ungrouped and group sections
+  const HOME_GROUP_LABEL_H = 44;   // height reserved for a group label row
 
   // ── State ──────────────────────────────────────
   let currentView   = "home";   // "home" | "board"
@@ -545,32 +547,95 @@
     };
   }
 
-  function getHomeBoardGridPositions() {
+  /**
+   * Computes the full home canvas layout, accounting for groups.
+   * Returns { boardPositions: Map<id,{x,y}>, groupLabels: [{group, x, y}] }
+   */
+  function computeHomeLayout() {
     const boards = Store.getBoards();
+    const groups = typeof Store.getGroups === "function" ? Store.getGroups() : [];
+
     const usableW = Math.max(1, width - HOME_GRID_PAD_X * 2);
     const maxCols = Math.max(1, Math.floor(usableW / HOME_GRID_CELL_W));
-    const boardCount = Math.max(1, boards.length);
-    const cols = Math.max(1, Math.min(maxCols, boardCount));
-    const rows = Math.max(1, Math.ceil(boardCount / cols));
-    const boardsInLastRow = boardCount - (rows - 1) * cols;
-    const gridW = Math.max(0, (cols - 1) * HOME_GRID_CELL_W);
-    const gridH = Math.max(0, (rows - 1) * HOME_GRID_CELL_H);
-    const startX = width / 2 - gridW / 2;
-    const startY = height / 2 - gridH / 2;
 
-    const map = new Map();
-    boards.forEach((board, i) => {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const rowCols = row === rows - 1 ? boardsInLastRow : cols;
-      const rowOffset = (cols - rowCols) * HOME_GRID_CELL_W / 2;
-      map.set(board.id, {
-        x: startX + rowOffset + col * HOME_GRID_CELL_W,
-        y: startY + row * HOME_GRID_CELL_H,
-      });
+    // Separate ungrouped boards and boards per group (only groups with boards)
+    const ungrouped = boards.filter(b => !b.groupId);
+    const groupedMap = new Map();
+    boards.filter(b => b.groupId).forEach(b => {
+      if (!groupedMap.has(b.groupId)) groupedMap.set(b.groupId, []);
+      groupedMap.get(b.groupId).push(b);
     });
 
-    return map;
+    // Build an ordered list of sections: [{type:'boards'|'group', ...}]
+    const sections = [];
+    if (ungrouped.length > 0) sections.push({ type: "boards", boards: ungrouped });
+    groups.forEach(group => {
+      const gBoards = groupedMap.get(group.id);
+      if (gBoards && gBoards.length > 0) {
+        sections.push({ type: "group", group });
+        sections.push({ type: "boards", boards: gBoards });
+      }
+    });
+
+    // Compute total vertical height of all sections (for vertical centering)
+    function sectionHeight(sec) {
+      if (sec.type === "group") return HOME_GROUP_LABEL_H;
+      const cols = Math.min(maxCols, sec.boards.length);
+      const rows = Math.ceil(sec.boards.length / cols);
+      return (rows - 1) * HOME_GRID_CELL_H; // matches existing gridH = (rows - 1) * CELL_H logic
+    }
+
+    // Existing grid math used (rows - 1) * CELL_H for height because y is the cell center.
+    // However, for multiple sections, we need to be more precise about spacing.
+    // Let's adjust sectionHeight to represent the full vertical footprint including cell centers.
+    function sectionHeightFull(sec) {
+      if (sec.type === "group") return HOME_GROUP_LABEL_H;
+      const cols = Math.max(1, Math.min(maxCols, sec.boards.length));
+      const rows = Math.max(1, Math.ceil(sec.boards.length / cols));
+      return (rows - 1) * HOME_GRID_CELL_H;
+    }
+
+    const totalH = sections.reduce((sum, sec, i) => {
+      return sum + sectionHeightFull(sec) + (i < sections.length - 1 ? HOME_SECTION_GAP : 0);
+    }, 0);
+
+    let curY = height / 2 - totalH / 2;
+
+    const boardPositions = new Map();
+    const groupLabels = [];
+
+    sections.forEach((sec, si) => {
+      if (sec.type === "group") {
+        groupLabels.push({ group: sec.group, x: width / 2, y: curY });
+        curY += HOME_GROUP_LABEL_H;
+      } else {
+        const boardCount = sec.boards.length;
+        const cols = Math.max(1, Math.min(maxCols, boardCount));
+        const rows = Math.max(1, Math.ceil(boardCount / cols));
+        const boardsInLastRow = boardCount - (rows - 1) * cols;
+        const gridW = Math.max(0, (cols - 1) * HOME_GRID_CELL_W);
+        const startX = width / 2 - gridW / 2;
+
+        sec.boards.forEach((b, i) => {
+          const row = Math.floor(i / cols);
+          const col = i % cols;
+          const rowCols = row === rows - 1 ? boardsInLastRow : cols;
+          const rowOffset = (cols - rowCols) * HOME_GRID_CELL_W / 2;
+          boardPositions.set(b.id, {
+            x: startX + rowOffset + col * HOME_GRID_CELL_W,
+            y: curY + row * HOME_GRID_CELL_H,
+          });
+        });
+        curY += (rows - 1) * HOME_GRID_CELL_H;
+      }
+      if (si < sections.length - 1) curY += HOME_SECTION_GAP;
+    });
+
+    return { boardPositions, groupLabels };
+  }
+
+  function getHomeBoardGridPositions() {
+    return computeHomeLayout().boardPositions;
   }
 
   function getBoardPinsForTransition(boardId) {
@@ -1941,7 +2006,11 @@
         }
         resetViewportToIdentity();
         renderHome(boards);
-        svg.call(zoom).on("dblclick.zoom", null); // Enable movable grid pan on home page
+        if (hasBoards) {
+          svg.call(zoom).on("dblclick.zoom", null); // Enable movable grid pan on home page
+        } else {
+          svg.on(".zoom", null);
+        }
         document.getElementById("zoom-indicator").style.display = "none";
         if (minimapContainerEl) minimapContainerEl.style.display = "none";
       } else if (currentView === "board") {
@@ -1980,26 +2049,10 @@
     // Snap camera to identity so world coords match screen coords (no stale transform).
     resetViewportToIdentity();
 
-    // Position boards in a fixed responsive grid for the My Boards page.
-    const usableW = Math.max(1, width - HOME_GRID_PAD_X * 2);
-    const maxCols = Math.max(1, Math.floor(usableW / HOME_GRID_CELL_W));
-    const boardCount = Math.max(1, boards.length);
-    const cols = Math.max(1, Math.min(maxCols, boardCount));
-    const rows = Math.max(1, Math.ceil(boardCount / cols));
-    const boardsInLastRow = boardCount - (rows - 1) * cols;
-    const gridW = Math.max(0, (cols - 1) * HOME_GRID_CELL_W);
-    const gridH = Math.max(0, (rows - 1) * HOME_GRID_CELL_H);
-    const startX = width / 2 - gridW / 2;
-    const startY = height / 2 - gridH / 2;
-
-    boards.forEach((b, i) => {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const rowCols = row === rows - 1 ? boardsInLastRow : cols;
-      const rowOffset = (cols - rowCols) * HOME_GRID_CELL_W / 2;
-
-      b._x = startX + rowOffset + col * HOME_GRID_CELL_W;
-      b._y = startY + row * HOME_GRID_CELL_H;
+    const { boardPositions, groupLabels } = computeHomeLayout();
+    boards.forEach(b => {
+      const pos = boardPositions.get(b.id);
+      if (pos) { b._x = pos.x; b._y = pos.y; }
     });
 
     const boardGroups = masterG.selectAll("g.board-node")
@@ -2010,12 +2063,24 @@
       .on("click", (event, d) => enterBoard(d.id, event))
       .style("cursor", "pointer");
 
+    // Group label nodes
+    masterG.selectAll("g.group-label-node")
+      .data(groupLabels, d => d.group.id)
+      .join("g")
+      .attr("class", "group-label-node")
+      .attr("transform", d => `translate(${d.x}, ${d.y})`)
+      .append("text")
+      .attr("class", "group-label")
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "middle")
+      .text(d => d.group.name);
+
     // Board name label
     const label = boardGroups.append("text")
       .attr("class", "board-label")
       .attr("y", 0)
       .text(d => d.name)
-      .attr("fill", d => d.color);
+      .attr("fill", "#EEEBE7");
 
     // Board edit icon
     boardGroups.append("foreignObject")
@@ -3268,27 +3333,57 @@
 
   function openModal(id) {
     document.getElementById(id).hidden = false;
+    if (id === "modal-board") {
+      populateBoardGroupSelect("");
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function populateBoardGroupSelect(selectedGroupId) {
+    const select = document.getElementById("board-group");
+    if (!select) return;
+    // Remove any dynamically added group options (keep "No group" and "+ Create new group")
+    Array.from(select.options).forEach(opt => {
+      if (opt.value && opt.value !== "__new__") opt.remove();
+    });
+    const groups = Store.getGroups();
+    const insertBefore = select.querySelector('option[value="__new__"]');
+    groups.forEach(group => {
+      const opt = document.createElement("option");
+      opt.value = group.id;
+      opt.textContent = group.name;
+      if (group.id === selectedGroupId) opt.selected = true;
+      select.insertBefore(opt, insertBefore);
+    });
+    if (!selectedGroupId || !groups.find(g => g.id === selectedGroupId)) {
+      select.value = "";
+    }
+    // Hide new-group input
+    const newGroupInput = document.getElementById("board-new-group-name");
+    if (newGroupInput) newGroupInput.hidden = true;
   }
 
   function openEditBoardModal(board) {
     const title = document.getElementById("modal-board-title");
-    const nameInput = document.getElementById("board-name");
     const idInput = document.getElementById("board-id");
     const descInput = document.getElementById("board-desc");
     const deleteBtn = document.getElementById("btn-delete-board");
     const saveBtn = document.getElementById("btn-save-board");
 
-    title.textContent = "Edit Board";
-    nameInput.value = board.name;
-    idInput.value = board.id;
+    title.textContent = board.name || "Untitled";
+    idInput.value = board.id || "";
     descInput.value = board.description || "";
     deleteBtn.hidden = false;
-    saveBtn.textContent = "Save Changes";
+    saveBtn.textContent = "Save";
 
-    // Set swatch
-    document.querySelectorAll("#board-colors .swatch").forEach(s => {
-      s.classList.toggle("selected", s.dataset.color === board.color);
-    });
+    // Hide Arena shortcut on edit
+    const arenaBtn = document.getElementById("btn-board-to-arena");
+    if (arenaBtn) arenaBtn.hidden = true;
+
+    // Populate group dropdown
+    populateBoardGroupSelect(board.groupId || "");
+
+    if (window.lucide) lucide.createIcons();
 
     openModal("modal-board");
   }
@@ -3300,21 +3395,26 @@
     // Reset board modal if it was open
     if (id === "modal-board") {
       const title = document.getElementById("modal-board-title");
-      const nameInput = document.getElementById("board-name");
       const idInput = document.getElementById("board-id");
       const descInput = document.getElementById("board-desc");
       const deleteBtn = document.getElementById("btn-delete-board");
       const saveBtn = document.getElementById("btn-save-board");
 
       title.textContent = "New Board";
-      nameInput.value = "";
       idInput.value = "";
       descInput.value = "";
       deleteBtn.hidden = true;
-      saveBtn.textContent = "Create Board";
+      saveBtn.textContent = "Create";
 
-      document.querySelectorAll("#board-colors .swatch").forEach((s, i) =>
-        s.classList.toggle("selected", i === 0));
+      // Show Arena shortcut on new
+      const arenaBtn = document.getElementById("btn-board-to-arena");
+      if (arenaBtn) arenaBtn.hidden = false;
+
+      // Reset group select
+      const groupSelect = document.getElementById("board-group");
+      const newGroupInput = document.getElementById("board-new-group-name");
+      if (groupSelect) groupSelect.value = "";
+      if (newGroupInput) { newGroupInput.hidden = true; newGroupInput.value = ""; }
     }
   }
 
@@ -3330,28 +3430,58 @@
     });
   });
 
-  // ── Color swatch selection ─────────────────────
-  document.getElementById("board-colors").addEventListener("click", e => {
-    const swatch = e.target.closest(".swatch");
-    if (!swatch) return;
-    document.querySelectorAll("#board-colors .swatch").forEach(s => s.classList.remove("selected"));
-    swatch.classList.add("selected");
+  // Group select: show/hide create-new-group input
+  document.getElementById("board-group").addEventListener("change", e => {
+    const newGroupInput = document.getElementById("board-new-group-name");
+    if (newGroupInput) {
+      newGroupInput.hidden = e.target.value !== "__new__";
+      if (!newGroupInput.hidden) newGroupInput.focus();
+    }
+  });
+
+  // Prevent newlines in editable title
+  document.getElementById("modal-board-title").addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+
+  document.getElementById("btn-board-to-arena").addEventListener("click", () => {
+    document.getElementById("modal-board").hidden = true;
+    refreshArenaModal();
+    openModal("modal-arena");
   });
 
   // ── Create/Edit Board form ──────────────────────────
-  document.getElementById("form-board").addEventListener("submit", e => {
+  document.getElementById("form-board").addEventListener("submit", async e => {
     e.preventDefault();
     const id    = document.getElementById("board-id").value;
-    const name  = document.getElementById("board-name").value.trim();
+    const name  = document.getElementById("modal-board-title").textContent.trim();
     const desc  = document.getElementById("board-desc").value.trim();
-    const color = document.querySelector("#board-colors .swatch.selected")?.dataset.color || "#EEEBE7";
+    
+    // Default color
+    const color = "#EEEBE7";
+
+    // Group: resolve __new__ to a real group ID
+    let groupId = document.getElementById("board-group").value;
+    if (groupId === "__new__") {
+      const newNameInput = document.getElementById("board-new-group-name");
+      const newName = newNameInput ? newNameInput.value.trim() : "";
+      if (newName) {
+        const newGroup = Store.addGroup({ name: newName });
+        groupId = newGroup.id;
+      } else {
+        groupId = "";
+      }
+    }
 
     if (!name) return;
 
     if (id) {
-      Store.updateBoard(id, { name, description: desc, color });
+      Store.updateBoard(id, { name, description: desc, color, groupId: groupId || null });
     } else {
-      Store.addBoard({ name, description: desc, color });
+      Store.addBoard({ name, description: desc, color, groupId: groupId || null });
     }
 
     closeModal("modal-board");
@@ -3675,33 +3805,45 @@
     const content = document.getElementById("arena-content");
     if (!Arena.isConnected()) {
       content.innerHTML = `
-        <p class="arena-status">Connect your Are.na account to import channels as boards.</p>
-        <button class="btn btn-primary" id="btn-arena-auth-inner">Authorize Are.na</button>
+        <div class="arena-panel">
+          <p class="arena-status">Connect your Are.na account to import channels as boards.</p>
+          <div class="arena-actions-row">
+            <button class="btn btn-primary" id="btn-arena-auth-inner">Authorize Are.na</button>
+          </div>
+        </div>
       `;
       content.querySelector("#btn-arena-auth-inner").addEventListener("click", () => Arena.startAuth());
       return;
     }
 
-    content.innerHTML = '<p class="arena-status">Loading your channels\u2026</p>';
+    content.innerHTML = '<div class="arena-panel"><p class="arena-status">Loading your channels\u2026</p></div>';
 
     Arena.fetchChannels().then(channels => {
       if (!channels.length) {
-        content.innerHTML = '<p class="arena-status">No channels found on your account.</p>';
+        content.innerHTML = '<div class="arena-panel"><p class="arena-status">No channels found on your account.</p></div>';
         return;
       }
 
-      let html = '<div class="arena-channels">';
+      let html = '<div class="arena-panel">';
+      html += '<p class="arena-status">Select channels to import as boards.</p>';
+      html += '<div class="arena-channels-stack">';
       channels.forEach(ch => {
         const count = ch.length || ch.counts?.contents || 0;
+        const slug = ch.slug || "";
+        const safeTitle = escapeHtml(ch.title || "Untitled channel");
+        const safeSlug = escapeHtml(slug);
         html += `
-          <label class="arena-channel">
-            <input type="checkbox" value="${ch.id}" data-slug="${ch.slug || ""}" data-title="${escapeHtml(ch.title || "")}">
-            <span class="arena-channel-name">${escapeHtml(ch.title)}</span>
-            <span class="arena-channel-count">${count} blocks</span>
+          <label class="arena-channel-card">
+            <input class="arena-channel-check" type="checkbox" value="${ch.id}" data-slug="${slug}" data-title="${safeTitle}">
+            <span class="arena-channel-copy">
+              <span class="arena-channel-name">${safeTitle}</span>
+              <span class="arena-channel-meta">/${safeSlug || "channel"} · ${count} blocks</span>
+            </span>
           </label>`;
       });
       html += '</div>';
-      html += '<button class="btn btn-primary" id="btn-arena-import">Import Selected</button>';
+      html += '<div class="arena-actions-row"><button class="btn btn-primary" id="btn-arena-import">Import Selected</button></div>';
+      html += '</div>';
       content.innerHTML = html;
 
       content.querySelector("#btn-arena-import").addEventListener("click", async () => {
@@ -3714,7 +3856,7 @@
           title: el.dataset.title,
         }));
 
-        content.innerHTML = '<p class="arena-status">Importing\u2026 this may take a moment.</p>';
+        content.innerHTML = '<div class="arena-panel"><p class="arena-status">Importing\u2026 this may take a moment.</p></div>';
 
         try {
           await Arena.importChannels(selected);
@@ -3723,11 +3865,11 @@
           activeBoardId = null;
           render();
         } catch (err) {
-          content.innerHTML = '<p class="arena-status">Import failed: ' + escapeHtml(err.message) + '</p>';
+          content.innerHTML = '<div class="arena-panel"><p class="arena-status">Import failed: ' + escapeHtml(err.message) + '</p></div>';
         }
       });
     }).catch(err => {
-      content.innerHTML = '<p class="arena-status">Failed to load channels: ' + escapeHtml(err.message) + '</p>';
+      content.innerHTML = '<div class="arena-panel"><p class="arena-status">Failed to load channels: ' + escapeHtml(err.message) + '</p></div>';
     });
   }
 

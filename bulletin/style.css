@@ -48,6 +48,7 @@
   --text: #EEEBE7;
   --dot: rgba(238, 235, 231, 0.08);
   --grid: 24px;
+  --btn-radius: 4px;
   --font-main: 'Founders Grotesk Mono', 'SF Mono', 'Fira Code', monospace;
   --font-mono: 'Founders Grotesk Mono', 'SF Mono', 'Fira Code', monospace;
 }
@@ -812,7 +813,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 
 .fab-add-pin-btn {
   border: 1px solid rgba(238, 235, 231, 0.45) !important;
-  border-radius: 4px !important;
+  border-radius: var(--btn-radius) !important;
   background: #fff !important;
   color: #171717 !important;
   font-family: var(--font-mono);
@@ -854,7 +855,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   width: 100%;
   height: 30px;
   border: 1px solid rgba(238, 235, 231, 0.2);
-  border-radius: 4px;
+  border-radius: var(--btn-radius);
   background: rgba(44, 44, 44, 0.95);
   color: var(--text);
   cursor: pointer;
@@ -892,7 +893,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   width: 36px;
   height: 36px;
   border: 1px solid rgba(238, 235, 231, 0.2);
-  border-radius: 4px; /* even less rounded */
+  border-radius: var(--btn-radius);
   background: rgba(44, 44, 44, 0.95);
   color: var(--text);
   cursor: pointer;
@@ -960,7 +961,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 .btn {
   appearance: none;
   border: 1px solid rgba(238, 235, 231, 0.22);
-  border-radius: 10px;
+  border-radius: var(--btn-radius);
   background: rgba(44, 44, 44, 0.9);
   color: var(--text);
   font-family: var(--font-mono);
@@ -992,9 +993,14 @@ body.zoom-ui-hidden .fab-center-group.visible {
 }
 
 .btn-danger {
-  border-color: rgba(232, 124, 161, 0.45);
-  color: #ffb7cf;
-  background: rgba(232, 124, 161, 0.1);
+  border-color: rgba(180, 50, 50, 0.45);
+  color: #ff9999;
+  background: rgba(180, 40, 40, 0.15);
+}
+
+.btn-danger:hover {
+  background: rgba(180, 40, 40, 0.25);
+  border-color: rgba(180, 50, 50, 0.7);
 }
 
 /* ── Empty state ──────────────────────────────── */
@@ -1103,24 +1109,260 @@ body.zoom-ui-hidden .fab-center-group.visible {
 
 /* ── Board color swatches ─────────────────────── */
 
-.color-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  outline: none;
 }
 
-.swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid transparent;
-  cursor: pointer;
+.swatch:hover {
+  transform: scale(1.12);
 }
 
 .swatch.selected {
   border-color: rgba(238, 235, 231, 0.9);
   box-shadow: 0 0 0 2px rgba(30, 30, 30, 0.9);
+  transform: scale(1.12);
+}
+
+.swatch-custom {
+  background: conic-gradient(from 0deg, #FF6B5B, #FFCC40, #4ECC8A, #40E0CF, #5B8EFF, #A259FF, #FF4D9D, #FF6B5B);
+  position: relative;
+}
+
+.swatch-custom input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+/* ── Board modal redesign ─────────────────────── */
+
+.modal-board-redesign {
+  width: min(460px, 100%);
+  padding: 22px 22px 18px;
+}
+
+.board-modal-chrome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
+}
+
+.board-modal-chrome h2 {
+  margin-bottom: 0;
+  font-size: 20px;
+  font-weight: 600;
+  outline: none;
+  border: none;
+  cursor: text;
+  padding: 4px 0;
+  margin-left: 0;
+  border-radius: var(--btn-radius);
+  transition: background 0.1s ease;
+  
+  /* Single-line scrolling behavior with container constraints */
+  white-space: nowrap;
+  overflow: hidden;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.board-modal-chrome h2:hover {
+  background: rgba(238, 235, 231, 0.05);
+}
+
+.board-modal-chrome h2:focus {
+  background: rgba(238, 235, 231, 0.08);
+  overflow-x: auto;
+}
+
+/* Hide scrollbar for title while typing but keep functionality */
+.board-modal-chrome h2::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure placeholder still works with block/nowrap */
+.board-modal-chrome h2:empty:before {
+  content: attr(placeholder);
+  opacity: 0.3;
+  pointer-events: none;
+  display: inline-block;
+}
+
+.board-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.18s ease;
+}
+
+.board-field {
+  margin-bottom: 10px;
+}
+
+.board-name-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(238, 235, 231, 0.2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 0;
+  outline: none;
+  transition: border-color 0.14s ease;
+}
+
+.board-name-input:focus {
+  border-bottom-color: rgba(238, 235, 231, 0.55);
+}
+
+.board-name-input::placeholder {
+  opacity: 0.3;
+}
+
+.board-desc-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(238, 235, 231, 0.1);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 0;
+  outline: none;
+  resize: none;
+  opacity: 0.65;
+  transition: border-color 0.14s ease, opacity 0.14s ease;
+}
+
+.board-desc-input:focus {
+  border-bottom-color: rgba(238, 235, 231, 0.38);
+  opacity: 1;
+}
+
+.board-desc-input::placeholder {
+  opacity: 0.55;
+}
+
+.board-section {
+  margin-top: 16px;
+}
+
+.board-section-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  opacity: 0.42;
+  margin-bottom: 8px;
+}
+
+.board-section-optional {
+  font-size: 9px;
+  opacity: 0.65;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.board-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.board-group-select {
+  width: 100%;
+  appearance: none;
+  background: rgba(44, 44, 44, 0.9);
+  border: 1px solid rgba(238, 235, 231, 0.18);
+  border-radius: var(--btn-radius);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.14s ease;
+}
+
+.board-group-select:focus,
+.board-group-select:hover {
+  border-color: rgba(238, 235, 231, 0.42);
+}
+
+.board-new-group-input {
+  width: 100%;
+  margin-top: 8px;
+  background: rgba(44, 44, 44, 0.9);
+  border: 1px solid rgba(238, 235, 231, 0.18);
+  border-radius: var(--btn-radius);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.14s ease;
+}
+
+.board-new-group-input:focus {
+  border-color: rgba(238, 235, 231, 0.45);
+}
+
+.board-modal-actions {
+  justify-content: space-between;
+}
+
+.board-modal-actions .board-arena-shortcut {
+  margin-left: 0;
+  padding-left: 2px;
+}
+
+.board-modal-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.board-arena-shortcut {
+  font-size: 11px;
+  background: transparent;
+  font-weight: 500;
+  color: var(--color-sub);
+  padding: 4px 10px;
+  border-radius: var(--btn-radius);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0.6;
+}
+
+.board-arena-shortcut:hover {
+  background: transparent;
+  color: #fff;
+  opacity: 1;
 }
 
 /* ── Pin modal redesign ───────────────────────── */
@@ -1136,7 +1378,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 .pin-source-toggle {
   display: inline-flex;
   border: 1px solid rgba(238, 235, 231, 0.18);
-  border-radius: 10px;
+  border-radius: var(--btn-radius);
   overflow: hidden;
 }
 
@@ -1269,6 +1511,79 @@ body.zoom-ui-hidden .fab-center-group.visible {
   margin-bottom: 12px;
 }
 
+.arena-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.arena-channels-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(54vh, 460px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.arena-channel-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(238, 235, 231, 0.18);
+  border-radius: var(--btn-radius);
+  background: rgba(44, 44, 44, 0.88);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, transform 0.12s ease, background 0.14s ease;
+}
+
+.arena-channel-card:hover {
+  border-color: rgba(238, 235, 231, 0.4);
+  background: rgba(44, 44, 44, 0.96);
+  transform: translateY(-1px);
+}
+
+.arena-channel-check {
+  width: 16px;
+  height: 16px;
+  accent-color: #eeebe7;
+  cursor: pointer;
+}
+
+.arena-channel-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.arena-channel-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arena-channel-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(238, 235, 231, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arena-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
 /* ── Global drop overlay ──────────────────────── */
 
 #drop-overlay {
@@ -1292,5 +1607,17 @@ body.zoom-ui-hidden .fab-center-group.visible {
   letter-spacing: 0.4px;
   color: var(--text);
   background: rgba(44, 44, 44, 0.82);
+}
+
+/* ── Group labels on home canvas ─────────────── */
+.group-label {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  opacity: 0.38;
+  pointer-events: none;
 }
 

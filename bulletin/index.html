@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>bulletin</title>
+  <title>Bulletin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bellota&display=block" rel="stylesheet">
@@ -28,7 +28,7 @@
     <p>Your visual pin network starts here.</p>
     <div class="empty-actions">
       <button class="btn btn-primary" id="btn-new-board">Create a Board</button>
-      <button class="btn btn-secondary" id="btn-connect-arena">Connect Are.na</button>
+      <button class="btn btn-secondary" id="btn-connect-arena">Import from Are.na</button>
     </div>
   </div>
 
@@ -83,35 +83,43 @@
 
   <!-- Create / Edit Board Modal -->
   <div class="modal-overlay" id="modal-board" hidden>
-    <div class="modal">
-      <h2 id="modal-board-title">New Board</h2>
+    <div class="modal modal-board-redesign">
+      <div class="board-modal-chrome">
+        <h2 id="modal-board-title" contenteditable="true" spellcheck="false" 
+            placeholder="Board name…" class="editable-title">New Board</h2>
+      </div>
       <form id="form-board" autocomplete="off">
         <input type="hidden" id="board-id">
-        <label>
-          Name
-          <input type="text" id="board-name" required maxlength="60" placeholder="e.g. Brutalism">
-        </label>
-        <label>
-          Description
-          <textarea id="board-desc" rows="2" maxlength="200" placeholder="Optional description"></textarea>
-        </label>
-        <label>
-          Color
-          <div class="color-swatches" id="board-colors">
-            <button type="button" class="swatch selected" data-color="#E8927C" style="background:#E8927C"></button>
-            <button type="button" class="swatch" data-color="#7CA1E8" style="background:#7CA1E8"></button>
-            <button type="button" class="swatch" data-color="#A8E87C" style="background:#A8E87C"></button>
-            <button type="button" class="swatch" data-color="#E8D77C" style="background:#E8D77C"></button>
-            <button type="button" class="swatch" data-color="#CB7CE8" style="background:#CB7CE8"></button>
-            <button type="button" class="swatch" data-color="#E87CA1" style="background:#E87CA1"></button>
-            <button type="button" class="swatch" data-color="#7CE8D7" style="background:#7CE8D7"></button>
-            <button type="button" class="swatch" data-color="#EEEBE7" style="background:#EEEBE7"></button>
+
+        <!-- Description -->
+        <div class="board-field">
+          <textarea id="board-desc" class="board-desc-input" rows="2"
+                    maxlength="200" placeholder="Description (optional)"></textarea>
+        </div>
+
+        <!-- Group -->
+        <div class="board-section">
+          <span class="board-section-label">Group <span class="board-section-optional">optional</span></span>
+          <select id="board-group" class="board-group-select">
+            <option value="">No group</option>
+            <!-- groups injected dynamically by JS when opened -->
+            <option value="__new__">+ Create new group</option>
+          </select>
+          <input type="text" id="board-new-group-name" class="board-new-group-input"
+                 placeholder="Group name…" maxlength="40" hidden>
+        </div>
+
+        <!-- Actions -->
+        <div class="modal-actions board-modal-actions">
+          <button type="button" class="btn btn-ghost board-arena-shortcut" id="btn-board-to-arena" style="border: 0; background: transparent; display: flex; align-items: center;">
+            <i data-lucide="log-in" style="width: 13px; height: 13px; margin-right: 6px;"></i>
+            <span style="line-height: 1;">Import from Are.na</span>
+          </button>
+          <div class="board-modal-right" style="margin-left: auto;">
+            <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
+            <button type="button" class="btn btn-danger" id="btn-delete-board" hidden>Delete</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-board">Create</button>
           </div>
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
-          <button type="button" class="btn btn-danger" id="btn-delete-board" hidden>Delete Board</button>
-          <button type="submit" class="btn btn-primary" id="btn-save-board">Create Board</button>
         </div>
       </form>
     </div>
