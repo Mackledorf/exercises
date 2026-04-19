@@ -846,6 +846,16 @@ body.profile-mode .topbar {
   right: auto;
   left: 16px;
   bottom: 16px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  visibility: hidden;
+}
+
+.fab-group-left.visible {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
 }
 
 .fab svg {

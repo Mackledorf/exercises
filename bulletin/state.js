@@ -38,7 +38,7 @@ export const PIN_SEL_EDIT_H = 26;
 export const PIN_SEL_EDIT_W = 54;
 
 // ── DOM refs (set once via initDOM) ──────────────
-export let svg, masterG, emptyState, fabGroup, topbarEl, breadcrumb;
+export let svg, masterG, emptyState, fabGroup, fabGroupLeft, topbarEl, breadcrumb;
 export let topbarLogo, topbarProfileBtn, profileView, exploreView, zoomLabel;
 export let minimapEl, minimapContainerEl, mCtx;
 
@@ -92,6 +92,7 @@ export function initDOM() {
   svg          = d3.select("#canvas");
   emptyState   = document.getElementById("empty-state");
   fabGroup     = document.getElementById("fab-group");
+  fabGroupLeft = document.querySelector(".fab-group-left");
   topbarEl     = document.querySelector(".topbar");
   breadcrumb   = document.getElementById("breadcrumb");
   topbarLogo   = document.getElementById("topbar-logo");

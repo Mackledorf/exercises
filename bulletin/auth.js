@@ -215,7 +215,7 @@ const Auth = (function () {
       // Update profile button text to be generic
       const profileBtn = document.getElementById("topbar-profile");
       if (profileBtn) {
-        profileBtn.textContent = "My profile";
+        profileBtn.textContent = "Profile";
       }
       
       // Update profile page with username

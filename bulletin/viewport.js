@@ -5,7 +5,7 @@ import {
   currentView, activeBoardId, width, height,
   GRID, TRANSITION_MS, ZOOM_SETTLE_MS, WHEEL_ZOOM_SENS,
   HOME_WHEEL_GUARD_MS, PAN_BOUND_SCREENS, PIN_W, PIN_H,
-  topbarEl, zoomLabel, minimapContainerEl,
+  topbarEl, zoomLabel, minimapContainerEl, fabGroupLeft,
   TOPBAR_CLIP_BUFFER,
 } from "./state.js";
 
@@ -449,6 +449,32 @@ export function updateBoardZoomUIVisibility() {
   const fabCenter = document.getElementById("fab-center-group");
   if (fabCenter) {
     fabCenter.classList.toggle("visible", showBoardUI);
+  }
+
+  // Update left FAB (recentering button) visibility
+  // Show only if in board view and NO pins are currently visible in the viewport
+  if (fabGroupLeft) {
+    let showLeftFAB = false;
+    if (isBoardView && activeBoardId) {
+      const pins = Store.getPins(activeBoardId);
+      if (pins.length > 0) {
+        // Check if any pin is in the viewport
+        const visible = pins.some(p => {
+          const screenX = currentTransform.x + p.x * currentTransform.k;
+          const screenY = currentTransform.y + p.y * currentTransform.k;
+          const w = PIN_W * currentTransform.k;
+          const h = PIN_H * currentTransform.k;
+          return (
+            screenX + w > 0 &&
+            screenX < width &&
+            screenY + h > 0 &&
+            screenY < height
+          );
+        });
+        showLeftFAB = !visible;
+      }
+    }
+    fabGroupLeft.classList.toggle("visible", showLeftFAB);
   }
 }
 

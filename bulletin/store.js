@@ -73,6 +73,14 @@ const Store = (function () {
   async function init(userId) {
     _userId = userId;
 
+    // Prevent malformed Supabase filters (for example eq(user_id, undefined)).
+    if (typeof _userId !== "string" || _userId.trim().length === 0) {
+      console.warn("[Store] init called without a valid user id; skipping remote load.");
+      _data = { boards: [], pins: [], groups: [], connections: [] };
+      _ready = true;
+      return;
+    }
+
     const [boardsRes, pinsRes, boardPinsRes, groupsRes, connectionsRes] = await Promise.all([
       _sb().from("boards").select("*").eq("user_id", _userId).order("created_at"),
       _sb().from("pins").select("*").eq("user_id", _userId).order("created_at"),

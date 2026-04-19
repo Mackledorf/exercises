@@ -424,7 +424,7 @@ S.topbarLogo.addEventListener("click", () => {
   }
   resetViewportToIdentity();
   S.setCurrentView("home");
-  history.pushState({ view: "home" }, "Home");
+  window.history.pushState({ view: "home" }, "Home");
   render();
 });
 

@@ -528,23 +528,10 @@ export function updateBreadcrumb(board) {
     }
     // We already do this above, but to be safe and consistent with user intent:
     S.setCurrentView("explore");
-    history.pushState({ view: "explore" }, "Search");
+    window.history.pushState({ view: "explore" }, "Search");
     _render();
   });
   breadcrumb.appendChild(home);
-
-  if (board) {
-    const sep = document.createElement("span");
-    sep.className = "sep";
-    sep.textContent = "/";
-    breadcrumb.appendChild(sep);
-
-    const crumb = document.createElement("span");
-    crumb.className = "crumb";
-    crumb.classList.add("crumb-current");
-    crumb.textContent = board.name;
-    breadcrumb.appendChild(crumb);
-  }
 }
 
 export function hideAddPinButton() {
