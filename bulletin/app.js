@@ -465,42 +465,57 @@ modals.bindModalEvents();
 // ══════════════════════════════════════════════════
 
 let _appInitialized = false;
+let _bootInFlight = null;
 
 async function bootApp(user) {
   if (_appInitialized) return;
-  _appInitialized = true;
+  if (_bootInFlight) return _bootInFlight;
 
-  try {
-    await Store.init(user.id);
-  } catch (err) {
-    console.error("[App] Store init failed:", err);
-    return;
-  }
+  _bootInFlight = (async () => {
+    try {
+      await Store.init(user.id);
 
-  if (document.fonts && document.fonts.ready) {
-    await document.fonts.ready;
-  }
-
-  render();
-
-  // Handle Are.na OAuth callback
-  if (typeof Arena !== "undefined") {
-    Arena.handleCallback().then(authed => {
-      if (authed) {
-        modals.refreshArenaModal();
-        modals.openModal("modal-arena");
-        render();
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
       }
-    });
-  }
+
+      render();
+
+      // Handle Are.na OAuth callback
+      if (typeof Arena !== "undefined") {
+        Arena.handleCallback().then(authed => {
+          if (authed) {
+            modals.refreshArenaModal();
+            modals.openModal("modal-arena");
+            render();
+          }
+        });
+      }
+
+      _appInitialized = true;
+    } catch (err) {
+      _appInitialized = false;
+      console.error("[App] Store init failed:", err);
+      throw err;
+    } finally {
+      _bootInFlight = null;
+    }
+  })();
+
+  return _bootInFlight;
 }
 
 // Allow re-init on sign-in after sign-out
 function resetApp() {
   _appInitialized = false;
+  _bootInFlight = null;
 }
 
 Auth.init({
-  onAuthReady: (user) => bootApp(user),
+  onAuthReady: (user) => {
+    bootApp(user).catch((err) => {
+      console.error("[App] Boot failed:", err);
+    });
+  },
   onSignOut: () => resetApp(),
 });

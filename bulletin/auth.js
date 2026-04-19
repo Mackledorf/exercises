@@ -3,12 +3,109 @@
 const Auth = (function () {
   "use strict";
 
+  const SESSION_STARTED_AT_KEY = "bulletin_session_started_at";
+  const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
   let _onAuthReady = null; // callback: (user) => void
   let _onSignOut = null;  // callback: () => void
   let _currentUser = null;
+  let _authSubscription = null;
+  let _initialSessionHandled = false;
 
   function _sb() {
     return window.supabaseClient;
+  }
+
+  function _getSessionStartedAt() {
+    try {
+      const raw = localStorage.getItem(SESSION_STARTED_AT_KEY);
+      if (!raw) return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function _setSessionStartedAt(ts) {
+    try {
+      localStorage.setItem(SESSION_STARTED_AT_KEY, String(ts || Date.now()));
+    } catch (err) {
+      // Ignore storage errors (private mode, quota, etc.)
+    }
+  }
+
+  function _clearSessionStartedAt() {
+    try {
+      localStorage.removeItem(SESSION_STARTED_AT_KEY);
+    } catch (err) {
+      // Ignore storage errors
+    }
+  }
+
+  function _isSessionExpired() {
+    const startedAt = _getSessionStartedAt();
+    if (!startedAt) return false;
+    return (Date.now() - startedAt) > SESSION_MAX_AGE_MS;
+  }
+
+  async function _enforceSessionAge(event, session) {
+    if (!session?.user) return false;
+
+    if (event === "SIGNED_IN") {
+      // Reset the local max-age window for explicit sign-ins.
+      _setSessionStartedAt(Date.now());
+    } else if (!_getSessionStartedAt()) {
+      _setSessionStartedAt(Date.now());
+    }
+
+    if (!_isSessionExpired()) return false;
+
+    _setError("Session expired. Please sign in again.");
+    await _sb().auth.signOut();
+    return true;
+  }
+
+  async function _handleAuthState(event, session) {
+    if (event === "INITIAL_SESSION") {
+      if (_initialSessionHandled) return;
+      _initialSessionHandled = true;
+    }
+
+    if (event === "SIGNED_OUT") {
+      _currentUser = null;
+      _clearSessionStartedAt();
+      _updateAuthUI();
+      if (_onSignOut) _onSignOut();
+      return;
+    }
+
+    if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+      if (await _enforceSessionAge(event, session)) return;
+
+      _currentUser = session?.user || null;
+      _updateAuthUI();
+
+      if (_currentUser && _onAuthReady) {
+        _onAuthReady(_currentUser);
+      }
+      return;
+    }
+
+    _currentUser = session?.user || null;
+    _updateAuthUI();
+  }
+
+  async function _resolveInitialSession() {
+    try {
+      const { data, error } = await _sb().auth.getSession();
+      if (error) throw error;
+      await _handleAuthState("INITIAL_SESSION", data?.session || null);
+    } catch (err) {
+      console.error("[Auth] Failed to resolve initial session:", err);
+      _currentUser = null;
+      _updateAuthUI();
+    }
   }
 
   // ── Init ───────────────────────────────────────
@@ -20,21 +117,22 @@ const Auth = (function () {
     // Show auth view immediately until auth state resolves
     _showAuthView();
 
-    // Listen for auth state changes
-    _sb().auth.onAuthStateChange((event, session) => {
-      _currentUser = session?.user || null;
-      _updateAuthUI();
-
-      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-        if (_currentUser && _onAuthReady) _onAuthReady(_currentUser);
-      }
-      if (event === "SIGNED_OUT") {
-        _showAuthView();
-        if (_onSignOut) _onSignOut();
-      }
-    });
+    if (_authSubscription) {
+      _authSubscription.unsubscribe();
+      _authSubscription = null;
+    }
 
     _bindEvents();
+
+    // Listen for auth state changes
+    const { data } = _sb().auth.onAuthStateChange((event, session) => {
+      _handleAuthState(event, session).catch((err) => {
+        console.error("[Auth] Auth state handler failed:", err);
+      });
+    });
+    _authSubscription = data?.subscription || null;
+
+    _resolveInitialSession();
   }
 
   // ── Current user ───────────────────────────────
@@ -65,6 +163,7 @@ const Auth = (function () {
     const { error } = await _sb().auth.signOut();
     if (error) throw error;
     _currentUser = null;
+    _clearSessionStartedAt();
   }
 
   // ── UI ─────────────────────────────────────────
