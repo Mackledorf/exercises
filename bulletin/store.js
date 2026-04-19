@@ -7,7 +7,6 @@ const Store = (function () {
   let _data = { boards: [], pins: [], groups: [], connections: [] };
   let _userId = null;
   let _ready = false;
-  let _boardPinsSupportsUserId = true;
 
   function _sb() {
     return window.supabaseClient;
@@ -31,47 +30,9 @@ const Store = (function () {
     });
   }
 
-  function _isUserIdColumnError(error) {
-    if (!error) return false;
-    const msg = String(error.message || "").toLowerCase();
-    const details = String(error.details || "").toLowerCase();
-    return msg.includes("user_id") || details.includes("user_id") || error.code === "42703";
-  }
-
-  async function _loadBoardPins() {
-    if (!_userId) return { data: [], error: null };
-
-    if (_boardPinsSupportsUserId) {
-      const withUserFilter = await _sb().from("board_pins").select("*").eq("user_id", _userId);
-      if (!withUserFilter.error) return withUserFilter;
-
-      _logSupabaseError("select board_pins (with user_id)", withUserFilter.error);
-      if (!_isUserIdColumnError(withUserFilter.error)) return withUserFilter;
-
-      _boardPinsSupportsUserId = false;
-      console.warn("[Store] board_pins user_id filter unsupported; falling back to board/pin scoped fetch.");
-    }
-
-    const fallback = await _sb().from("board_pins").select("*");
-    if (fallback.error) _logSupabaseError("select board_pins (fallback)", fallback.error);
-    return fallback;
-  }
-
+  // board_pins has no user_id column; rows are scoped through board ownership.
   function _buildBoardPinPayload({ pinId, boardId, x, y, pinW }) {
-    const payload = {
-      pin_id: pinId,
-      board_id: boardId,
-      x,
-      y,
-      pin_w: pinW,
-    };
-    if (_boardPinsSupportsUserId) payload.user_id = _userId;
-    return payload;
-  }
-
-  function _applyBoardPinScope(query) {
-    if (_boardPinsSupportsUserId) return query.eq("user_id", _userId);
-    return query;
+    return { pin_id: pinId, board_id: boardId, x, y, pin_w: pinW };
   }
 
   // ── Async DB helpers (fire-and-forget for writes) ──
@@ -138,7 +99,7 @@ const Store = (function () {
     const [boardsRes, pinsRes, boardPinsRes, groupsRes, connectionsRes] = await Promise.all([
       _sb().from("boards").select("*").eq("user_id", _userId).order("created_at"),
       _sb().from("pins").select("*").eq("user_id", _userId).order("created_at"),
-      _loadBoardPins(),
+      _sb().from("board_pins").select("*"),
       _sb().from("groups").select("*").eq("user_id", _userId).order("created_at"),
       _sb().from("connections").select("*").eq("user_id", _userId).order("created_at"),
     ]);
@@ -502,11 +463,9 @@ const Store = (function () {
     if ("pinW" in changes) dbChanges.pin_w = changes.pinW;
 
     if (Object.keys(dbChanges).length > 0) {
-      _applyBoardPinScope(
-        _sb().from("board_pins").update(dbChanges)
-          .eq("pin_id", id)
-          .eq("board_id", boardId)
-      )
+      _sb().from("board_pins").update(dbChanges)
+        .eq("pin_id", id)
+        .eq("board_id", boardId)
         .then(({ error }) => {
           if (error) _logSupabaseError("update board_pin placement", error);
         });
@@ -554,11 +513,9 @@ const Store = (function () {
     }
 
     // DB: remove board_pin row
-    _applyBoardPinScope(
-      _sb().from("board_pins").delete()
-        .eq("pin_id", id)
-        .eq("board_id", boardId)
-    )
+    _sb().from("board_pins").delete()
+      .eq("pin_id", id)
+      .eq("board_id", boardId)
       .then(({ error }) => {
         if (error) _logSupabaseError("delete board_pin", error);
       });
