@@ -87,10 +87,16 @@ const Auth = (function () {
   function _updateAuthUI() {
     if (_currentUser) {
       _hideAuthView();
-      // Update profile button with email
+      // Update profile button text to be generic
       const profileBtn = document.getElementById("topbar-profile");
       if (profileBtn) {
-        profileBtn.textContent = _currentUser.email?.split("@")[0] || "Profile";
+        profileBtn.textContent = "My profile";
+      }
+      
+      // Update profile page with username
+      const nameEl = document.getElementById("profile-user-name");
+      if (nameEl) {
+        nameEl.textContent = _currentUser.email?.split("@")[0] || "User";
       }
     } else {
       _showAuthView();
@@ -102,6 +108,7 @@ const Auth = (function () {
     if (el) {
       el.textContent = msg || "";
       el.hidden = !msg;
+      el.className = "auth-error";
     }
   }
 
@@ -149,7 +156,7 @@ const Auth = (function () {
             if (el) {
               el.textContent = "Check your email to confirm your account.";
               el.hidden = false;
-              el.style.color = "var(--accent, #7C93C3)";
+              el.className = "auth-success";
             }
           } else {
             await signIn(email, password);

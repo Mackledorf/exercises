@@ -657,6 +657,17 @@ body.profile-mode .topbar {
   gap: 52px;
 }
 
+.profile-header {
+  margin-bottom: -12px;
+}
+
+.profile-user-name {
+  font-family: var(--font-accent);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
 .profile-section-title {
   font-family: var(--font-main);
   font-size: 14px;
@@ -1220,6 +1231,9 @@ body.explore-mode .topbar {
   opacity: 0.35;
   text-align: center;
   padding: 60px 0;
+  column-span: all;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
 /* Pin card */
@@ -2139,6 +2153,16 @@ body.auth-mode #explore-view {
   padding: 8px 12px;
   font-size: 13px;
   color: #e88;
+  text-align: left;
+}
+
+.auth-success {
+  background: var(--alt-grey);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--btn-radius);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #888;
   text-align: left;
 }
 

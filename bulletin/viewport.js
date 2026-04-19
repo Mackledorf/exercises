@@ -9,6 +9,7 @@ import {
   TOPBAR_CLIP_BUFFER,
 } from "./state.js";
 
+import { getBoards } from "./store.js";
 import { imageAspectCache, getPinImageSrc, clamp, normalizeRect } from "./utils.js";
 
 // ── Private state ────────────────────────────────
@@ -68,7 +69,8 @@ export function writeGridTransform(transform) {
     lastGridY = y;
   }
 
-  const scaleDeltaThreshold = hasScaleInteraction ? 0.012 : 0.0001;
+  // Keep grid scale tightly in sync with camera zoom to avoid visible stepping.
+  const scaleDeltaThreshold = 0.0001;
   if (!Number.isFinite(lastGridK) || Math.abs(k - lastGridK) >= scaleDeltaThreshold) {
     canvasNode.style.backgroundSize = `${GRID * k}px ${GRID * k}px`;
     lastGridK = k;
@@ -495,6 +497,12 @@ export const zoom = d3.zoom()
   .constrain((transform) => constrainTransformToPanBounds(transform))
   .on("zoom", onZoom)
   .filter(event => {
+    // Disable zoom/pan if no boards (only in Home view)
+    if (currentView === "home") {
+      const boards = getBoards();
+      if (boards.length === 0) return false;
+    }
+    
     if (event.type === 'wheel') return false;
     return !event.button;
   });
@@ -503,6 +511,13 @@ export const zoom = d3.zoom()
 export function attachWheelHandler() {
   svg.on("wheel", (event) => {
     if (currentView !== "board" && currentView !== "home") return;
+    
+    // Disable wheel if no boards in home view
+    if (currentView === "home") {
+      const boards = getBoards();
+      if (boards.length === 0) return;
+    }
+
     event.preventDefault();
 
     if (currentView === "home" && Date.now() < suppressHomeWheelUntil) {
