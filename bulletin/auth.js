@@ -5,15 +5,35 @@ const Auth = (function () {
 
   const SESSION_STARTED_AT_KEY = "bulletin_session_started_at";
   const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+  const AUTH_RESOLVE_TIMEOUT_MS = 5000;
 
   let _onAuthReady = null; // callback: (user) => void
   let _onSignOut = null;  // callback: () => void
   let _currentUser = null;
   let _authSubscription = null;
-  let _initialSessionHandled = false;
+  let _authResolveTimer = null;
+  let _authResolved = false;
 
   function _sb() {
     return window.supabaseClient;
+  }
+
+  function _markAuthResolved() {
+    _authResolved = true;
+    if (_authResolveTimer) {
+      clearTimeout(_authResolveTimer);
+      _authResolveTimer = null;
+    }
+  }
+
+  function _scheduleAuthFallback() {
+    if (_authResolveTimer) clearTimeout(_authResolveTimer);
+    _authResolved = false;
+    _authResolveTimer = setTimeout(() => {
+      if (_authResolved) return;
+      _currentUser = null;
+      _showAuthView();
+    }, AUTH_RESOLVE_TIMEOUT_MS);
   }
 
   function _getSessionStartedAt() {
@@ -67,10 +87,7 @@ const Auth = (function () {
   }
 
   async function _handleAuthState(event, session) {
-    if (event === "INITIAL_SESSION") {
-      if (_initialSessionHandled) return;
-      _initialSessionHandled = true;
-    }
+    _markAuthResolved();
 
     if (event === "SIGNED_OUT") {
       _currentUser = null;
@@ -102,6 +119,7 @@ const Auth = (function () {
       if (error) throw error;
       await _handleAuthState("INITIAL_SESSION", data?.session || null);
     } catch (err) {
+      _markAuthResolved();
       console.error("[Auth] Failed to resolve initial session:", err);
       _currentUser = null;
       _updateAuthUI();
@@ -122,17 +140,27 @@ const Auth = (function () {
       _authSubscription = null;
     }
 
+    _scheduleAuthFallback();
     _bindEvents();
 
     // Listen for auth state changes
-    const { data } = _sb().auth.onAuthStateChange((event, session) => {
-      _handleAuthState(event, session).catch((err) => {
-        console.error("[Auth] Auth state handler failed:", err);
+    try {
+      const { data } = _sb().auth.onAuthStateChange((event, session) => {
+        _handleAuthState(event, session).catch((err) => {
+          console.error("[Auth] Auth state handler failed:", err);
+        });
       });
-    });
-    _authSubscription = data?.subscription || null;
+      _authSubscription = data?.subscription || null;
+    } catch (err) {
+      _markAuthResolved();
+      console.error("[Auth] Failed to attach auth listener:", err);
+      _currentUser = null;
+      _showAuthView();
+    }
 
-    _resolveInitialSession();
+    _resolveInitialSession().catch((err) => {
+      console.error("[Auth] Initial session resolution failed:", err);
+    });
   }
 
   // ── Current user ───────────────────────────────

@@ -9,6 +9,5 @@ window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON
 		autoRefreshToken: true,
 		detectSessionInUrl: true,
 		storage: window.localStorage,
-		storageKey: "bulletin.supabase.auth.token",
 	},
 });
