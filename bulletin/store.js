@@ -7,6 +7,7 @@ const Store = (function () {
   let _data = { boards: [], pins: [], groups: [], connections: [] };
   let _userId = null;
   let _ready = false;
+  let _boardPinsSupportsUserId = true;
 
   function _sb() {
     return window.supabaseClient;
@@ -18,6 +19,59 @@ const Store = (function () {
 
   function _uid() {
     return crypto.randomUUID();
+  }
+
+  function _logSupabaseError(scope, error) {
+    if (!error) return;
+    console.error(`[Store] ${scope}:`, {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+  }
+
+  function _isUserIdColumnError(error) {
+    if (!error) return false;
+    const msg = String(error.message || "").toLowerCase();
+    const details = String(error.details || "").toLowerCase();
+    return msg.includes("user_id") || details.includes("user_id") || error.code === "42703";
+  }
+
+  async function _loadBoardPins() {
+    if (!_userId) return { data: [], error: null };
+
+    if (_boardPinsSupportsUserId) {
+      const withUserFilter = await _sb().from("board_pins").select("*").eq("user_id", _userId);
+      if (!withUserFilter.error) return withUserFilter;
+
+      _logSupabaseError("select board_pins (with user_id)", withUserFilter.error);
+      if (!_isUserIdColumnError(withUserFilter.error)) return withUserFilter;
+
+      _boardPinsSupportsUserId = false;
+      console.warn("[Store] board_pins user_id filter unsupported; falling back to board/pin scoped fetch.");
+    }
+
+    const fallback = await _sb().from("board_pins").select("*");
+    if (fallback.error) _logSupabaseError("select board_pins (fallback)", fallback.error);
+    return fallback;
+  }
+
+  function _buildBoardPinPayload({ pinId, boardId, x, y, pinW }) {
+    const payload = {
+      pin_id: pinId,
+      board_id: boardId,
+      x,
+      y,
+      pin_w: pinW,
+    };
+    if (_boardPinsSupportsUserId) payload.user_id = _userId;
+    return payload;
+  }
+
+  function _applyBoardPinScope(query) {
+    if (_boardPinsSupportsUserId) return query.eq("user_id", _userId);
+    return query;
   }
 
   // ── Async DB helpers (fire-and-forget for writes) ──
@@ -84,10 +138,15 @@ const Store = (function () {
     const [boardsRes, pinsRes, boardPinsRes, groupsRes, connectionsRes] = await Promise.all([
       _sb().from("boards").select("*").eq("user_id", _userId).order("created_at"),
       _sb().from("pins").select("*").eq("user_id", _userId).order("created_at"),
-      _sb().from("board_pins").select("*").eq("user_id", _userId),
+      _loadBoardPins(),
       _sb().from("groups").select("*").eq("user_id", _userId).order("created_at"),
       _sb().from("connections").select("*").eq("user_id", _userId).order("created_at"),
     ]);
+
+    if (boardsRes.error) _logSupabaseError("select boards", boardsRes.error);
+    if (pinsRes.error) _logSupabaseError("select pins", pinsRes.error);
+    if (groupsRes.error) _logSupabaseError("select groups", groupsRes.error);
+    if (connectionsRes.error) _logSupabaseError("select connections", connectionsRes.error);
 
     const boards = (boardsRes.data || []).map(b => ({
       id: b.id,
@@ -100,10 +159,18 @@ const Store = (function () {
       groupId: b.group_id || null,
     }));
 
-    const boardPins = boardPinsRes.data || [];
+    if (boardPinsRes.error) {
+      _logSupabaseError("select board_pins", boardPinsRes.error);
+    }
+
+    const boardsById = new Set(boards.map(b => b.id));
+    const rawPins = pinsRes.data || [];
+    const pinsById = new Set(rawPins.map(p => p.id));
+    const boardPins = (boardPinsRes.data || []).filter(bp => (
+      boardsById.has(bp.board_id) && pinsById.has(bp.pin_id)
+    ));
 
     // Build pin objects with placements from board_pins junction
-    const rawPins = pinsRes.data || [];
     const pins = rawPins.map(p => {
       const pinBoardPins = boardPins.filter(bp => bp.pin_id === p.id);
       const placements = {};
@@ -366,15 +433,14 @@ const Store = (function () {
     // DB: upsert board_pins rows
     nextBoardIds.forEach(bId => {
       const p = nextPlacements[bId];
-      _sb().from("board_pins").upsert({
-        pin_id: pinId,
-        board_id: bId,
-        user_id: _userId,
+      _sb().from("board_pins").upsert(_buildBoardPinPayload({
+        pinId,
+        boardId: bId,
         x: p.x,
         y: p.y,
-        pin_w: p.pinW,
-      }, { onConflict: "pin_id,board_id" }).then(({ error }) => {
-        if (error) console.error("[Store] upsert board_pin:", error.message);
+        pinW: p.pinW,
+      }), { onConflict: "pin_id,board_id" }).then(({ error }) => {
+        if (error) _logSupabaseError("upsert board_pin", error);
       });
     });
 
@@ -436,11 +502,13 @@ const Store = (function () {
     if ("pinW" in changes) dbChanges.pin_w = changes.pinW;
 
     if (Object.keys(dbChanges).length > 0) {
-      _sb().from("board_pins").update(dbChanges)
-        .eq("pin_id", id)
-        .eq("board_id", boardId)
+      _applyBoardPinScope(
+        _sb().from("board_pins").update(dbChanges)
+          .eq("pin_id", id)
+          .eq("board_id", boardId)
+      )
         .then(({ error }) => {
-          if (error) console.error("[Store] update board_pin placement:", error.message);
+          if (error) _logSupabaseError("update board_pin placement", error);
         });
     }
 
@@ -457,15 +525,14 @@ const Store = (function () {
     });
 
     const p = pin.placements[boardId];
-    _sb().from("board_pins").upsert({
-      pin_id: id,
-      board_id: boardId,
-      user_id: _userId,
+    _sb().from("board_pins").upsert(_buildBoardPinPayload({
+      pinId: id,
+      boardId,
       x: p.x,
       y: p.y,
-      pin_w: p.pinW,
-    }, { onConflict: "pin_id,board_id" }).then(({ error }) => {
-      if (error) console.error("[Store] upsert board_pin (attach):", error.message);
+      pinW: p.pinW,
+    }), { onConflict: "pin_id,board_id" }).then(({ error }) => {
+      if (error) _logSupabaseError("upsert board_pin (attach)", error);
     });
 
     return getPin(id, boardId);
@@ -487,11 +554,13 @@ const Store = (function () {
     }
 
     // DB: remove board_pin row
-    _sb().from("board_pins").delete()
-      .eq("pin_id", id)
-      .eq("board_id", boardId)
+    _applyBoardPinScope(
+      _sb().from("board_pins").delete()
+        .eq("pin_id", id)
+        .eq("board_id", boardId)
+    )
       .then(({ error }) => {
-        if (error) console.error("[Store] delete board_pin:", error.message);
+        if (error) _logSupabaseError("delete board_pin", error);
       });
 
     return boardScopedPin;
