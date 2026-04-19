@@ -6,7 +6,6 @@
   <title>Bulletin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bellota&display=block" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,6 +18,9 @@
     <span class="topbar-logo" id="topbar-logo">Bulletin</span>
     <div class="topbar-right">
       <span class="topbar-profile" id="topbar-profile">Profile</span>
+      <button class="topbar-signout" id="topbar-signout" title="Sign out">
+        <i data-lucide="log-out" style="width:16px;height:16px;"></i>
+      </button>
     </div>
   </header>
 
@@ -49,7 +51,7 @@
   <!-- Minimap -->
   <div class="minimap-container">
     <span class="topbar-zoom" id="zoom-indicator">100%</span>
-    <canvas id="minimap" width="180" height="120"></canvas>
+    <canvas id="minimap" width="240" height="160"></canvas>
   </div>
 
   <!-- Profile view -->
@@ -69,6 +71,35 @@
           <button class="btn btn-secondary" id="btn-profile-arena">Connect Are.na</button>
         </div>
       </section>
+    </div>
+  </div>
+
+  <!-- Explore view -->
+  <div id="explore-view" hidden>
+    <div class="explore-container">
+      <div class="explore-search-wrap">
+        <i data-lucide="search" class="explore-search-icon"></i>
+        <input type="text" class="explore-search-input" placeholder="Search pins..." disabled>
+      </div>
+      <div class="explore-grid" id="explore-grid"></div>
+    </div>
+  </div>
+
+  <!-- Auth view (shown when not signed in) -->
+  <div id="auth-view" class="auth-view" hidden>
+    <div class="auth-container">
+      <h1 class="auth-logo">Bulletin</h1>
+      <p class="auth-subtitle">Your visual pin network.</p>
+      <form id="auth-form" class="auth-form" autocomplete="off">
+        <h2 id="auth-title" class="auth-form-title">Sign In</h2>
+        <div id="auth-error" class="auth-error" hidden></div>
+        <input type="email" id="auth-email" class="auth-input" placeholder="Email" required>
+        <input type="password" id="auth-password" class="auth-input" placeholder="Password" required minlength="6">
+        <button type="submit" id="auth-submit" class="btn btn-primary auth-btn" data-label="Sign In">Sign In</button>
+      </form>
+      <p id="auth-toggle-text" class="auth-toggle-text">
+        Don't have an account? <a href="#" id="auth-toggle">Create one</a>
+      </p>
     </div>
   </div>
 
@@ -180,8 +211,15 @@
   <!-- Delete Confirmation Modal -->
   <div class="modal-overlay" id="modal-delete" hidden>
     <div class="modal">
-      <h2>Delete Pin?</h2>
-      <p>This action cannot be undone. Are you sure you want to remove this pin?</p>
+      <h2 id="modal-delete-title">Delete Pin?</h2>
+      <p id="modal-delete-text">This action cannot be undone. Are you sure you want to remove this pin?</p>
+      
+      <!-- Confirmation Checkbox (hidden by default, shown for boards) -->
+      <div id="delete-confirmation-wrapper" style="margin: 16px 0; display: flex; align-items: center; gap: 8px;" hidden>
+        <input type="checkbox" id="delete-confirm-check" style="width: 16px; height: 16px; cursor: pointer;">
+        <label for="delete-confirm-check" style="font-size: 13px; opacity: 0.8; cursor: pointer;">I understand this is permanent</label>
+      </div>
+
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-dismiss>Cancel</button>
         <button type="button" id="btn-confirm-delete" class="btn btn-danger">Yes, Delete</button>
@@ -205,9 +243,12 @@
 
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="auth.js"></script>
   <script src="store.js"></script>
   <script src="arena.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
   <script>lucide.createIcons();</script>
 </body>
 </html>

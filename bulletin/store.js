@@ -1,56 +1,58 @@
-/* ── bulletin · store.js ─ localStorage persistence ── */
+/* ── bulletin · store.js ─ Supabase-backed persistence (cache-first) ── */
 
 const Store = (function () {
   "use strict";
 
-  const STORAGE_KEY = "bulletin_data";
+  // ── In-memory cache ─────────────────────────────
+  let _data = { boards: [], pins: [], groups: [], connections: [] };
+  let _userId = null;
+  let _ready = false;
+
+  function _sb() {
+    return window.supabaseClient;
+  }
 
   function _clone(value) {
     return JSON.parse(JSON.stringify(value));
   }
+
+  function _uid() {
+    return crypto.randomUUID();
+  }
+
+  // ── Async DB helpers (fire-and-forget for writes) ──
+
+  function _dbInsert(table, row) {
+    _sb().from(table).insert(row).then(({ error }) => {
+      if (error) console.error(`[Store] insert ${table}:`, error.message);
+    });
+  }
+
+  function _dbUpdate(table, id, changes) {
+    _sb().from(table).update(changes).eq("id", id).then(({ error }) => {
+      if (error) console.error(`[Store] update ${table}:`, error.message);
+    });
+  }
+
+  function _dbDelete(table, id) {
+    _sb().from(table).delete().eq("id", id).then(({ error }) => {
+      if (error) console.error(`[Store] delete ${table}:`, error.message);
+    });
+  }
+
+  function _dbDeleteWhere(table, column, value) {
+    _sb().from(table).delete().eq(column, value).then(({ error }) => {
+      if (error) console.error(`[Store] delete ${table} where ${column}=${value}:`, error.message);
+    });
+  }
+
+  // ── Pin normalization (keeps compatibility with rest of app) ──
 
   function _normalizePlacement(placement) {
     return {
       x: placement?.x ?? 0,
       y: placement?.y ?? 0,
       pinW: placement?.pinW ?? null,
-    };
-  }
-
-  function _normalizePin(pin) {
-    const placementSource = pin?.placements && typeof pin.placements === "object"
-      ? pin.placements
-      : pin?.boardId
-        ? {
-            [pin.boardId]: {
-              x: pin.x ?? 0,
-              y: pin.y ?? 0,
-              pinW: pin.pinW ?? null,
-            },
-          }
-        : {};
-
-    const placements = {};
-    Object.entries(placementSource).forEach(([boardId, placement]) => {
-      if (!boardId) return;
-      placements[boardId] = _normalizePlacement(placement);
-    });
-
-    const boardIds = Array.isArray(pin?.boardIds)
-      ? pin.boardIds.filter((boardId) => !!boardId && placements[boardId])
-      : Object.keys(placements);
-
-    return {
-      id: pin?.id || _uid(),
-      sharedPinId: pin?.sharedPinId || pin?.id || _uid(),
-      tags: Array.isArray(pin?.tags) ? pin.tags : [],
-      imageUrl: pin?.imageUrl || "",
-      imageData: pin?.imageData || null,
-      source: pin?.source || "local",
-      arenaBlockId: pin?.arenaBlockId || null,
-      createdAt: pin?.createdAt ?? Date.now(),
-      boardIds,
-      placements,
     };
   }
 
@@ -66,49 +68,94 @@ const Store = (function () {
     };
   }
 
-  function _normalizeData(data) {
-    const next = {
-      boards: Array.isArray(data?.boards) ? data.boards : [],
-      pins: Array.isArray(data?.pins) ? data.pins.map(_normalizePin) : [],
-      arena: data?.arena && typeof data.arena === "object" ? data.arena : {},
-      groups: Array.isArray(data?.groups) ? data.groups : [],
-    };
+  // ── Init: Load all data from Supabase ───────────
 
-    next.pins = next.pins.filter((pin) => pin.boardIds.length > 0);
-    return next;
-  }
+  async function init(userId) {
+    _userId = userId;
 
-  // ── Internal helpers ────────────────────────────
-  function _load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return _normalizeData(JSON.parse(raw));
-    } catch (e) { /* ignore corrupt data */ }
-    return { boards: [], pins: [], arena: {}, groups: [] };
-  }
+    const [boardsRes, pinsRes, boardPinsRes, groupsRes, connectionsRes] = await Promise.all([
+      _sb().from("boards").select("*").eq("user_id", _userId).order("created_at"),
+      _sb().from("pins").select("*").eq("user_id", _userId).order("created_at"),
+      _sb().from("board_pins").select("*").eq("user_id", _userId),
+      _sb().from("groups").select("*").eq("user_id", _userId).order("created_at"),
+      _sb().from("connections").select("*").eq("user_id", _userId).order("created_at"),
+    ]);
 
-  function _save(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(_normalizeData(data)));
-  }
+    const boards = (boardsRes.data || []).map(b => ({
+      id: b.id,
+      name: b.name || "Untitled",
+      description: b.description || "",
+      color: b.color || "#EEEBE7",
+      source: b.source || "local",
+      arenaChannelId: b.arena_channel_id || null,
+      createdAt: new Date(b.created_at).getTime(),
+      groupId: b.group_id || null,
+    }));
 
-  function _uid() {
-    return crypto.randomUUID();
+    const boardPins = boardPinsRes.data || [];
+
+    // Build pin objects with placements from board_pins junction
+    const rawPins = pinsRes.data || [];
+    const pins = rawPins.map(p => {
+      const pinBoardPins = boardPins.filter(bp => bp.pin_id === p.id);
+      const placements = {};
+      const boardIds = [];
+
+      pinBoardPins.forEach(bp => {
+        boardIds.push(bp.board_id);
+        placements[bp.board_id] = {
+          x: bp.x ?? 0,
+          y: bp.y ?? 0,
+          pinW: bp.pin_w ?? null,
+        };
+      });
+
+      return {
+        id: p.id,
+        sharedPinId: p.shared_pin_id || p.id,
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        imageUrl: p.image_url || "",
+        imageData: null, // no longer storing base64
+        linkUrl: p.link_url || null,
+        source: p.source || "local",
+        arenaBlockId: p.arena_block_id || null,
+        createdAt: new Date(p.created_at).getTime(),
+        boardIds,
+        placements,
+      };
+    }).filter(pin => pin.boardIds.length > 0);
+
+    const groups = (groupsRes.data || []).map(g => ({
+      id: g.id,
+      name: g.name || "Untitled Group",
+      createdAt: new Date(g.created_at).getTime(),
+    }));
+
+    const connections = (connectionsRes.data || []).map(c => ({
+      id: c.id,
+      sourceId: c.source_id,
+      targetId: c.target_id,
+      createdAt: new Date(c.created_at).getTime(),
+    }));
+
+    _data = { boards, pins, groups, connections };
+    _ready = true;
   }
 
   // ── Boards ──────────────────────────────────────
 
   function getBoards() {
-    return _load().boards;
+    return _data.boards;
   }
 
   function getBoard(id) {
-    return _load().boards.find(b => b.id === id) || null;
+    return _data.boards.find(b => b.id === id) || null;
   }
 
   function addBoard({ name, description, color, source, arenaChannelId, groupId }) {
-    const data = _load();
+    const id = _uid();
     const board = {
-      id: _uid(),
+      id,
       name: name || "Untitled",
       description: description || "",
       color: color || "#EEEBE7",
@@ -117,67 +164,118 @@ const Store = (function () {
       createdAt: Date.now(),
       groupId: groupId || null,
     };
-    data.boards.push(board);
-    _save(data);
+    _data.boards.push(board);
+
+    _dbInsert("boards", {
+      id,
+      user_id: _userId,
+      name: board.name,
+      description: board.description,
+      color: board.color,
+      source: board.source,
+      arena_channel_id: board.arenaChannelId,
+      group_id: board.groupId,
+    });
+
     return board;
   }
 
   function updateBoard(id, changes) {
-    const data = _load();
-    const board = data.boards.find(b => b.id === id);
+    const board = _data.boards.find(b => b.id === id);
     if (!board) return null;
     Object.assign(board, changes);
-    _save(data);
+
+    // Map camelCase to snake_case for DB
+    const dbChanges = {};
+    if ("name" in changes) dbChanges.name = changes.name;
+    if ("description" in changes) dbChanges.description = changes.description;
+    if ("color" in changes) dbChanges.color = changes.color;
+    if ("source" in changes) dbChanges.source = changes.source;
+    if ("arenaChannelId" in changes) dbChanges.arena_channel_id = changes.arenaChannelId;
+    if ("groupId" in changes) dbChanges.group_id = changes.groupId;
+
+    if (Object.keys(dbChanges).length > 0) {
+      _dbUpdate("boards", id, dbChanges);
+    }
+
     return board;
   }
 
   function deleteBoard(id) {
-    const data = _load();
-    data.boards = data.boards.filter(b => b.id !== id);
-    data.pins = data.pins
-      .map((pin) => detachPinFromBoardInternal(pin, id))
-      .filter((pin) => pin.boardIds.length > 0);
-    _save(data);
+    _data.boards = _data.boards.filter(b => b.id !== id);
+
+    // Detach pins from this board in cache
+    _data.pins = _data.pins
+      .map(pin => _detachPinFromBoardInternal(pin, id))
+      .filter(pin => pin.boardIds.length > 0);
+
+    // Remove connections referencing this board
+    _data.connections = _data.connections.filter(
+      c => c.sourceId !== id && c.targetId !== id
+    );
+
+    // DB: cascade deletes handle board_pins; also clean up connections
+    _dbDelete("boards", id);
+    _sb().from("connections").delete()
+      .or(`source_id.eq.${id},target_id.eq.${id}`)
+      .then(({ error }) => {
+        if (error) console.error("[Store] delete connections for board:", error.message);
+      });
   }
 
   // ── Groups ─────────────────────────────────────
+
   function getGroups() {
-    return _load().groups || [];
+    return _data.groups;
   }
 
   function addGroup({ name }) {
-    const data = _load();
-    if (!data.groups) data.groups = [];
-    const group = { id: _uid(), name: name || "Untitled Group", createdAt: Date.now() };
-    data.groups.push(group);
-    _save(data);
+    const id = _uid();
+    const group = { id, name: name || "Untitled Group", createdAt: Date.now() };
+    _data.groups.push(group);
+
+    _dbInsert("groups", {
+      id,
+      user_id: _userId,
+      name: group.name,
+    });
+
     return group;
   }
 
   function updateGroup(id, changes) {
-    const data = _load();
-    if (!data.groups) data.groups = [];
-    const group = data.groups.find(g => g.id === id);
+    const group = _data.groups.find(g => g.id === id);
     if (!group) return null;
     Object.assign(group, changes);
-    _save(data);
+
+    const dbChanges = {};
+    if ("name" in changes) dbChanges.name = changes.name;
+    if (Object.keys(dbChanges).length > 0) {
+      _dbUpdate("groups", id, dbChanges);
+    }
+
     return group;
   }
 
   function deleteGroup(id) {
-    const data = _load();
-    if (!data.groups) data.groups = [];
-    data.groups = data.groups.filter(g => g.id !== id);
-    // Un-group boards that belonged to this group
-    data.boards = data.boards.map(b =>
-      b.groupId === id ? Object.assign({}, b, { groupId: null }) : b
-    );
-    _save(data);
+    _data.groups = _data.groups.filter(g => g.id !== id);
+    // Un-group boards
+    _data.boards.forEach(b => {
+      if (b.groupId === id) b.groupId = null;
+    });
+
+    _dbDelete("groups", id);
+    // Un-group boards in DB
+    _sb().from("boards").update({ group_id: null }).eq("group_id", id).then(({ error }) => {
+      if (error) console.error("[Store] ungroup boards:", error.message);
+    });
   }
 
-  function detachPinFromBoardInternal(pin, boardId) {
+  // ── Pin internal helpers ────────────────────────
+
+  function _detachPinFromBoardInternal(pin, boardId) {
     const nextPin = _clone(pin);
-    nextPin.boardIds = nextPin.boardIds.filter((id) => id !== boardId);
+    nextPin.boardIds = nextPin.boardIds.filter(id => id !== boardId);
     if (nextPin.placements) delete nextPin.placements[boardId];
     return nextPin;
   }
@@ -185,13 +283,13 @@ const Store = (function () {
   // ── Pins ────────────────────────────────────────
 
   function getPins(boardId) {
-    return _load().pins
-      .map((pin) => _withBoardPlacement(pin, boardId))
+    return _data.pins
+      .map(pin => _withBoardPlacement(pin, boardId))
       .filter(Boolean);
   }
 
   function getPin(id, boardId) {
-    const pin = _load().pins.find(p => p.id === id) || null;
+    const pin = _data.pins.find(p => p.id === id) || null;
     if (!pin) return null;
     if (boardId) return _withBoardPlacement(pin, boardId);
     const defaultBoardId = pin.boardIds[0] || null;
@@ -199,15 +297,15 @@ const Store = (function () {
   }
 
   function getAllPins() {
-    return _load().pins.map((pin) => {
+    return _data.pins.map(pin => {
       const defaultBoardId = pin.boardIds[0] || null;
       return defaultBoardId ? _withBoardPlacement(pin, defaultBoardId) : pin;
     });
   }
 
-  function addPin({ id, sharedPinId, boardId, boardIds, placements, tags, imageUrl, imageData, source, arenaBlockId, x, y, pinW, createdAt }) {
-    const data = _load();
+  function addPin({ id, sharedPinId, boardId, boardIds, placements, tags, imageUrl, imageData, linkUrl, source, arenaBlockId, x, y, pinW, createdAt }) {
     const pinId = id || _uid();
+
     const nextPlacements = placements && typeof placements === "object"
       ? Object.fromEntries(
           Object.entries(placements)
@@ -219,7 +317,7 @@ const Store = (function () {
         : {};
 
     const nextBoardIds = Array.isArray(boardIds)
-      ? boardIds.filter((nextBoardId) => !!nextBoardId && nextPlacements[nextBoardId])
+      ? boardIds.filter(nextBoardId => !!nextBoardId && nextPlacements[nextBoardId])
       : Object.keys(nextPlacements);
 
     const pin = {
@@ -227,7 +325,8 @@ const Store = (function () {
       sharedPinId: sharedPinId || pinId,
       tags: Array.isArray(tags) ? tags : [],
       imageUrl: imageUrl || "",
-      imageData: imageData || null, // base64 data URL for uploads
+      imageData: imageData || null,
+      linkUrl: linkUrl || null,
       source: source || "local",
       arenaBlockId: arenaBlockId || null,
       createdAt: createdAt ?? Date.now(),
@@ -235,17 +334,47 @@ const Store = (function () {
       placements: nextPlacements,
     };
 
-    const existingIndex = data.pins.findIndex(p => p.id === pinId);
-    if (existingIndex >= 0) data.pins[existingIndex] = pin;
-    else data.pins.push(pin);
+    const existingIndex = _data.pins.findIndex(p => p.id === pinId);
+    if (existingIndex >= 0) {
+      _data.pins[existingIndex] = pin;
+    } else {
+      _data.pins.push(pin);
+    }
 
-    _save(data);
+    // DB: upsert pin row
+    _sb().from("pins").upsert({
+      id: pinId,
+      user_id: _userId,
+      shared_pin_id: pin.sharedPinId,
+      tags: pin.tags,
+      image_url: pin.imageUrl,
+      link_url: pin.linkUrl,
+      source: pin.source,
+      arena_block_id: pin.arenaBlockId,
+    }).then(({ error }) => {
+      if (error) console.error("[Store] upsert pin:", error.message);
+    });
+
+    // DB: upsert board_pins rows
+    nextBoardIds.forEach(bId => {
+      const p = nextPlacements[bId];
+      _sb().from("board_pins").upsert({
+        pin_id: pinId,
+        board_id: bId,
+        user_id: _userId,
+        x: p.x,
+        y: p.y,
+        pin_w: p.pinW,
+      }, { onConflict: "pin_id,board_id" }).then(({ error }) => {
+        if (error) console.error("[Store] upsert board_pin:", error.message);
+      });
+    });
+
     return getPin(pinId, nextBoardIds[0]);
   }
 
   function updatePin(id, changes) {
-    const data = _load();
-    const pin = data.pins.find(p => p.id === id);
+    const pin = _data.pins.find(p => p.id === id);
     if (!pin) return null;
     const sharedPinId = pin.sharedPinId || pin.id;
     const nextChanges = { ...changes };
@@ -254,89 +383,243 @@ const Store = (function () {
     delete nextChanges.y;
     delete nextChanges.pinW;
     delete nextChanges.sharedPinId;
-    data.pins.forEach((entry) => {
+
+    // Update all pins sharing the same sharedPinId in cache
+    _data.pins.forEach(entry => {
       if ((entry.sharedPinId || entry.id) !== sharedPinId) return;
       Object.assign(entry, nextChanges);
     });
-    _save(data);
+
+    // DB: update all pins with matching shared_pin_id
+    const dbChanges = {};
+    if ("tags" in nextChanges) dbChanges.tags = nextChanges.tags;
+    if ("imageUrl" in nextChanges) dbChanges.image_url = nextChanges.imageUrl;
+    if ("linkUrl" in nextChanges) dbChanges.link_url = nextChanges.linkUrl;
+    if ("source" in nextChanges) dbChanges.source = nextChanges.source;
+
+    // Remove imageData from DB changes (not stored in Supabase)
+    // imageData is only used transiently before upload
+
+    if (Object.keys(dbChanges).length > 0) {
+      _sb().from("pins").update(dbChanges)
+        .eq("shared_pin_id", sharedPinId)
+        .eq("user_id", _userId)
+        .then(({ error }) => {
+          if (error) console.error("[Store] update pin:", error.message);
+        });
+    }
+
     return getPin(id);
   }
 
   function updatePinPlacement(id, boardId, changes) {
-    const data = _load();
-    const pin = data.pins.find((entry) => entry.id === id);
+    const pin = _data.pins.find(entry => entry.id === id);
     if (!pin || !boardId || !pin.placements[boardId]) return null;
 
     pin.placements[boardId] = {
       ...pin.placements[boardId],
       ...changes,
     };
-    _save(data);
+
+    // DB: update board_pins row
+    const dbChanges = {};
+    if ("x" in changes) dbChanges.x = changes.x;
+    if ("y" in changes) dbChanges.y = changes.y;
+    if ("pinW" in changes) dbChanges.pin_w = changes.pinW;
+
+    if (Object.keys(dbChanges).length > 0) {
+      _sb().from("board_pins").update(dbChanges)
+        .eq("pin_id", id)
+        .eq("board_id", boardId)
+        .then(({ error }) => {
+          if (error) console.error("[Store] update board_pin placement:", error.message);
+        });
+    }
+
     return getPin(id, boardId);
   }
 
   function attachPinToBoard(id, boardId, placement = {}) {
-    const data = _load();
-    const pin = data.pins.find((entry) => entry.id === id);
+    const pin = _data.pins.find(entry => entry.id === id);
     if (!pin || !boardId) return null;
     if (!pin.boardIds.includes(boardId)) pin.boardIds.push(boardId);
     pin.placements[boardId] = _normalizePlacement({
       ...pin.placements[boardId],
       ...placement,
     });
-    _save(data);
+
+    const p = pin.placements[boardId];
+    _sb().from("board_pins").upsert({
+      pin_id: id,
+      board_id: boardId,
+      user_id: _userId,
+      x: p.x,
+      y: p.y,
+      pin_w: p.pinW,
+    }, { onConflict: "pin_id,board_id" }).then(({ error }) => {
+      if (error) console.error("[Store] upsert board_pin (attach):", error.message);
+    });
+
     return getPin(id, boardId);
   }
 
   function detachPinFromBoard(id, boardId) {
-    const data = _load();
-    const index = data.pins.findIndex((entry) => entry.id === id);
+    const index = _data.pins.findIndex(entry => entry.id === id);
     if (index < 0) return null;
 
-    const pin = data.pins[index];
+    const pin = _data.pins[index];
     const boardScopedPin = getPin(id, boardId);
     if (!boardScopedPin || !boardId) return null;
 
-    data.pins[index] = detachPinFromBoardInternal(pin, boardId);
-    if (data.pins[index].boardIds.length === 0) {
-      data.pins.splice(index, 1);
+    _data.pins[index] = _detachPinFromBoardInternal(pin, boardId);
+    if (_data.pins[index].boardIds.length === 0) {
+      _data.pins.splice(index, 1);
+      // DB: delete the pin entirely if no boards left
+      _dbDelete("pins", id);
     }
 
-    _save(data);
+    // DB: remove board_pin row
+    _sb().from("board_pins").delete()
+      .eq("pin_id", id)
+      .eq("board_id", boardId)
+      .then(({ error }) => {
+        if (error) console.error("[Store] delete board_pin:", error.message);
+      });
+
     return boardScopedPin;
   }
 
   function pinHasBoard(id, boardId) {
-    const pin = _load().pins.find((entry) => entry.id === id);
+    const pin = _data.pins.find(entry => entry.id === id);
     return !!pin && !!boardId && pin.boardIds.includes(boardId);
   }
 
   function deletePin(id) {
-    const data = _load();
-    data.pins = data.pins.filter(p => p.id !== id);
-    _save(data);
+    _data.pins = _data.pins.filter(p => p.id !== id);
+    _dbDelete("pins", id); // cascade deletes board_pins
   }
 
-  // ── Are.na Token ────────────────────────────────
+  // ── Connections ─────────────────────────────────
+
+  function getConnections() {
+    return _data.connections;
+  }
+
+  function getConnectionsForBoard(boardId) {
+    return _data.connections.filter(
+      c => c.sourceId === boardId || c.targetId === boardId
+    );
+  }
+
+  function addConnection({ sourceId, targetId }) {
+    if (!sourceId || !targetId || sourceId === targetId) return null;
+    const exists = _data.connections.some(
+      c => (c.sourceId === sourceId && c.targetId === targetId) ||
+           (c.sourceId === targetId && c.targetId === sourceId)
+    );
+    if (exists) return null;
+
+    const id = _uid();
+    const connection = { id, sourceId, targetId, createdAt: Date.now() };
+    _data.connections.push(connection);
+
+    _dbInsert("connections", {
+      id,
+      user_id: _userId,
+      source_id: sourceId,
+      target_id: targetId,
+    });
+
+    return connection;
+  }
+
+  function deleteConnection(id) {
+    _data.connections = _data.connections.filter(c => c.id !== id);
+    _dbDelete("connections", id);
+  }
+
+  // ── Are.na Token (kept in localStorage) ─────────
 
   function getArenaToken() {
-    return _load().arena.accessToken || null;
+    try {
+      const raw = localStorage.getItem("bulletin_arena");
+      if (raw) return JSON.parse(raw).accessToken || null;
+    } catch (e) { /* ignore */ }
+    return null;
   }
 
   function setArenaToken(accessToken, expiresAt) {
-    const data = _load();
-    data.arena = { accessToken, expiresAt };
-    _save(data);
+    localStorage.setItem("bulletin_arena", JSON.stringify({ accessToken, expiresAt }));
   }
 
   function clearArenaToken() {
-    const data = _load();
-    data.arena = {};
-    _save(data);
+    localStorage.removeItem("bulletin_arena");
+  }
+
+  // ── Image upload to Supabase Storage ────────────
+
+  async function uploadImage(file) {
+    const ext = file.name?.split(".").pop() || "jpg";
+    const path = `${_userId}/${_uid()}.${ext}`;
+
+    const { data, error } = await _sb().storage
+      .from("pin-images")
+      .upload(path, file, { contentType: file.type, upsert: false });
+
+    if (error) throw error;
+
+    const { data: urlData } = _sb().storage
+      .from("pin-images")
+      .getPublicUrl(data.path);
+
+    return urlData.publicUrl;
+  }
+
+  async function uploadBase64Image(dataUrl) {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const ext = blob.type.split("/")[1] || "png";
+    const file = new File([blob], `upload.${ext}`, { type: blob.type });
+    return uploadImage(file);
+  }
+
+  // ── Explore: all public pins (cross-user) ───────
+
+  async function getAllPublicPins() {
+    const { data, error } = await _sb()
+      .from("pins")
+      .select("*, board_pins(*)")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (error) {
+      console.error("[Store] getAllPublicPins:", error.message);
+      return [];
+    }
+
+    return (data || []).map(p => {
+      const bp = (p.board_pins || [])[0];
+      return {
+        id: p.id,
+        sharedPinId: p.shared_pin_id || p.id,
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        imageUrl: p.image_url || "",
+        imageData: null,
+        linkUrl: p.link_url || null,
+        source: p.source || "local",
+        createdAt: new Date(p.created_at).getTime(),
+        boardId: bp?.board_id || null,
+        boardIds: (p.board_pins || []).map(b => b.board_id),
+        x: bp?.x ?? 0,
+        y: bp?.y ?? 0,
+        pinW: bp?.pin_w ?? null,
+      };
+    }).filter(p => p.imageUrl);
   }
 
   // ── Public API ──────────────────────────────────
   return {
+    init,
     getBoards,
     getBoard,
     addBoard,
@@ -356,8 +639,15 @@ const Store = (function () {
     detachPinFromBoard,
     pinHasBoard,
     deletePin,
+    getConnections,
+    getConnectionsForBoard,
+    addConnection,
+    deleteConnection,
     getArenaToken,
     setArenaToken,
     clearArenaToken,
+    uploadImage,
+    uploadBase64Image,
+    getAllPublicPins,
   };
 })();

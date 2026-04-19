@@ -1,40 +1,80 @@
 /* ── Fonts ─────────────────────────────────────── */
 
 @font-face {
-  font-family: 'Founders Grotesk Mono';
-  src: url('fonts/FoundersGroteskMonoLight.otf') format('opentype');
+  font-family: 'Pitch';
+  src: url('fonts/Pitch/Pitch-Light.woff2') format('woff2');
   font-weight: 300;
   font-style: normal;
   font-display: block;
 }
 
 @font-face {
-  font-family: 'Founders Grotesk Mono';
-  src: url('fonts/FoundersGroteskMonoRegular.otf') format('opentype');
+  font-family: 'Pitch';
+  src: url('fonts/Pitch/Pitch-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: block;
 }
 
 @font-face {
-  font-family: 'Founders Grotesk Mono';
-  src: url('fonts/FoundersGroteskMonoMedium.otf') format('opentype');
+  font-family: 'Pitch';
+  src: url('fonts/Pitch/Pitch-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: block;
 }
 
 @font-face {
-  font-family: 'Founders Grotesk Mono';
-  src: url('fonts/FoundersGroteskMonoDemiBold.otf') format('opentype');
+  font-family: 'Pitch';
+  src: url('fonts/Pitch/Pitch-Semibold.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: block;
 }
 
 @font-face {
-  font-family: 'Founders Grotesk Mono';
-  src: url('fonts/FoundersGroteskMonoBold.otf') format('opentype');
+  font-family: 'Pitch';
+  src: url('fonts/Pitch/Pitch-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Pitch Sans';
+  src: url('fonts/Pitch Sans/PitchSans-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Pitch Sans';
+  src: url('fonts/Pitch Sans/PitchSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Pitch Sans';
+  src: url('fonts/Pitch Sans/PitchSans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Pitch Sans';
+  src: url('fonts/Pitch Sans/PitchSans-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Pitch Sans';
+  src: url('fonts/Pitch Sans/PitchSans-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: block;
@@ -49,8 +89,9 @@
   --dot: rgba(238, 235, 231, 0.08);
   --grid: 24px;
   --btn-radius: 4px;
-  --font-main: 'Founders Grotesk Mono', 'SF Mono', 'Fira Code', monospace;
-  --font-mono: 'Founders Grotesk Mono', 'SF Mono', 'Fira Code', monospace;
+  --font-main: 'Pitch Sans', sans-serif;
+  --font-accent: 'Pitch', monospace;
+  --font-mono: 'Pitch Sans', monospace;
 }
 
 *, *::before, *::after {
@@ -66,6 +107,7 @@ html, body {
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--font-main);
+  font-size: 14px;
 }
 
 /* ── SVG Canvas ───────────────────────────────── */
@@ -117,7 +159,7 @@ html, body {
   border: 1px solid rgba(238, 235, 231, 0.18);
   background: rgba(44, 44, 44, 0.85);
   color: var(--text);
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 0.3px;
 }
 
@@ -166,6 +208,102 @@ html, body {
   cursor: pointer;
 }
 
+.group-node {
+  cursor: zoom-in;
+}
+
+.group-arm {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linecap: round;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.group-circle {
+  fill: var(--text);
+  transform-origin: center;
+  transform-box: fill-box;
+  pointer-events: none;
+  transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.16, 1), opacity 0.22s ease;
+}
+
+.group-name {
+  fill: #1e1e1e;
+  font-size: 16px;
+  font-weight: 500;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.group-hit-area {
+  fill: rgba(255, 255, 255, 0.001);
+  pointer-events: all;
+}
+
+.group-node:hover .group-circle {
+  transform: scale(var(--group-hover-scale, 5.9));
+  opacity: 0.96;
+}
+
+.group-node:hover .group-name {
+  opacity: 1;
+}
+
+.group-node:hover .group-arm {
+  opacity: 0.5;
+}
+
+/* ── Board connections (home canvas) ──────────── */
+
+.board-connection {
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-opacity: 0.12;
+  stroke-linecap: round;
+  pointer-events: visibleStroke;
+  cursor: pointer;
+  transition: stroke-opacity 0.18s ease;
+}
+
+.board-connection:hover {
+  stroke-opacity: 0.45;
+  stroke-width: 2;
+}
+
+.board-connection.selected {
+  stroke-opacity: 0.6;
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
+}
+
+.board-connection-delete {
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.board-connection-delete-bg {
+  fill: rgba(180, 40, 40, 0.85);
+  transition: fill 0.12s ease;
+}
+
+.board-connection-delete:hover .board-connection-delete-bg {
+  fill: rgba(220, 50, 50, 0.95);
+}
+
+.board-connection-delete-label {
+  fill: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
 .board-edit-icon {
   cursor: pointer;
   opacity: 0;
@@ -184,8 +322,9 @@ html, body {
 
 .board-label {
   fill: var(--text);
+  font-family: var(--font-main);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   text-anchor: middle;
   dominant-baseline: middle;
   pointer-events: all;
@@ -198,7 +337,7 @@ html, body {
 
 .board-count {
   fill: var(--text);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   font-family: var(--font-mono);
   opacity: 0.35;
@@ -318,7 +457,7 @@ body.board-transition-mask-canvas #canvas {
 .pin-sel-edit-label {
   fill: #1b1b1b;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.2px;
   pointer-events: none;
@@ -354,7 +493,7 @@ body.board-transition-mask-canvas #canvas {
   top: 0;
   left: 0;
   right: 0;
-  height: 44px;
+  height: 56px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -375,22 +514,29 @@ body.profile-mode .topbar {
 }
 
 .topbar-logo {
-  font-family: 'Bellota', cursive;
+  font-family: var(--font-accent);
   font-weight: 400;
   font-size: 31.4px; /* 12px × φ² — two golden ratios above nav buttons */
   text-align: center;
   letter-spacing: 0.5px;
-  padding-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding-top: 4px;
+  padding-bottom: 4px;
   cursor: pointer;
   pointer-events: all;
+  line-height: 1;
 }
 
 .topbar-breadcrumb {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-accent);
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .topbar-breadcrumb .crumb {
@@ -401,21 +547,65 @@ body.profile-mode .topbar {
   margin: -6px -8px;
   border-radius: 8px;
   opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+.topbar-breadcrumb .crumb-home {
   cursor: pointer;
   pointer-events: all;
 }
 
-.topbar-breadcrumb .crumb.active {
-  opacity: 0.7;
+.topbar-breadcrumb .crumb-home:hover {
+  opacity: 1;
 }
 
-.topbar-breadcrumb .crumb:hover {
-  opacity: 1;
+.topbar-breadcrumb .crumb-current {
+  color: var(--text);
+  opacity: 0.4;
 }
 
 .topbar-breadcrumb .sep {
   opacity: 0.25;
   font-size: 10px;
+}
+
+.crumb-edit-btn {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  opacity: 0.5;
+  padding: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  margin-left: -2px;
+  pointer-events: all;
+  transition: opacity 0.14s ease, background-color 0.14s ease, transform 0.1s ease;
+}
+
+.crumb-edit-btn:hover {
+  opacity: 1;
+  background: transparent;
+}
+
+.crumb-edit-btn:active {
+  transform: scale(0.95);
+  background: transparent;
+}
+
+.crumb-edit-btn:focus-visible {
+  outline: 1px solid rgba(238, 235, 231, 0.6);
+  outline-offset: 1px;
+}
+
+.crumb-edit-btn svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+  pointer-events: none;
 }
 
 .topbar-right {
@@ -432,8 +622,9 @@ body.profile-mode .topbar {
   padding: 6px 8px;
   margin: -6px -8px;
   border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-accent);
+  font-size: 15px;
+  font-weight: 500;
   opacity: 0.4;
   cursor: pointer;
   pointer-events: all;
@@ -448,7 +639,7 @@ body.profile-mode .topbar {
 
 #profile-view {
   position: fixed;
-  top: 44px;
+  top: 56px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -468,7 +659,7 @@ body.profile-mode .topbar {
 
 .profile-section-title {
   font-family: var(--font-main);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -530,7 +721,7 @@ body.profile-mode .topbar {
 
 .board-card-name {
   font-family: var(--font-main);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -540,7 +731,7 @@ body.profile-mode .topbar {
 
 .board-card-count {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text);
   opacity: 0.4;
   margin-top: 3px;
@@ -748,7 +939,7 @@ body.zoom-ui-hidden .minimap-container {
 
 .topbar-zoom {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   opacity: 0.4;
   margin-right: 4px;
@@ -797,7 +988,6 @@ body.zoom-ui-hidden .fab-center-group.visible {
   bottom: 20px;
   transform: translateX(-50%);
   z-index: 130;
-  pointer-events: none;
 }
 
 .home-add-board-btn {
@@ -950,6 +1140,237 @@ body.zoom-ui-hidden .fab-center-group.visible {
   pointer-events: none;
 }
 
+/* ── Explore View ─────────────────────────────── */
+
+body.explore-mode .topbar {
+  background: var(--bg);
+}
+
+#explore-view {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  background: var(--bg);
+  z-index: 90;
+}
+
+.explore-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px 24px 80px;
+}
+
+/* Search bar */
+.explore-search-wrap {
+  position: sticky;
+  top: 20px;
+  z-index: 10;
+  max-width: 600px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: center;
+  background: var(--alt-grey);
+  border: 1px solid rgba(238, 235, 231, 0.18);
+  border-radius: 24px;
+  padding: 0 16px;
+  transition: border-color 0.14s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.explore-search-wrap:focus-within {
+  border-color: rgba(238, 235, 231, 0.45);
+}
+
+.explore-search-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.explore-search-input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 12px 10px;
+  cursor: not-allowed;
+}
+
+.explore-search-input::placeholder {
+  opacity: 0.35;
+}
+
+/* Masonry grid */
+.explore-grid {
+  columns: 6 220px;
+  column-gap: 16px;
+}
+
+.explore-empty-msg {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  opacity: 0.35;
+  text-align: center;
+  padding: 60px 0;
+}
+
+/* Pin card */
+.explore-pin-card {
+  break-inside: avoid;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--alt-grey);
+  position: relative;
+  cursor: pointer;
+}
+
+.explore-pin-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+/* Hover overlay */
+.explore-pin-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 10px;
+  opacity: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.32) 0%, transparent 40%);
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+
+.explore-pin-card:hover .explore-pin-overlay {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Save button (icon only) */
+.explore-save-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(23, 23, 23, 0.62);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  transition: background 0.14s ease, transform 0.1s ease;
+}
+
+.explore-save-btn:hover {
+  background: rgba(23, 23, 23, 0.85);
+  transform: scale(1.06);
+}
+
+.explore-save-btn:active {
+  transform: scale(0.97);
+}
+
+.explore-save-btn.saved {
+  background: rgba(74, 180, 100, 0.75);
+}
+
+/* Board picker popover */
+.explore-board-picker {
+  z-index: 200;
+  min-width: 180px;
+  max-width: 260px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid rgba(238, 235, 231, 0.18);
+  border-radius: 10px;
+  background: rgba(30, 30, 30, 0.97);
+  backdrop-filter: blur(8px);
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.explore-board-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.explore-board-option:hover:not(:disabled) {
+  background: rgba(238, 235, 231, 0.08);
+}
+
+.explore-board-option.is-disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.explore-board-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.explore-board-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explore-board-check {
+  font-size: 12px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* ── Explore responsive breakpoints ───────────── */
+
+@media (max-width: 1399px) {
+  .explore-grid { columns: 5; }
+}
+
+@media (max-width: 1099px) {
+  .explore-grid { columns: 4; }
+}
+
+@media (max-width: 799px) {
+  .explore-grid { columns: 3; }
+}
+
+@media (max-width: 539px) {
+  .explore-grid { columns: 2; }
+  .explore-container { padding: 16px 12px 60px; }
+}
+
 /* ── Utilities ────────────────────────────────── */
 
 [hidden] {
@@ -965,7 +1386,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   background: rgba(44, 44, 44, 0.9);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   padding: 10px 14px;
   cursor: pointer;
@@ -1019,14 +1440,14 @@ body.zoom-ui-hidden .fab-center-group.visible {
 }
 
 .empty-state h1 {
-  font-family: 'Bellota', cursive;
+  font-family: var(--font-accent);
   font-size: 56px;
   font-weight: 400;
 }
 
 .empty-state p {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   opacity: 0.45;
 }
 
@@ -1071,7 +1492,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 
 .modal p {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
   opacity: 0.7;
 }
@@ -1079,7 +1500,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 .modal form label {
   display: block;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   opacity: 0.7;
   margin-bottom: 10px;
 }
@@ -1094,7 +1515,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   background: rgba(44, 44, 44, 0.9);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   padding: 10px 12px;
   resize: vertical;
 }
@@ -1244,7 +1665,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   border-bottom: 1px solid rgba(238, 235, 231, 0.1);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   padding: 4px 0;
   outline: none;
   resize: none;
@@ -1268,7 +1689,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 .board-section-label {
   display: block;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.7px;
   text-transform: uppercase;
   opacity: 0.42;
@@ -1296,7 +1717,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   border-radius: var(--btn-radius);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   padding: 8px 10px;
   cursor: pointer;
   outline: none;
@@ -1316,7 +1737,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   border-radius: var(--btn-radius);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   padding: 8px 10px;
   outline: none;
   transition: border-color 0.14s ease;
@@ -1342,7 +1763,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 }
 
 .board-arena-shortcut {
-  font-size: 11px;
+  font-size: 13px;
   background: transparent;
   font-weight: 500;
   color: var(--color-sub);
@@ -1388,7 +1809,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   background: transparent;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   padding: 8px 12px;
   cursor: pointer;
   opacity: 0.65;
@@ -1417,7 +1838,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 
 .pin-saved-meta {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   opacity: 0.55;
 }
 
@@ -1439,14 +1860,14 @@ body.zoom-ui-hidden .fab-center-group.visible {
 }
 
 .file-drop-label {
-  font-size: 12px;
+  font-size: 14px;
   opacity: 0.75;
 }
 
 .pin-field-label {
   display: block;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   opacity: 0.7;
   margin-bottom: 6px;
 }
@@ -1468,7 +1889,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 13px;
   padding: 4px 8px;
   border-radius: 999px;
   background: rgba(238, 235, 231, 0.12);
@@ -1490,7 +1911,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   background: transparent;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .pin-field-hint {
@@ -1561,7 +1982,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
 
 .arena-channel-name {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -1603,7 +2024,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   border-radius: 14px;
   padding: 18px 22px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 0.4px;
   color: var(--text);
   background: rgba(44, 44, 44, 0.82);
@@ -1612,12 +2033,145 @@ body.zoom-ui-hidden .fab-center-group.visible {
 /* ── Group labels on home canvas ─────────────── */
 .group-label {
   fill: var(--text);
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-accent);
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   opacity: 0.38;
   pointer-events: none;
+}
+
+/* ── Auth View ─────────────────────────────────── */
+
+body.auth-mode .topbar,
+body.auth-mode #canvas,
+body.auth-mode .fab-group,
+body.auth-mode .fab-group-left,
+body.auth-mode .minimap-container,
+body.auth-mode .empty-state,
+body.auth-mode #profile-view,
+body.auth-mode #explore-view {
+  display: none !important;
+}
+
+.auth-view {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.auth-view[hidden] {
+  display: none;
+}
+
+.auth-container {
+  width: 100%;
+  max-width: 360px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.auth-logo {
+  font-family: var(--font-accent);
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.auth-subtitle {
+  font-size: 14px;
+  opacity: 0.5;
+  margin-bottom: 36px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form-title {
+  font-family: var(--font-accent);
+  font-size: 16px;
+  font-weight: 500;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--alt-grey);
+  border: 1px solid rgba(238, 235, 231, 0.1);
+  border-radius: var(--btn-radius);
+  color: var(--text);
+  font-family: var(--font-main);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.auth-input:focus {
+  border-color: rgba(238, 235, 231, 0.3);
+}
+
+.auth-input::placeholder {
+  color: rgba(238, 235, 231, 0.35);
+}
+
+.auth-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+}
+
+.auth-error {
+  background: rgba(220, 80, 80, 0.12);
+  border: 1px solid rgba(220, 80, 80, 0.3);
+  border-radius: var(--btn-radius);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #e88;
+  text-align: left;
+}
+
+.auth-error[hidden] {
+  display: none;
+}
+
+.auth-toggle-text {
+  margin-top: 20px;
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.auth-toggle-text a {
+  color: var(--text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Sign out button in topbar */
+.topbar-signout {
+  background: none;
+  border: none;
+  color: var(--text);
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s;
+}
+
+.topbar-signout:hover {
+  opacity: 1;
 }
 

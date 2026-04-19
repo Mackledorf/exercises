@@ -158,6 +158,7 @@ const Arena = (function () {
         for (const block of contents) {
           if (block.type !== "Image" && block.type !== "Link" && block.type !== "Embed") continue;
 
+          // Extract image URL or fallback to source URL for Link blocks
           const imageUrl =
             block.image?.display?.url ||
             block.image?.large?.url ||
@@ -165,7 +166,10 @@ const Arena = (function () {
             block.image?.original?.url ||
             "";
 
-          if (!imageUrl) continue;
+          const linkUrl = block.source?.url || "";
+
+          // Skip only if we have no usable URL at all
+          if (!imageUrl && !linkUrl) continue;
 
           // Place in a grid layout
           const cols = 5;
@@ -176,7 +180,8 @@ const Arena = (function () {
           Store.addPin({
             boardId:      board.id,
             tags:         block.title ? [block.title] : [],
-            imageUrl:     imageUrl,
+            imageUrl:     imageUrl || linkUrl, // Use linkUrl as image fallback if none provided
+            linkUrl:      linkUrl,
             source:       "arena",
             arenaBlockId: block.id,
             x: Math.round(x / GRID) * GRID,
