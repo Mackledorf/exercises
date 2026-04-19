@@ -126,9 +126,16 @@ const Auth = (function () {
 
         const email = document.getElementById("auth-email").value.trim();
         const password = document.getElementById("auth-password").value;
+        const confirmPassword = document.getElementById("auth-confirm-password").value;
 
         if (!email || !password) {
           _setError("Email and password are required.");
+          _setLoading(false);
+          return;
+        }
+
+        if (isSignUp && password !== confirmPassword) {
+          _setError("Passwords do not match.");
           _setLoading(false);
           return;
         }
@@ -166,11 +173,16 @@ const Auth = (function () {
 
         const title = document.getElementById("auth-title");
         const submit = document.getElementById("auth-submit");
+        const confirmInput = document.getElementById("auth-confirm-password");
 
         if (title) title.textContent = isSignUp ? "Create Account" : "Sign In";
         if (submit) {
           submit.textContent = isSignUp ? "Create Account" : "Sign In";
           submit.dataset.label = isSignUp ? "Create Account" : "Sign In";
+        }
+        if (confirmInput) {
+          confirmInput.hidden = !isSignUp;
+          confirmInput.required = isSignUp;
         }
         toggleText.innerHTML = isSignUp
           ? 'Already have an account? <a href="#" id="auth-toggle">Sign in</a>'
