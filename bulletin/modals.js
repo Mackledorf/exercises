@@ -11,6 +11,16 @@ import {
   multiSelectedBoardIds,
 } from "./state.js";
 
+import * as S from "./state.js";
+
+import {
+  resetViewportToIdentity,
+} from "./viewport.js";
+
+import * as history from "./history.js";
+import * as selection from "./selection.js";
+import * as explore from "./explore.js";
+
 import {
   escapeHtml,
   loadImageAspect,
@@ -503,11 +513,23 @@ export function updateBreadcrumb(board) {
   const home = document.createElement("span");
   home.className = "crumb";
   home.classList.add("crumb-home");
-  home.textContent = "My Boards";
-  home.dataset.view = "home";
+  home.textContent = "Search";
+  home.dataset.view = "explore";
   home.addEventListener("click", () => {
     hideAddPinButton();
-    _exitBoard();
+    explore.destroyExplore();
+    // Reset view to explore
+    if (S.currentView === "board") {
+      S.setActiveBoardId(null);
+      history.resetPinMoveHistory();
+      selection.setSelectionModeActive(false);
+      S.multiSelectedBoardIds.clear();
+      resetViewportToIdentity();
+    }
+    // We already do this above, but to be safe and consistent with user intent:
+    S.setCurrentView("explore");
+    history.pushState({ view: "explore" }, "Search");
+    _render();
   });
   breadcrumb.appendChild(home);
 
@@ -522,24 +544,6 @@ export function updateBreadcrumb(board) {
     crumb.classList.add("crumb-current");
     crumb.textContent = board.name;
     breadcrumb.appendChild(crumb);
-
-    const editBtn = document.createElement("button");
-    editBtn.className = "crumb-edit-btn";
-    editBtn.type = "button";
-    editBtn.title = "Edit Board Settings";
-    editBtn.innerHTML = `<i data-lucide="settings"></i>`;
-    editBtn.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-    });
-    editBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openEditBoardModal(board);
-    });
-    breadcrumb.appendChild(editBtn);
-
-    if (window.lucide) {
-      window.lucide.createIcons();
-    }
   }
 }
 

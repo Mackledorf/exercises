@@ -415,15 +415,16 @@ window.addEventListener("resize", () => {
 S.topbarLogo.addEventListener("click", () => {
   modals.hideAddPinButton();
   explore.destroyExplore();
-  // Skip board exit transition — just reset state and go to explore
+  // Clear any existing state and go to home
   if (S.currentView === "board") {
     S.setActiveBoardId(null);
     history.resetPinMoveHistory();
     selection.setSelectionModeActive(false);
     S.multiSelectedBoardIds.clear();
-    resetViewportToIdentity();
   }
-  S.setCurrentView("explore");
+  resetViewportToIdentity();
+  S.setCurrentView("home");
+  history.pushState({ view: "home" }, "Home");
   render();
 });
 

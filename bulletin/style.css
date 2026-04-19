@@ -562,7 +562,7 @@ body.profile-mode .topbar {
 
 .topbar-breadcrumb .crumb-current {
   color: var(--text);
-  opacity: 0.4;
+  opacity: 1;
 }
 
 .topbar-breadcrumb .sep {
@@ -570,43 +570,6 @@ body.profile-mode .topbar {
   font-size: 10px;
 }
 
-.crumb-edit-btn {
-  background: transparent;
-  border: none;
-  color: var(--text);
-  opacity: 0.5;
-  padding: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  margin-left: -2px;
-  pointer-events: all;
-  transition: opacity 0.14s ease, background-color 0.14s ease, transform 0.1s ease;
-}
-
-.crumb-edit-btn:hover {
-  opacity: 1;
-  background: transparent;
-}
-
-.crumb-edit-btn:active {
-  transform: scale(0.95);
-  background: transparent;
-}
-
-.crumb-edit-btn:focus-visible {
-  outline: 1px solid rgba(238, 235, 231, 0.6);
-  outline-offset: 1px;
-}
-
-.crumb-edit-btn svg {
-  width: 13px;
-  height: 13px;
-  stroke-width: 2;
-  pointer-events: none;
-}
 
 .topbar-right {
   display: flex;

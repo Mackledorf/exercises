@@ -650,6 +650,19 @@ export function renderBoard(boardId) {
     .attr("clip-path", d => `url(#pin-clip-${d.id})`)
     .attr("pointer-events", "none");
 
+  // Missing Link Label (Hidden by default)
+  pinGroups.append("text")
+    .attr("class", "pin-error-label")
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "central")
+    .attr("fill", "rgba(255, 255, 255, 0.35)")
+    .attr("font-family", "var(--font-mono)")
+    .attr("font-size", 12)
+    .attr("font-weight", 500)
+    .attr("pointer-events", "none")
+    .attr("display", "none")
+    .text("URL not found");
+
   // Interaction layer
   pinGroups.append("rect")
     .attr("class", "pin-hit-area")
@@ -678,6 +691,12 @@ export function renderBoard(boardId) {
       d._ph = Math.round(d._pw * d._aspect);
       applyPinBox(d3.select(gEl), d);
       requestTopbarVisibilityUpdate();
+    }).catch(() => {
+      if (renderToken !== boardRenderToken || currentView !== "board" || activeBoardId !== boardId) return;
+      
+      const g = d3.select(gEl);
+      g.select(".pin-img").remove();
+      g.select(".pin-error-label").attr("display", "block");
     });
   });
 

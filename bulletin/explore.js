@@ -45,7 +45,7 @@ export async function renderExplore() {
   if (pins.length === 0) {
     const empty = document.createElement("p");
     empty.className = "explore-empty-msg";
-    empty.textContent = "No pins yet. Create a board and add some pins to get started.";
+    empty.textContent = "Hmm... It's quiet in here.";
     grid.appendChild(empty);
     return;
   }

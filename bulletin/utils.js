@@ -15,7 +15,7 @@ export function loadImageAspect(src) {
   if (imageAspectCache.has(src)) return Promise.resolve(imageAspectCache.get(src));
   if (imageAspectPending.has(src)) return imageAspectPending.get(src);
 
-  const pending = new Promise((resolve) => {
+  const pending = new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const w = img.naturalWidth || PIN_W;
@@ -29,7 +29,7 @@ export function loadImageAspect(src) {
       const fallback = PIN_H / PIN_W;
       imageAspectCache.set(src, fallback);
       imageAspectPending.delete(src);
-      resolve(fallback);
+      reject(new Error("Failed to load image"));
     };
     img.src = src;
   });
