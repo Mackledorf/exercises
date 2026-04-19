@@ -9,7 +9,6 @@ import {
   TOPBAR_CLIP_BUFFER,
 } from "./state.js";
 
-import { getBoards } from "./store.js";
 import { imageAspectCache, getPinImageSrc, clamp, normalizeRect } from "./utils.js";
 
 // ── Private state ────────────────────────────────
@@ -499,7 +498,7 @@ export const zoom = d3.zoom()
   .filter(event => {
     // Disable zoom/pan if no boards (only in Home view)
     if (currentView === "home") {
-      const boards = getBoards();
+      const boards = Store.getBoards();
       if (boards.length === 0) return false;
     }
     
@@ -514,7 +513,7 @@ export function attachWheelHandler() {
     
     // Disable wheel if no boards in home view
     if (currentView === "home") {
-      const boards = getBoards();
+      const boards = Store.getBoards();
       if (boards.length === 0) return;
     }
 
