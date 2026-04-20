@@ -868,7 +868,7 @@ export function renderHome(boards) {
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2)
-        .style("fill", "rgba(0, 0, 0, 0.65)");
+        .style("fill", "rgba(0, 0, 0, 0.55)");
       d3.select(`#bubble-clip-${d.id} circle`)
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
