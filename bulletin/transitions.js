@@ -5,6 +5,7 @@ import {
   width, height, masterG,
   PIN_W, PIN_H, BOARD_NAV_OVERLAY_MS,
   BOARD_PREVIEW_OFFSET_Y, BOARD_PREVIEW_MAX_W, BOARD_PREVIEW_MAX_H, BOARD_PREVIEW_PAD,
+  BUBBLE_MEDIUM,
 } from "./state.js";
 
 import {
@@ -95,39 +96,30 @@ export function computeHomeBoardPreviewGeometry(boardId) {
   const pos = posMap.get(boardId);
   if (!pos) return null;
 
+  const bubbleR = BUBBLE_MEDIUM / 2;
+
   const boardPins = Store.getPins(boardId);
   if (boardPins.length === 0) {
-    const previewCenterX = pos.x;
-    const previewCenterY = pos.y + BOARD_PREVIEW_OFFSET_Y;
     return {
-      anchor: {
-        x: previewCenterX,
-        y: previewCenterY,
-      },
+      anchor: { x: pos.x, y: pos.y },
       cardRect: {
-        left: pos.x - 130,
-        top: pos.y - 36,
-        width: 260,
-        height: 170,
+        left: pos.x - bubbleR,
+        top: pos.y - bubbleR,
+        width: BUBBLE_MEDIUM,
+        height: BUBBLE_MEDIUM,
       },
       pins: [
         {
           id: getBoardPlaceholderPinId(boardId),
           src: "",
           isPlaceholder: true,
-          rect: {
-            left: previewCenterX - 1,
-            top: previewCenterY - 1,
-            width: 2,
-            height: 2,
-          },
+          rect: { left: pos.x - 1, top: pos.y - 1, width: 2, height: 2 },
         },
       ],
     };
   }
 
   const pins = getBoardPinsForTransition(boardId);
-
   const bounds = getPinsWorldBounds(pins);
   if (!bounds) return null;
 
@@ -139,7 +131,7 @@ export function computeHomeBoardPreviewGeometry(boardId) {
   );
 
   const previewCenterX = pos.x;
-  const previewCenterY = pos.y + BOARD_PREVIEW_OFFSET_Y;
+  const previewCenterY = pos.y;
 
   const pinRects = pins.map((pin) => {
     const localX = (pin.x - bounds.cx) * previewScale;
@@ -158,25 +150,15 @@ export function computeHomeBoardPreviewGeometry(boardId) {
     };
   });
 
-  const previewRect = unionRects(pinRects.map((pin) => pin.rect)) || {
-    left: previewCenterX - 110,
-    top: previewCenterY - 74,
-    width: 220,
-    height: 148,
-  };
-
   const cardRect = {
-    left: Math.min(previewRect.left - 18, pos.x - 130),
-    top: pos.y - 38,
-    width: Math.max(260, previewRect.width + 36),
-    height: Math.max(170, (previewRect.top + previewRect.height) - (pos.y - 38) + 16),
+    left: pos.x - bubbleR,
+    top: pos.y - bubbleR,
+    width: BUBBLE_MEDIUM,
+    height: BUBBLE_MEDIUM,
   };
 
   return {
-    anchor: {
-      x: previewCenterX,
-      y: previewCenterY,
-    },
+    anchor: { x: previewCenterX, y: previewCenterY },
     cardRect,
     pins: pinRects,
   };

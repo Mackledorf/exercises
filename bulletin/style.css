@@ -208,39 +208,40 @@ html, body {
   cursor: pointer;
 }
 
-.board-node-float {
-  animation: board-float 6s ease-in-out infinite;
-}
-
-@keyframes board-float {
-  0%, 100% { translate: 0 0; }
-  33%      { translate: 3px -5px; }
-  66%      { translate: -2px 4px; }
+.board-node:hover .board-label,
+.board-node:hover .board-count {
+  opacity: 1;
 }
 
 .group-node {
   cursor: zoom-in;
 }
 
-.group-arm {
-  stroke: var(--text);
-  stroke-width: 3;
-  stroke-linecap: round;
-  pointer-events: none;
-  transition: opacity 0.22s ease;
+/* ── Bubble styles ────────────────────────────── */
+
+.board-bubble {
+  fill: rgba(60, 60, 60, 1);
+  transition: r 0.3s cubic-bezier(0.2, 0.9, 0.16, 1);
+  pointer-events: all;
 }
 
-.group-circle {
-  fill: var(--text);
-  transform-origin: center;
-  transform-box: fill-box;
+.board-node:hover .board-bubble {
+  r: 94.5; /* BUBBLE_LARGE / 2 */
+}
+
+.group-bubble {
+  fill: #fff;
+  transition: r 0.3s cubic-bezier(0.2, 0.9, 0.16, 1);
   pointer-events: none;
-  transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.16, 1), opacity 0.22s ease;
+}
+
+.group-node:hover .group-bubble {
+  r: 94.5; /* BUBBLE_LARGE / 2 */
 }
 
 .group-name {
   fill: #1e1e1e;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   text-anchor: middle;
   dominant-baseline: middle;
@@ -254,17 +255,8 @@ html, body {
   pointer-events: all;
 }
 
-.group-node:hover .group-circle {
-  transform: scale(var(--group-hover-scale, 5.9));
-  opacity: 0.96;
-}
-
 .group-node:hover .group-name {
   opacity: 1;
-}
-
-.group-node:hover .group-arm {
-  opacity: 0.5;
 }
 
 /* ── Board connections (home canvas) ──────────── */
@@ -333,27 +325,29 @@ html, body {
 .board-label {
   fill: var(--text);
   font-family: var(--font-main);
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 600;
   text-anchor: middle;
   dominant-baseline: middle;
-  pointer-events: all;
-  cursor: pointer;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .board-label:hover {
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .board-count {
   fill: var(--text);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 400;
   font-family: var(--font-mono);
-  opacity: 0.35;
+  opacity: 0;
   text-anchor: middle;
   dominant-baseline: middle;
   pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
 .board-pin-preview {

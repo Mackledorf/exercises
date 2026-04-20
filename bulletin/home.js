@@ -4,6 +4,7 @@ import {
   HOME_GRID_CELL_W, HOME_GRID_CELL_H, HOME_GRID_PAD_X, HOME_GRID_PAD_Y,
   HOME_SECTION_GAP, HOME_GROUP_CLUSTER_RADIUS, HOME_GROUP_CLUSTER_PAD,
   HOME_GROUP_HOVER_SCALE, HOME_GROUP_CIRCLE_RADIUS, HOME_GROUP_HOVER_RADIUS,
+  BUBBLE_SMALL, BUBBLE_MEDIUM, BUBBLE_LARGE,
   BOARD_SPREAD, PIN_W, PIN_H, GRID,
   BOARD_PREVIEW_OFFSET_Y, BOARD_PREVIEW_MAX_W, BOARD_PREVIEW_MAX_H, BOARD_PREVIEW_PAD,
   currentView, activeBoardId, selectionModeActive,
@@ -25,7 +26,6 @@ import {
 // ── Private state ────────────────────────────────
 let homePreviewHydrateQueued = false;
 let lastHomeLayout = null;
-let hoverActiveGroupId = null;
 let connectionDrag = null;  // { sourceId, tempLine }
 let activeGroupSimulations = new Map();  // groupId → d3 simulation
 
@@ -189,34 +189,16 @@ export function scheduleHomePreviewHydrate() {
 export function computeRadialFallbackLayout(boards, centerX, centerY) {
   const count = Math.max(1, boards.length);
   const boardPositions = new Map();
-  const armPoints = new Map();
-  const baseRadius = Math.max(HOME_GROUP_CLUSTER_RADIUS - 30, 160);
+  const baseRadius = Math.max(BUBBLE_MEDIUM * 1.2, 100);
 
   boards.forEach((board, i) => {
     const angle = (-Math.PI / 2) + ((Math.PI * 2 * i) / count);
     const x = centerX + Math.cos(angle) * baseRadius;
     const y = centerY + Math.sin(angle) * baseRadius;
     boardPositions.set(board.id, { x, y });
-    armPoints.set(board.id, { x, y });
   });
 
-  return { boardPositions, armPoints };
-}
-
-// Custom tangential "orbit" force — applies a small perpendicular nudge each tick
-function createOrbitForce(cx, cy, strength) {
-  let nodes;
-  const force = (alpha) => {
-    nodes.forEach(node => {
-      if (node.isCenter) return;
-      const dx = node.x - cx;
-      const dy = node.y - cy;
-      node.vx += -dy * strength * alpha;
-      node.vy +=  dx * strength * alpha;
-    });
-  };
-  force.initialize = (n) => { nodes = n; };
-  return force;
+  return { boardPositions };
 }
 
 export function stopAllGroupSimulations() {
@@ -226,17 +208,15 @@ export function stopAllGroupSimulations() {
 
 export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   if (!Array.isArray(boards) || boards.length === 0) {
-    return { boardPositions: new Map(), armPoints: new Map(), simulation: null };
+    return { boardPositions: new Map(), simulation: null };
   }
 
-  // ── Single-board case: fixed offset, no simulation needed ──
+  // Single-board case: place just below center
   if (boards.length === 1) {
     const boardPositions = new Map();
-    const armPoints = new Map();
-    const pos = { x: centerX, y: centerY + HOME_GROUP_CIRCLE_RADIUS + 90 };
+    const pos = { x: centerX, y: centerY + BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + 12 };
     boardPositions.set(boards[0].id, pos);
-    armPoints.set(boards[0].id, pos);
-    return { boardPositions, armPoints, simulation: null, singleBoard: true };
+    return { boardPositions, simulation: null, singleBoard: true };
   }
 
   if (typeof d3.forceSimulation !== "function") {
@@ -244,9 +224,8 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   }
 
   const count = boards.length;
-  const orbitRadius = HOME_GROUP_CLUSTER_RADIUS * Math.min(1, 0.45 + count * 0.14);
-  const collideRadius = Math.max((HOME_GRID_CELL_W - 40) / 2, (HOME_GRID_CELL_H - 40) / 2) + 14;
-  const centerAvoidRadius = HOME_GROUP_CIRCLE_RADIUS + 36;
+  const orbitRadius = (BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + 18) * Math.min(1.6, 0.8 + count * 0.16);
+  const collideRadius = BUBBLE_MEDIUM / 2 + 8;
 
   const centerNodeId = `group-center-${groupId}`;
   const nodes = [
@@ -264,23 +243,20 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
 
   const links = boards.map((board) => ({ source: centerNodeId, target: board.id }));
 
-  // Run an initial settling pass (synchronous) to get good starting positions
   const simulation = d3.forceSimulation(nodes)
     .alpha(0.9)
     .alphaDecay(0.04)
     .velocityDecay(0.5)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(orbitRadius).strength(0.5))
-    .force("charge", d3.forceManyBody().strength(-300))
-    .force("collide", d3.forceCollide().radius(d => d.isCenter ? centerAvoidRadius : collideRadius).iterations(2))
-    .force("radial", d3.forceRadial(orbitRadius, centerX, centerY).strength(d => d.isCenter ? 0 : 0.06))
-    .force("orbit", createOrbitForce(centerX, centerY, 0.0004))
+    .force("link", d3.forceLink(links).id(d => d.id).distance(orbitRadius).strength(0.6))
+    .force("charge", d3.forceManyBody().strength(-120))
+    .force("collide", d3.forceCollide().radius(d => d.isCenter ? BUBBLE_SMALL / 2 + 6 : collideRadius).iterations(3))
+    .force("radial", d3.forceRadial(orbitRadius, centerX, centerY).strength(d => d.isCenter ? 0 : 0.08))
     .stop();
 
-  // Settle to get initial positions
+  // Settle for initial positions
   for (let i = 0; i < 180; i++) simulation.tick();
 
   const boardPositions = new Map();
-  const armPoints = new Map();
   let hasInvalidCoords = false;
 
   nodes.forEach((node) => {
@@ -290,28 +266,25 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
       return;
     }
     boardPositions.set(node.id, { x: node.x, y: node.y });
-    armPoints.set(node.id, { x: node.x, y: node.y });
   });
 
   if (hasInvalidCoords || boardPositions.size !== boards.length) {
     return { ...computeRadialFallbackLayout(boards, centerX, centerY), simulation: null };
   }
 
-  // Now reconfigure for perpetual low-energy floating
+  // Perpetual low-energy floating
   simulation
     .alpha(0.15)
     .alphaTarget(0.015)
     .alphaDecay(0)
     .velocityDecay(0.88)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(orbitRadius).strength(0.25))
-    .force("charge", d3.forceManyBody().strength(-150))
-    .force("radial", d3.forceRadial(orbitRadius, centerX, centerY).strength(d => d.isCenter ? 0 : 0.04))
-    .force("orbit", createOrbitForce(centerX, centerY, 0.0003));
+    .force("link", d3.forceLink(links).id(d => d.id).distance(orbitRadius).strength(0.3))
+    .force("charge", d3.forceManyBody().strength(-80))
+    .force("radial", d3.forceRadial(orbitRadius, centerX, centerY).strength(d => d.isCenter ? 0 : 0.05));
 
-  // Store reference for lifecycle management
   activeGroupSimulations.set(groupId, simulation);
 
-  return { boardPositions, armPoints, simulation, nodes };
+  return { boardPositions, simulation, nodes };
 }
 
 export function computeHomeLayout() {
@@ -383,8 +356,7 @@ export function computeHomeLayout() {
 
       const forceLayout = computeGroupForceLayout(entry.group.id, entry.boards, cx, cy);
       const boardIds = entry.boards.map(b => b.id);
-      const cardW = HOME_GRID_CELL_W - 40;
-      const cardH = HOME_GRID_CELL_H - 40;
+      const r = BUBBLE_MEDIUM / 2;
 
       entry.boards.forEach((board) => {
         const pos = forceLayout.boardPositions.get(board.id) || { x: cx, y: cy };
@@ -403,10 +375,10 @@ export function computeHomeLayout() {
       const rects = boardIds.map((boardId) => {
         const p = allBoardPositions.get(boardId) || { x: cx, y: cy };
         return {
-          left: p.x - cardW / 2,
-          top: p.y - cardH / 2,
-          width: cardW,
-          height: cardH,
+          left: p.x - r,
+          top: p.y - r,
+          width: BUBBLE_MEDIUM,
+          height: BUBBLE_MEDIUM,
         };
       });
       const bounds = unionRects(rects) || {
@@ -434,7 +406,6 @@ export function computeHomeLayout() {
         cy,
         boardIds,
         boardPositions: forceLayout.boardPositions,
-        armPoints: forceLayout.armPoints,
       });
     });
   }
@@ -457,17 +428,11 @@ export function computeGroupFocusBounds(groupNode, layout) {
   const direct = layout?.groupBounds?.get(groupNode.groupId);
   if (direct) return direct;
 
-  const cardW = HOME_GRID_CELL_W - 40;
-  const cardH = HOME_GRID_CELL_H - 40;
+  const r = BUBBLE_MEDIUM / 2;
   const rects = (groupNode.boardIds || []).map((boardId) => {
     const p = layout?.allBoardPositions?.get(boardId);
     if (!p) return null;
-    return {
-      left: p.x - cardW / 2,
-      top: p.y - cardH / 2,
-      width: cardW,
-      height: cardH,
-    };
+    return { left: p.x - r, top: p.y - r, width: BUBBLE_MEDIUM, height: BUBBLE_MEDIUM };
   }).filter(Boolean);
   return unionRects(rects);
 }
@@ -484,23 +449,15 @@ export function zoomToGroupNode(groupNode, layout) {
   runZoomTransition(computeFitTransformForWorldRect(padded));
 }
 
-// ── Group hover repulsion ────────────────────────
-
 export function computeHomeFitTransform(layout) {
   const { allBoardPositions, groupBounds } = layout || lastHomeLayout || {};
   if (!allBoardPositions || allBoardPositions.size === 0) return null;
 
-  const cardW = HOME_GRID_CELL_W;
-  const cardH = HOME_GRID_CELL_H;
+  const r = BUBBLE_MEDIUM / 2;
   const rects = [];
 
   allBoardPositions.forEach((pos) => {
-    rects.push({
-      left: pos.x - cardW / 2,
-      top: pos.y - cardH / 2,
-      width: cardW,
-      height: cardH,
-    });
+    rects.push({ left: pos.x - r, top: pos.y - r, width: BUBBLE_MEDIUM, height: BUBBLE_MEDIUM });
   });
 
   if (groupBounds) {
@@ -516,103 +473,6 @@ export function computeHomeFitTransform(layout) {
 
 export function resetHomeViewport() {
   setHomeViewportInitialized(false);
-}
-
-function computeHoverRepulsion(groupNode, allBoardPositions) {
-  const pushed = new Map();
-  const expandedR = HOME_GROUP_HOVER_RADIUS + 40;
-
-  (groupNode.boardIds || []).forEach((boardId) => {
-    const pos = allBoardPositions.get(boardId);
-    if (!pos) return;
-
-    const dx = pos.x - groupNode.cx;
-    const dy = pos.y - groupNode.cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist < 1) {
-      // Board is right on center — push it straight up
-      pushed.set(boardId, { x: pos.x, y: pos.y - expandedR });
-      return;
-    }
-
-    const overlap = expandedR - dist;
-    if (overlap <= 0) {
-      pushed.set(boardId, { x: pos.x, y: pos.y });
-      return;
-    }
-
-    const nx = dx / dist;
-    const ny = dy / dist;
-    pushed.set(boardId, {
-      x: pos.x + nx * overlap,
-      y: pos.y + ny * overlap,
-    });
-  });
-
-  return pushed;
-}
-
-function computeArmEndpoint(groupCx, groupCy, boardX, boardY) {
-  const dx = boardX - groupCx;
-  const dy = boardY - groupCy;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist < 10) return { x1: 0, y1: 0, x2: 0, y2: 0 };
-
-  const cardW = 200;
-  const cardH = 210;
-  const cardOffY = 40;
-  const halfW = cardW / 2 + 5;
-  const halfH = cardH / 2 + 5;
-
-  const targetCX = dx;
-  const targetCY = dy + cardOffY;
-  const scaleX = targetCX !== 0 ? Math.abs(halfW / targetCX) : Infinity;
-  const scaleY = targetCY !== 0 ? Math.abs(halfH / targetCY) : Infinity;
-  const scale = Math.min(1.0, scaleX, scaleY);
-
-  return {
-    x1: (dx / dist) * HOME_GROUP_CIRCLE_RADIUS,
-    y1: (dy / dist) * HOME_GROUP_CIRCLE_RADIUS,
-    x2: targetCX - targetCX * scale,
-    y2: targetCY - targetCY * scale,
-  };
-}
-
-function animateGroupHover(groupNode, layout, isEnter) {
-  const positions = isEnter
-    ? computeHoverRepulsion(groupNode, layout.allBoardPositions)
-    : layout.allBoardPositions;
-
-  const duration = isEnter ? 320 : 280;
-  const ease = isEnter ? d3.easeCubicOut : d3.easeCubicInOut;
-
-  // Animate board nodes
-  (groupNode.boardIds || []).forEach((boardId) => {
-    const target = positions.get(boardId);
-    if (!target) return;
-
-    masterG.selectAll("g.board-node")
-      .filter(d => d.id === boardId)
-      .transition("hover-repulse")
-      .duration(duration)
-      .ease(ease)
-      .attr("transform", `translate(${target.x},${target.y})`);
-
-    // Also animate the arm lines inside the group node
-    const arm = computeArmEndpoint(groupNode.cx, groupNode.cy, target.x, target.y);
-    masterG.selectAll("g.group-node")
-      .filter(d => d.groupId === groupNode.groupId)
-      .selectAll("line.group-arm")
-      .filter(d => d.boardId === boardId)
-      .transition("hover-repulse")
-      .duration(duration)
-      .ease(ease)
-      .attr("x1", arm.x1)
-      .attr("y1", arm.y1)
-      .attr("x2", arm.x2)
-      .attr("y2", arm.y2);
-  });
 }
 
 // ── Main render ──────────────────────────────────
@@ -641,6 +501,9 @@ export function renderHome(boards) {
     }
   }
 
+  const defs = masterG.append("defs");
+
+  // ── Group center bubbles (white) ───────────────
   const groupVisuals = masterG.selectAll("g.group-node")
     .data(groupNodes, d => d.groupId)
     .join("g")
@@ -654,114 +517,36 @@ export function renderHome(boards) {
 
   groupVisuals.each(function(groupNode) {
     const g = d3.select(this);
-    const armData = (groupNode.boardIds || []).map((boardId) => {
-      const point = groupNode.armPoints?.get(boardId) || allBoardPositions.get(boardId);
-      if (!point) return null;
-      
-      const dx = point.x - groupNode.cx;
-      const dy = point.y - groupNode.cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 10) return null;
 
-      const cardW = 200;
-      const cardH = 210;
-      const cardOffY = 40;
-      
-      const halfW = cardW / 2 + 5;
-      const halfH = cardH / 2 + 5;
-      
-      const targetCX = dx;
-      const targetCY = dy + cardOffY;
-      
-      const vX = targetCX;
-      const vY = targetCY;
-      
-      const scaleX = vX !== 0 ? Math.abs(halfW / vX) : Infinity;
-      const scaleY = vY !== 0 ? Math.abs(halfH / vY) : Infinity;
-      const scale = Math.min(1.0, scaleX, scaleY);
+    g.append("circle")
+      .attr("class", "group-bubble")
+      .attr("r", BUBBLE_SMALL / 2);
 
-      const clipX = vX * scale;
-      const clipY = vY * scale;
-
-      return {
-        boardId,
-        x1: (dx / dist) * HOME_GROUP_CIRCLE_RADIUS,
-        y1: (dy / dist) * HOME_GROUP_CIRCLE_RADIUS,
-        x2: targetCX - clipX,
-        y2: targetCY - clipY,
-      };
-    }).filter(Boolean);
-
-    g.selectAll("line.group-arm")
-      .data(armData, d => d.boardId)
-      .join("line")
-      .attr("class", "group-arm")
-      .attr("x1", d => d.x1)
-      .attr("y1", d => d.y1)
-      .attr("x2", d => d.x2)
-      .attr("y2", d => d.y2);
-
-    g.selectAll("circle.group-circle")
-      .data([groupNode])
-      .join("circle")
-      .attr("class", "group-circle")
-      .attr("r", HOME_GROUP_CIRCLE_RADIUS)
-      .style("--group-hover-scale", HOME_GROUP_HOVER_SCALE);
-
-    g.selectAll("text.group-name")
-      .data([groupNode])
-      .join("text")
+    g.append("text")
       .attr("class", "group-name")
       .attr("x", 0)
       .attr("y", 0)
-      .text(d => d.groupName || "Untitled Group");
+      .text(groupNode.groupName || "Untitled Group");
 
-    g.selectAll("circle.group-hit-area")
-      .data([groupNode])
-      .join("circle")
+    g.append("circle")
       .attr("class", "group-hit-area")
-      .attr("r", HOME_GROUP_CIRCLE_RADIUS + 14)
-      .on("mouseenter", (event, gn) => {
-        if (_isSelectionModeEnabled()) return;
-        hoverActiveGroupId = gn.groupId;
-        animateGroupHover(gn, layout, true);
-      })
-      .on("mouseleave", (event, gn) => {
-        hoverActiveGroupId = null;
-        animateGroupHover(gn, layout, false);
-      });
+      .attr("r", BUBBLE_LARGE / 2);
   });
 
   // ── Start live simulations for multi-board groups ──
   groupNodes.forEach((groupNode) => {
-    // Find the matching entry from computeHomeLayout to get the simulation
     const sim = activeGroupSimulations.get(groupNode.groupId);
     if (!sim) return;
 
     sim.on("tick", () => {
-      if (hoverActiveGroupId === groupNode.groupId) return; // don't fight hover animation
-
       sim.nodes().forEach((node) => {
         if (node.isCenter) return;
 
-        // Update allBoardPositions so hover repulsion uses fresh data
         allBoardPositions.set(node.id, { x: node.x, y: node.y });
 
-        // Move board node
         masterG.selectAll("g.board-node")
           .filter(d => d.id === node.id)
           .attr("transform", `translate(${node.x},${node.y})`);
-
-        // Update arm line
-        const arm = computeArmEndpoint(groupNode.cx, groupNode.cy, node.x, node.y);
-        masterG.selectAll("g.group-node")
-          .filter(d => d.groupId === groupNode.groupId)
-          .selectAll("line.group-arm")
-          .filter(d => d.boardId === node.id)
-          .attr("x1", arm.x1)
-          .attr("y1", arm.y1)
-          .attr("x2", arm.x2)
-          .attr("y2", arm.y2);
       });
     });
 
@@ -786,16 +571,13 @@ export function renderHome(boards) {
     .attr("x2", d => d.x2)
     .attr("y2", d => d.y2);
 
-  // Build set of single-board-group board IDs for CSS float animation
-  const singleBoardGroupIds = new Set();
-  groupNodes.forEach((gn) => {
-    if (gn.boardIds.length === 1) singleBoardGroupIds.add(gn.boardIds[0]);
-  });
+  // ── Board bubbles (dark grey circles) ──────────
+  const boardR = BUBBLE_MEDIUM / 2;
 
   const boardGroups = masterG.selectAll("g.board-node")
     .data(boards, d => d.id)
     .join("g")
-    .attr("class", d => singleBoardGroupIds.has(d.id) ? "board-node board-node-float" : "board-node")
+    .attr("class", "board-node")
     .attr("transform", d => `translate(${d._x},${d._y})`)
     .on("mousedown", function(event, d) {
       if (!event.altKey) return;
@@ -813,7 +595,7 @@ export function renderHome(boards) {
       connectionDrag = { sourceId: d.id, tempLine };
     })
     .on("click", (event, d) => {
-      if (event.altKey) return;  // handled by mousedown
+      if (event.altKey) return;
       if (_isSelectionModeEnabled()) {
         if (multiSelectedBoardIds.has(d.id)) {
           multiSelectedBoardIds.delete(d.id);
@@ -827,79 +609,35 @@ export function renderHome(boards) {
     })
     .style("cursor", "pointer");
 
-  // Click hit area (invisible box behind text + pins)
-  boardGroups.append("rect")
-    .attr("class", "board-hit-area")
-    .attr("x", -(HOME_GRID_CELL_W - 40) / 2)
-    .attr("y", -20)
-    .attr("width", HOME_GRID_CELL_W - 40)
-    .attr("height", HOME_GRID_CELL_H - 40)
-    .attr("fill", "transparent")
-    .attr("pointer-events", "all");
+  // Circular clip for pin preview inside bubble
+  boardGroups.each(function(d) {
+    const clipId = `bubble-clip-${d.id}`;
+    defs.append("clipPath")
+      .attr("id", clipId)
+      .append("circle")
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .attr("r", boardR - 2);
+  });
 
-  // Board name label
-  const label = boardGroups.append("text")
-    .attr("class", "board-label")
-    .attr("y", 0)
-    .text(d => d.name)
-    .attr("fill", "#EEEBE7");
+  // Board bubble circle (dark grey)
+  boardGroups.append("circle")
+    .attr("class", "board-bubble")
+    .attr("r", boardR);
 
-  // Board selection outline around text
+  // Selection outline
   boardGroups.each(function(d) {
     if (multiSelectedBoardIds.has(d.id)) {
-      const textNode = d3.select(this).select(".board-label").node();
-      const bbox = textNode ? textNode.getBBox() : { x: -50, y: -10, width: 100, height: 20 };
-      const pad = 12;
-      d3.select(this).insert("rect", ":first-child")
+      d3.select(this).insert("circle", ":first-child")
         .attr("class", "pin-multi-select-outline")
-        .attr("x", bbox.x - pad)
-        .attr("y", bbox.y - pad/2)
-        .attr("width", bbox.width + pad*2)
-        .attr("height", bbox.height + pad)
-        .attr("rx", 6)
-        .attr("ry", 6);
+        .attr("r", boardR + 6)
+        .attr("fill", "none")
+        .attr("stroke", "rgba(100,149,237,0.7)")
+        .attr("stroke-width", 3);
     }
   });
 
-  // Board edit icon
-  boardGroups.append("foreignObject")
-    .attr("class", "board-edit-icon")
-    .attr("width", 24)
-    .attr("height", 24)
-    .each(function(d) {
-      const group = d3.select(this.parentNode);
-      const textNode = group.select(".board-label").node();
-      const textWidth = textNode ? textNode.getBBox().width : (d.name.length * 8);
-      d3.select(this).attr("transform", `translate(${textWidth / 2 + 10}, -12)`);
-    })
-    .attr("pointer-events", "all")
-    .html(`
-      <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.01); pointer-events: all; cursor: pointer;">
-        <i data-lucide="square-pen" style="width: 16px; height: 16px; stroke: #EEEBE7; stroke-width: 1.5; pointer-events: none;"></i>
-      </div>
-    `)
-    .on("click", (event, d) => {
-      event.stopPropagation();
-      _openEditBoardModal(d);
-    });
-  
-  // Initialize icons for the newly added board nodes
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
-
-  // Pin count subtitle
-  boardGroups.append("text")
-    .attr("class", "board-count")
-    .attr("y", 28)
-    .text(d => {
-      const count = Store.getPins(d.id).length;
-      return count === 0 ? "no pins yet" : count + (count === 1 ? " pin" : " pins");
-    });
-
-  const defs = masterG.append("defs");
-
-  // Mini live pin preview for each board
+  // Mini live pin preview clipped to circle
   boardGroups.each(function (board) {
     const pins = Store.getPins(board.id);
     if (pins.length === 0) return;
@@ -914,16 +652,16 @@ export function renderHome(boards) {
       BOARD_PREVIEW_MAX_H / paddedH
     );
 
+    const clipId = `bubble-clip-${board.id}`;
     const previewRoot = d3.select(this)
       .append("g")
       .attr("class", "board-pin-preview")
-      .attr("transform", `translate(0, ${BOARD_PREVIEW_OFFSET_Y})`)
+      .attr("clip-path", `url(#${clipId})`)
       .attr("data-preview-scale", previewScale)
       .attr("data-preview-cx", bounds.cx)
       .attr("data-preview-cy", bounds.cy)
-      .style("pointer-events", "all");
+      .style("pointer-events", "none");
 
-    // Keep a visible tiny corner radius after world-layer scaling.
     const previewCornerRadius = Math.max(1, 1 / Math.max(previewScale, 0.001));
 
     const worldLayer = previewRoot.append("g")
@@ -951,20 +689,20 @@ export function renderHome(boards) {
         ph,
         src,
         hasKnownAspect,
-        clipId: `home-pin-clip-${board.id}-${pin.id}`,
+        pinClipId: `home-pin-clip-${board.id}-${pin.id}`,
       };
     });
 
     previewPins.forEach((pin) => {
       defs.append("clipPath")
-        .attr("id", pin.clipId)
+        .attr("id", pin.pinClipId)
         .append("rect")
         .attr("x", -pin.pw / 2)
         .attr("y", -pin.ph / 2)
         .attr("width", pin.pw)
         .attr("height", pin.ph)
-            .attr("rx", previewCornerRadius)
-            .attr("ry", previewCornerRadius);
+        .attr("rx", previewCornerRadius)
+        .attr("ry", previewCornerRadius);
     });
 
     const pinGroups = worldLayer.selectAll("g.board-preview-pin")
@@ -990,8 +728,45 @@ export function renderHome(boards) {
       .attr("width", d => d.pw)
       .attr("height", d => d.ph)
       .attr("preserveAspectRatio", d => d.hasKnownAspect ? "xMidYMid slice" : "xMidYMid meet")
-      .attr("clip-path", d => `url(#${d.clipId})`);
+      .attr("clip-path", d => `url(#${d.pinClipId})`);
   });
+
+  // Board name (visible on hover)
+  boardGroups.append("text")
+    .attr("class", "board-label")
+    .attr("y", 4)
+    .text(d => d.name);
+
+  // Pin count (visible on hover)
+  boardGroups.append("text")
+    .attr("class", "board-count")
+    .attr("y", 22)
+    .text(d => {
+      const count = Store.getPins(d.id).length;
+      return count === 0 ? "no pins yet" : count + (count === 1 ? " pin" : " pins");
+    });
+
+  // Board edit icon (visible on hover)
+  boardGroups.append("foreignObject")
+    .attr("class", "board-edit-icon")
+    .attr("width", 24)
+    .attr("height", 24)
+    .attr("x", -12)
+    .attr("y", -(boardR + 20))
+    .attr("pointer-events", "all")
+    .html(`
+      <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.01); pointer-events: all; cursor: pointer;">
+        <i data-lucide="square-pen" style="width: 16px; height: 16px; stroke: #EEEBE7; stroke-width: 1.5; pointer-events: none;"></i>
+      </div>
+    `)
+    .on("click", (event, d) => {
+      event.stopPropagation();
+      _openEditBoardModal(d);
+    });
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
 
   // ── Alt+drag connection: SVG-level mousemove/mouseup ──
   svg.on("mousemove.connDrag", (event) => {

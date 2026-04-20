@@ -436,18 +436,19 @@ export function commitMarqueeSelection() {
     multiSelectedBoardIds.clear();
     const boards = Store.getBoards();
     const { allBoardPositions } = _computeHomeLayout();
+    const bubbleR = HOME_GRID_CELL_W / 2;
     boards.forEach(b => {
       const pos = allBoardPositions.get(b.id);
       if (!pos) return;
-      const bw = HOME_GRID_CELL_W - 40;
-      const bh = HOME_GRID_CELL_H - 40;
-      const bLeft = pos.x - bw / 2;
-      const bRight = pos.x + bw / 2;
-      const bTop = pos.y - bh / 2;
-      const bBottom = pos.y + bh / 2;
 
-      const overlaps = bLeft <= x1 && bRight >= x0 && bTop <= y1 && bBottom >= y0;
-      if (overlaps) multiSelectedBoardIds.add(b.id);
+      // Circle-rect overlap: clamp marquee center to circle then check distance
+      const closestX = Math.max(x0, Math.min(x1, pos.x));
+      const closestY = Math.max(y0, Math.min(y1, pos.y));
+      const dx = closestX - pos.x;
+      const dy = closestY - pos.y;
+      if (dx * dx + dy * dy <= bubbleR * bubbleR) {
+        multiSelectedBoardIds.add(b.id);
+      }
     });
     _render();
     if (multiSelectedBoardIds.size > 0 && !selectionModeActive) {

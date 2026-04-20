@@ -104,7 +104,9 @@ function drawProjectedMinimapNodes(nodes, bounds) {
     if (nx < -8 || nx > mmW + 8 || ny < -8 || ny > mmH + 8) return;
 
     S.mCtx.fillStyle = n.color;
-    S.mCtx.fillRect(nx - markerSize / 2, ny - markerSize / 2, markerSize, markerSize);
+    S.mCtx.beginPath();
+    S.mCtx.arc(nx, ny, markerSize, 0, Math.PI * 2);
+    S.mCtx.fill();
   });
 }
 

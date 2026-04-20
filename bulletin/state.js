@@ -17,22 +17,29 @@ export const TOPBAR_CLIP_BUFFER = 6;
 export const BOARD_LOADING_MIN_PINS = 20;
 export const BOARD_LOADING_TARGET_READY = 6;
 export const BOARD_LOADING_TIMEOUT_MS = 1500;
-export const BOARD_PREVIEW_OFFSET_Y = 110;
-export const BOARD_PREVIEW_MAX_W = 220;
-export const BOARD_PREVIEW_MAX_H = 148;
-export const BOARD_PREVIEW_PAD = 96;
+export const BOARD_PREVIEW_OFFSET_Y = 0;
+export const BOARD_PREVIEW_MAX_W = 90;
+export const BOARD_PREVIEW_MAX_H = 90;
+export const BOARD_PREVIEW_PAD = 16;
 export const HOME_WHEEL_GUARD_MS = 220;
-export const HOME_GRID_CELL_W = 296;
-export const HOME_GRID_CELL_H = 264;
+
+// ── Bubble sizes (golden-ratio steps: 72 → 117 → 189) ──
+export const BUBBLE_SMALL  = 72;   // group default diameter
+export const BUBBLE_MEDIUM = 117;  // board default diameter
+export const BUBBLE_LARGE  = 189;  // hover state diameter
+
+// Legacy aliases kept for imports that still reference them
+export const HOME_GRID_CELL_W = BUBBLE_MEDIUM;
+export const HOME_GRID_CELL_H = BUBBLE_MEDIUM;
 export const HOME_GRID_PAD_X = 80;
 export const HOME_GRID_PAD_Y = 110;
 export const HOME_SECTION_GAP   = 52;
 export const HOME_GROUP_LABEL_H = 44;
-export const HOME_GROUP_CLUSTER_RADIUS = 360;
-export const HOME_GROUP_CIRCLE_RADIUS = 34;
-export const HOME_GROUP_CLUSTER_PAD = 90;
-export const HOME_GROUP_HOVER_SCALE = 5.9;
-export const HOME_GROUP_HOVER_RADIUS = HOME_GROUP_CIRCLE_RADIUS * HOME_GROUP_HOVER_SCALE;
+export const HOME_GROUP_CLUSTER_RADIUS = 240;
+export const HOME_GROUP_CIRCLE_RADIUS = BUBBLE_SMALL / 2;
+export const HOME_GROUP_CLUSTER_PAD = 60;
+export const HOME_GROUP_HOVER_SCALE = BUBBLE_LARGE / BUBBLE_SMALL;
+export const HOME_GROUP_HOVER_RADIUS = BUBBLE_LARGE / 2;
 export const PIN_HANDLE_R = 5;
 export const PIN_SEL_EDIT_H = 26;
 export const PIN_SEL_EDIT_W = 54;
