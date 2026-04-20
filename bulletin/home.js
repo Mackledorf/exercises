@@ -211,20 +211,40 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   }
 
   const boardPositions = new Map();
-  const count = boards.length;
-  // Reduced orbit radius for tighter grouping at rest
-  const restOrbitRadius = BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
+  const boardR = BUBBLE_MEDIUM / 2;
+  const groupR = BUBBLE_SMALL / 2;
 
-  if (count === 1) {
-    boardPositions.set(boards[0].id, { x: centerX, y: centerY + restOrbitRadius });
-  } else {
-    boards.forEach((board, i) => {
-      const angle = (Math.PI * 2 * i) / count - Math.PI / 2;
+  // Distance from center to the center of a board on ring N (0-indexed)
+  // Ring 0: board edge touches group edge + GAP
+  // Ring N: board edge touches previous ring's board far edge + GAP
+  const ringRadius = (ring) =>
+    groupR + BUBBLE_GAP + boardR + ring * (BUBBLE_MEDIUM + BUBBLE_GAP);
+
+  // How many boards fit on a given ring with BUBBLE_GAP between their edges?
+  // The angular chord between adjacent board centers must be >= BUBBLE_MEDIUM + BUBBLE_GAP.
+  const capacityForRing = (ring) => {
+    const r = ringRadius(ring);
+    const minChord = BUBBLE_MEDIUM + BUBBLE_GAP;
+    // chord = 2 * r * sin(theta/2), solve for count = 2π / theta
+    const maxCount = Math.floor((Math.PI * 2) / (2 * Math.asin(Math.min(1, minChord / (2 * r)))));
+    return Math.max(1, maxCount);
+  };
+
+  // Distribute boards across rings
+  let remaining = [...boards];
+  let ring = 0;
+  while (remaining.length > 0) {
+    const cap = capacityForRing(ring);
+    const batch = remaining.splice(0, cap);
+    const r = ringRadius(ring);
+    batch.forEach((board, i) => {
+      const angle = (Math.PI * 2 * i) / batch.length - Math.PI / 2;
       boardPositions.set(board.id, {
-        x: centerX + Math.cos(angle) * restOrbitRadius,
-        y: centerY + Math.sin(angle) * restOrbitRadius,
+        x: centerX + Math.cos(angle) * r,
+        y: centerY + Math.sin(angle) * r,
       });
     });
+    ring++;
   }
 
   return { boardPositions };
