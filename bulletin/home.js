@@ -809,14 +809,14 @@ export function renderHome(boards) {
       .attr("height", d => d.ph)
       .attr("preserveAspectRatio", d => d.hasKnownAspect ? "xMidYMid slice" : "xMidYMid meet")
       .attr("clip-path", d => `url(#${d.pinClipId})`);
-
-    // Added: Dark contrast overlay rendered ON TOP of pins
-    d3.select(this).append("circle")
-      .attr("class", "board-bubble-overlay")
-      .attr("r", boardR)
-      .style("fill", "rgba(0, 0, 0, 0)")
-      .style("pointer-events", "none");
   });
+
+  // Dark contrast overlay rendered ON TOP of pins (for all boards)
+  boardGroups.append("circle")
+    .attr("class", "board-bubble-overlay")
+    .attr("r", boardR)
+    .style("fill", "rgba(0, 0, 0, 0)")
+    .style("pointer-events", "none");
 
   // Board name (visible on hover, rendered on top)
   boardGroups.append("text")
