@@ -212,16 +212,17 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
 
   const boardPositions = new Map();
   const count = boards.length;
-  const orbitRadius = BUBBLE_LARGE / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
+  // Reduced orbit radius for tighter grouping at rest
+  const restOrbitRadius = BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
 
   if (count === 1) {
-    boardPositions.set(boards[0].id, { x: centerX, y: centerY + orbitRadius });
+    boardPositions.set(boards[0].id, { x: centerX, y: centerY + restOrbitRadius });
   } else {
     boards.forEach((board, i) => {
       const angle = (Math.PI * 2 * i) / count - Math.PI / 2;
       boardPositions.set(board.id, {
-        x: centerX + Math.cos(angle) * orbitRadius,
-        y: centerY + Math.sin(angle) * orbitRadius,
+        x: centerX + Math.cos(angle) * restOrbitRadius,
+        y: centerY + Math.sin(angle) * restOrbitRadius,
       });
     });
   }
@@ -437,7 +438,9 @@ export function renderHome(boards) {
   const simLinks = [];
   const defaultBoardR = BUBBLE_MEDIUM / 2 + BUBBLE_GAP / 2;
   const defaultGroupR = BUBBLE_SMALL / 2 + BUBBLE_GAP / 2;
-  const orbitDistance = BUBBLE_LARGE / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
+  // Default rest distance is smaller, hover radius will push it out
+  const restOrbitDistance = BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
+  const hoverOrbitDistance = BUBBLE_LARGE / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
 
   // Ungrouped boards
   const ungroupedBoards = boards.filter(b => !b.groupId);
@@ -485,7 +488,7 @@ export function renderHome(boards) {
       .stop();
 
     if (simLinks.length > 0) {
-      homeSim.force("link", d3.forceLink(simLinks).id(d => d.id).distance(orbitDistance).strength(0.4));
+      homeSim.force("link", d3.forceLink(simLinks).id(d => d.id).distance(restOrbitDistance).strength(0.4));
     }
 
     // Settle initial positions
@@ -511,7 +514,15 @@ export function renderHome(boards) {
       .force("charge", d3.forceManyBody().strength(-20));
 
     if (simLinks.length > 0) {
-      homeSim.force("link", d3.forceLink(simLinks).id(d => d.id).distance(orbitDistance).strength(0.2));
+      // Dynamic link force that can adjust distance based on hover state
+      homeSim.force("link", d3.forceLink(simLinks).id(d => d.id).distance(d => {
+        const sourceNode = simNodes.find(n => n.id === d.source.id);
+        const targetNode = simNodes.find(n => n.id === d.target.id);
+        if (sourceNode?._hoverR > sourceNode?._defaultR || targetNode?._hoverR > targetNode?._defaultR) {
+          return hoverOrbitDistance;
+        }
+        return restOrbitDistance;
+      }).strength(0.2));
     }
   }
 

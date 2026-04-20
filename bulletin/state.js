@@ -30,15 +30,15 @@ export const BUBBLE_LARGE  = 189;  // hover state diameter
 export const BUBBLE_GAP    = 12;   // desired visual gap between bubble edges
 
 // Layout spacing (enough room for hover growth + breathing room)
-export const HOME_GRID_CELL_W = BUBBLE_LARGE;
-export const HOME_GRID_CELL_H = BUBBLE_LARGE;
+export const HOME_GRID_CELL_W = BUBBLE_MEDIUM + BUBBLE_GAP * 2;
+export const HOME_GRID_CELL_H = BUBBLE_MEDIUM + BUBBLE_GAP * 2;
 export const HOME_GRID_PAD_X = 80;
 export const HOME_GRID_PAD_Y = 110;
 export const HOME_SECTION_GAP   = 52;
 export const HOME_GROUP_LABEL_H = 44;
-export const HOME_GROUP_CLUSTER_RADIUS = 240;
+export const HOME_GROUP_CLUSTER_RADIUS = BUBBLE_LARGE + BUBBLE_GAP;
 export const HOME_GROUP_CIRCLE_RADIUS = BUBBLE_SMALL / 2;
-export const HOME_GROUP_CLUSTER_PAD = 60;
+export const HOME_GROUP_CLUSTER_PAD = 40;
 export const HOME_GROUP_HOVER_SCALE = BUBBLE_LARGE / BUBBLE_SMALL;
 export const HOME_GROUP_HOVER_RADIUS = BUBBLE_LARGE / 2;
 export const PIN_HANDLE_R = 5;
