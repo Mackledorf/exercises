@@ -211,13 +211,37 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
     return { boardPositions: new Map(), simulation: null };
   }
 
-  // Single-board case: place below center with enough gap for hover growth
+  // Single-board case: use a simulation so hover collision works
   if (boards.length === 1) {
+    const offset = BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + 20;
+    const centerNodeId = `group-center-${groupId}`;
+    const nodes = [
+      { id: centerNodeId, fx: centerX, fy: centerY, isCenter: true, _hoverR: BUBBLE_SMALL / 2 + 6 },
+      { id: boards[0].id, x: centerX, y: centerY + offset, isCenter: false, _hoverR: BUBBLE_MEDIUM / 2 + 8 },
+    ];
+    const links = [{ source: centerNodeId, target: boards[0].id }];
+    const simulation = d3.forceSimulation(nodes)
+      .alpha(0.5)
+      .alphaDecay(0.03)
+      .velocityDecay(0.6)
+      .force("link", d3.forceLink(links).id(d => d.id).distance(offset).strength(0.5))
+      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(3))
+      .force("radial", d3.forceRadial(offset, centerX, centerY).strength(d => d.isCenter ? 0 : 0.06))
+      .stop();
+    for (let i = 0; i < 120; i++) simulation.tick();
     const boardPositions = new Map();
-    const gap = BUBBLE_LARGE / 2 + BUBBLE_LARGE / 2 + 16;
-    const pos = { x: centerX, y: centerY + gap };
-    boardPositions.set(boards[0].id, pos);
-    return { boardPositions, simulation: null, singleBoard: true };
+    const n = nodes[1];
+    boardPositions.set(boards[0].id, { x: n.x, y: n.y });
+    // Switch to perpetual floating
+    simulation
+      .alpha(0.12)
+      .alphaTarget(0.012)
+      .alphaDecay(0)
+      .velocityDecay(0.9)
+      .force("link", d3.forceLink(links).id(d => d.id).distance(offset).strength(0.25))
+      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(3));
+    activeGroupSimulations.set(groupId, simulation);
+    return { boardPositions, simulation, nodes, singleBoard: true };
   }
 
   if (typeof d3.forceSimulation !== "function") {
@@ -225,14 +249,12 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   }
 
   const count = boards.length;
-  // Orbit must keep boards clear of group center even at BUBBLE_LARGE hover size
-  const minOrbit = BUBBLE_LARGE / 2 + BUBBLE_LARGE / 2 + 12;
-  const orbitRadius = minOrbit * Math.min(1.6, 0.8 + count * 0.16);
-  const collideRadius = BUBBLE_LARGE / 2 + 4;
+  const orbitRadius = (BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + 18) * Math.min(1.6, 0.8 + count * 0.16);
+  const collideRadius = BUBBLE_MEDIUM / 2 + 8;
 
   const centerNodeId = `group-center-${groupId}`;
   const nodes = [
-    { id: centerNodeId, fx: centerX, fy: centerY, isCenter: true },
+    { id: centerNodeId, fx: centerX, fy: centerY, isCenter: true, _hoverR: BUBBLE_SMALL / 2 + 6 },
     ...boards.map((board, i) => {
       const angle = (Math.PI * 2 * i) / count - Math.PI / 2;
       return {
@@ -240,6 +262,7 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
         x: centerX + Math.cos(angle) * orbitRadius,
         y: centerY + Math.sin(angle) * orbitRadius,
         isCenter: false,
+        _hoverR: collideRadius,
       };
     }),
   ];
@@ -252,7 +275,7 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
     .velocityDecay(0.5)
     .force("link", d3.forceLink(links).id(d => d.id).distance(orbitRadius).strength(0.6))
     .force("charge", d3.forceManyBody().strength(-120))
-    .force("collide", d3.forceCollide().radius(d => d.isCenter ? BUBBLE_SMALL / 2 + 6 : collideRadius).iterations(3))
+    .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(3))
     .force("radial", d3.forceRadial(orbitRadius, centerX, centerY).strength(d => d.isCenter ? 0 : 0.08))
     .stop();
 
@@ -478,6 +501,19 @@ export function resetHomeViewport() {
   setHomeViewportInitialized(false);
 }
 
+// ── Hover collision helper ───────────────────────
+function _setNodeHoverRadius(boardId, radius) {
+  for (const [key, sim] of activeGroupSimulations) {
+    const node = sim.nodes().find(n => n.id === boardId);
+    if (node) {
+      node._hoverR = radius;
+      sim.force("collide", d3.forceCollide().radius(n => n._hoverR).iterations(3));
+      sim.alpha(Math.max(sim.alpha(), 0.3)).restart();
+      return;
+    }
+  }
+}
+
 // ── Main render ──────────────────────────────────
 
 export function renderHome(boards) {
@@ -497,14 +533,14 @@ export function renderHome(boards) {
   if (ungroupedBoards.length > 1 && typeof d3.forceSimulation === "function") {
     const ungroupedNodes = ungroupedBoards.map(b => {
       const pos = allBoardPositions.get(b.id) || { x: width / 2, y: height / 2 };
-      return { id: b.id, x: pos.x, y: pos.y, _tx: pos.x, _ty: pos.y };
+      return { id: b.id, x: pos.x, y: pos.y, _tx: pos.x, _ty: pos.y, _hoverR: BUBBLE_MEDIUM / 2 + 10 };
     });
 
     const ungroupedSim = d3.forceSimulation(ungroupedNodes)
       .alpha(0.8)
       .alphaDecay(0.03)
       .velocityDecay(0.5)
-      .force("collide", d3.forceCollide(BUBBLE_MEDIUM / 2 + 10).iterations(2))
+      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(2))
       .force("x", d3.forceX(d => d._tx).strength(0.12))
       .force("y", d3.forceY(d => d._ty).strength(0.12))
       .stop();
@@ -524,7 +560,7 @@ export function renderHome(boards) {
       .alphaTarget(0.008)
       .alphaDecay(0)
       .velocityDecay(0.92)
-      .force("collide", d3.forceCollide(BUBBLE_MEDIUM / 2 + 10).iterations(1))
+      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(2))
       .force("x", d3.forceX(d => d._tx).strength(0.03))
       .force("y", d3.forceY(d => d._ty).strength(0.03));
 
@@ -556,17 +592,33 @@ export function renderHome(boards) {
       if (_isSelectionModeEnabled()) return;
       zoomToGroupNode(d, layout);
     })
-    .on("mouseenter", function() {
+    .on("mouseenter", function(event, d) {
+      d3.select(this).raise();
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
+      // Update collision radius for group center node in its simulation
+      const sim = activeGroupSimulations.get(d.groupId);
+      if (sim) {
+        const centerNode = sim.nodes().find(n => n.isCenter);
+        if (centerNode) centerNode._hoverR = BUBBLE_LARGE / 2 + 6;
+        sim.force("collide", d3.forceCollide().radius(n => n._hoverR).iterations(3));
+        sim.alpha(Math.max(sim.alpha(), 0.3)).restart();
+      }
     })
-    .on("mouseleave", function() {
+    .on("mouseleave", function(event, d) {
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_SMALL / 2);
+      const sim = activeGroupSimulations.get(d.groupId);
+      if (sim) {
+        const centerNode = sim.nodes().find(n => n.isCenter);
+        if (centerNode) centerNode._hoverR = BUBBLE_SMALL / 2 + 6;
+        sim.force("collide", d3.forceCollide().radius(n => n._hoverR).iterations(3));
+        sim.alpha(Math.max(sim.alpha(), 0.3)).restart();
+      }
     });
 
   groupVisuals.each(function(groupNode) {
@@ -840,15 +892,17 @@ export function renderHome(boards) {
   boardGroups
     .on("mouseenter.bubble", function(event, d) {
       const g = d3.select(this);
+      g.raise(); // paint on top
       g.select(".board-bubble")
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
-      // Grow clip path so more of pin preview is visible
       d3.select(`#bubble-clip-${d.id} circle`)
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2 - 2);
+      // Update collision radius in whichever simulation owns this board
+      _setNodeHoverRadius(d.id, BUBBLE_LARGE / 2 + 8);
     })
     .on("mouseleave.bubble", function(event, d) {
       const g = d3.select(this);
@@ -860,6 +914,7 @@ export function renderHome(boards) {
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_MEDIUM / 2 - 2);
+      _setNodeHoverRadius(d.id, BUBBLE_MEDIUM / 2 + 8);
     });
 
   // ── Alt+drag connection: SVG-level mousemove/mouseup ──
