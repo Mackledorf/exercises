@@ -27,7 +27,7 @@ import {
 let homePreviewHydrateQueued = false;
 let lastHomeLayout = null;
 let connectionDrag = null;  // { sourceId, tempLine }
-let homeSim = null;          // single unified d3 force simulation
+let _bubbleNodes = [];       // deterministic bubble positions
 
 // ── Callback injection ───────────────────────────
 let _enterBoard = null;
@@ -202,7 +202,7 @@ export function computeRadialFallbackLayout(boards, centerX, centerY) {
 }
 
 export function stopAllGroupSimulations() {
-  if (homeSim) { homeSim.stop(); homeSim = null; }
+  _bubbleNodes = [];
 }
 
 export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
@@ -409,23 +409,73 @@ export function resetHomeViewport() {
   setHomeViewportInitialized(false);
 }
 
-// ── Hover collision helper ───────────────────────
-function _setNodeHoverRadius(nodeId, radius) {
-  if (!homeSim) return;
-  const node = homeSim.nodes().find(n => n.id === nodeId);
+// ── Deterministic overlap resolver (replaces D3 simulation) ──
+
+/** Iteratively push overlapping bubbles apart until all have BUBBLE_GAP clearance */
+function _resolveOverlaps() {
+  const nodes = _bubbleNodes;
+  for (let iter = 0; iter < 40; iter++) {
+    let anyMoved = false;
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        if (a.fixed && b.fixed) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const minDist = a.radius + b.radius + BUBBLE_GAP;
+        if (dist >= minDist) continue;
+        const overlap = minDist - dist;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        if (a.fixed) {
+          b.x += nx * overlap;
+          b.y += ny * overlap;
+        } else if (b.fixed) {
+          a.x -= nx * overlap;
+          a.y -= ny * overlap;
+        } else {
+          a.x -= nx * overlap * 0.5;
+          a.y -= ny * overlap * 0.5;
+          b.x += nx * overlap * 0.5;
+          b.y += ny * overlap * 0.5;
+        }
+        anyMoved = true;
+      }
+    }
+    if (!anyMoved) break;
+  }
+}
+
+/** D3-transition every board node <g> to its current _bubbleNodes position */
+function _transitionBubbles(durationMs) {
+  _bubbleNodes.forEach(node => {
+    if (node.isCenter) return;
+    masterG.selectAll("g.board-node")
+      .filter(d => d.id === node.id)
+      .transition("bubble-pos")
+      .duration(durationMs)
+      .ease(d3.easeCubicInOut)
+      .attr("transform", `translate(${node.x},${node.y})`);
+  });
+}
+
+/** Called on hover enter/leave — changes a node's radius, resolves, transitions */
+function _setNodeHoverRadius(nodeId, visualRadius) {
+  const node = _bubbleNodes.find(n => n.id === nodeId);
   if (!node) return;
-  node._hoverR = radius;
+  node.radius = visualRadius;
 
-  // Re-apply collide force so it picks up the new radius
-  homeSim.force("collide", d3.forceCollide().radius(n => n._hoverR).iterations(6));
+  // Reset every non-fixed node to its rest position, then resolve from scratch
+  _bubbleNodes.forEach(n => {
+    if (!n.fixed) {
+      n.x = n.restX;
+      n.y = n.restY;
+    }
+  });
 
-  // Wake the simulation with a burst of energy
-  homeSim.alphaTarget(0).alpha(0.8).velocityDecay(0.55).restart();
-
-  // After the burst settles, restore high friction so sim stops cleanly
-  setTimeout(() => {
-    if (homeSim) homeSim.velocityDecay(0.9);
-  }, 300);
+  _resolveOverlaps();
+  _transitionBubbles(400);
 }
 
 // ── Main render ──────────────────────────────────
@@ -442,98 +492,55 @@ export function renderHome(boards) {
     if (pos) { b._x = pos.x; b._y = pos.y; }
   });
 
-  // ── Build unified simulation node array ──
-  const simNodes = [];
-  const simLinks = [];
-  const defaultBoardR = BUBBLE_MEDIUM / 2 + BUBBLE_GAP / 2;
-  const defaultGroupR = BUBBLE_SMALL / 2 + BUBBLE_GAP / 2;
-  // Default rest distance is smaller, hover radius will push it out
-  const restOrbitDistance = BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
-  const hoverOrbitDistance = BUBBLE_LARGE / 2 + BUBBLE_MEDIUM / 2 + BUBBLE_GAP;
+  // ── Build bubble nodes for deterministic overlap resolution ──
+  _bubbleNodes = [];
 
   // Ungrouped boards
   const ungroupedBoards = boards.filter(b => !b.groupId);
   ungroupedBoards.forEach(b => {
     const pos = allBoardPositions.get(b.id) || { x: width / 2, y: height / 2 };
-    simNodes.push({
+    _bubbleNodes.push({
       id: b.id, type: "board",
       x: pos.x, y: pos.y,
-      _targetX: pos.x, _targetY: pos.y,
-      _hoverR: defaultBoardR, _defaultR: defaultBoardR,
+      restX: pos.x, restY: pos.y,
+      radius: BUBBLE_MEDIUM / 2, restRadius: BUBBLE_MEDIUM / 2,
+      fixed: false, isCenter: false,
     });
   });
 
-  // Group centers + grouped boards
+  // Group centers (fixed) + grouped boards
   groupNodes.forEach(gn => {
-    const centerId = `gc-${gn.groupId}`;
-    simNodes.push({
-      id: centerId, type: "group", isCenter: true,
+    _bubbleNodes.push({
+      id: `gc-${gn.groupId}`, type: "group",
+      x: gn.cx, y: gn.cy,
+      restX: gn.cx, restY: gn.cy,
+      radius: BUBBLE_SMALL / 2, restRadius: BUBBLE_SMALL / 2,
+      fixed: true, isCenter: true,
       groupId: gn.groupId,
-      fx: gn.cx, fy: gn.cy,
-      _hoverR: defaultGroupR, _defaultR: defaultGroupR,
     });
     gn.boardIds.forEach(boardId => {
       const pos = allBoardPositions.get(boardId) || { x: gn.cx, y: gn.cy };
-      simNodes.push({
-        id: boardId, type: "board", groupId: gn.groupId,
+      _bubbleNodes.push({
+        id: boardId, type: "board",
         x: pos.x, y: pos.y,
-        _targetX: pos.x, _targetY: pos.y,
-        _hoverR: defaultBoardR, _defaultR: defaultBoardR,
+        restX: pos.x, restY: pos.y,
+        radius: BUBBLE_MEDIUM / 2, restRadius: BUBBLE_MEDIUM / 2,
+        fixed: false, isCenter: false,
+        groupId: gn.groupId,
       });
-      simLinks.push({ source: centerId, target: boardId });
     });
   });
 
-  // Create unified simulation
-  if (simNodes.length > 1 && typeof d3.forceSimulation === "function") {
-    homeSim = d3.forceSimulation(simNodes)
-      .alpha(0.8)
-      .alphaDecay(0.03)
-      .velocityDecay(0.5)
-      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(6))
-      .force("x", d3.forceX(d => d._targetX ?? d.fx ?? 0).strength(d => d.isCenter ? 0 : 0.12))
-      .force("y", d3.forceY(d => d._targetY ?? d.fy ?? 0).strength(d => d.isCenter ? 0 : 0.12))
-      .stop();
-
-    if (simLinks.length > 0) {
-      homeSim.force("link", d3.forceLink(simLinks).id(d => d.id).distance(restOrbitDistance).strength(0.4));
-    }
-
-    // Settle initial positions
-    for (let i = 0; i < 200; i++) homeSim.tick();
-
-    // Apply settled positions
-    simNodes.forEach(n => {
-      if (n.isCenter) return;
-      allBoardPositions.set(n.id, { x: n.x, y: n.y });
-      const b = boards.find(board => board.id === n.id);
-      if (b) { b._x = n.x; b._y = n.y; }
-    });
-
-    // Simulation is now idle — it only wakes on hover events.
-    // No passive gravity, no perpetual floating. Collide keeps padding.
-    homeSim
-      .alpha(0)
-      .alphaTarget(0)
-      .alphaDecay(0.05)
-      .velocityDecay(0.9)
-      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(6))
-      .force("x", d3.forceX(d => d._targetX ?? d.fx ?? 0).strength(d => d.isCenter ? 0 : 0.08))
-      .force("y", d3.forceY(d => d._targetY ?? d.fy ?? 0).strength(d => d.isCenter ? 0 : 0.08))
-      .force("charge", null);
-
-    if (simLinks.length > 0) {
-      // Dynamic link force: distance grows when a board is hovered
-      homeSim.force("link", d3.forceLink(simLinks).id(d => d.id).distance(d => {
-        const sourceNode = typeof d.source === "object" ? d.source : simNodes.find(n => n.id === d.source);
-        const targetNode = typeof d.target === "object" ? d.target : simNodes.find(n => n.id === d.target);
-        if (sourceNode?._hoverR > sourceNode?._defaultR || targetNode?._hoverR > targetNode?._defaultR) {
-          return hoverOrbitDistance;
-        }
-        return restOrbitDistance;
-      }).strength(0.5));
-    }
-  }
+  // Resolve any initial overlaps and lock in rest positions
+  _resolveOverlaps();
+  _bubbleNodes.forEach(n => {
+    if (n.isCenter) return;
+    n.restX = n.x;
+    n.restY = n.y;
+    allBoardPositions.set(n.id, { x: n.x, y: n.y });
+    const b = boards.find(board => board.id === n.id);
+    if (b) { b._x = n.x; b._y = n.y; }
+  });
 
   // On first home entry (or when no viewport has been set), fit all boards into view
   if (!homeViewportInitialized && boards.length > 0) {
@@ -566,14 +573,14 @@ export function renderHome(boards) {
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
-      _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_LARGE / 2 + BUBBLE_GAP / 2);
+      _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_LARGE / 2);
     })
     .on("mouseleave", function(event, d) {
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_SMALL / 2);
-      _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_SMALL / 2 + BUBBLE_GAP / 2);
+      _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_SMALL / 2);
     });
 
   groupVisuals.each(function(groupNode) {
@@ -593,20 +600,6 @@ export function renderHome(boards) {
       .attr("class", "group-hit-area")
       .attr("r", BUBBLE_LARGE / 2);
   });
-
-  // ── Start unified simulation tick handler ──
-  if (homeSim) {
-    homeSim.on("tick", () => {
-      homeSim.nodes().forEach(node => {
-        if (node.isCenter) return;
-        allBoardPositions.set(node.id, { x: node.x, y: node.y });
-        masterG.selectAll("g.board-node")
-          .filter(d => d.id === node.id)
-          .attr("transform", `translate(${node.x},${node.y})`);
-      });
-    });
-    homeSim.restart();
-  }
 
   // ── Connection edges between boards ────────────
   const connections = Store.getConnections();
@@ -836,7 +829,7 @@ export function renderHome(boards) {
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2 - 2);
-      _setNodeHoverRadius(d.id, BUBBLE_LARGE / 2 + BUBBLE_GAP / 2);
+      _setNodeHoverRadius(d.id, BUBBLE_LARGE / 2);
     })
     .on("mouseleave.bubble", function(event, d) {
       const g = d3.select(this);
@@ -848,7 +841,7 @@ export function renderHome(boards) {
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_MEDIUM / 2 - 2);
-      _setNodeHoverRadius(d.id, BUBBLE_MEDIUM / 2 + BUBBLE_GAP / 2);
+      _setNodeHoverRadius(d.id, BUBBLE_MEDIUM / 2);
     });
 
   // ── Alt+drag connection: SVG-level mousemove/mouseup ──
