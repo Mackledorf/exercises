@@ -416,13 +416,14 @@ function _setNodeHoverRadius(nodeId, radius) {
   if (!node) return;
   node._hoverR = radius;
   homeSim.force("collide", d3.forceCollide().radius(n => n._hoverR).iterations(4));
-  // High alpha and velocity decay drop to allow "jerk" explosion / snap-back
-  homeSim.alpha(1).velocityDecay(0.4).restart();
   
-  // Briefly hold low velocity decay, then return to smooth floating
+  // High alpha for rapid movement, but stable velocity decay
+  homeSim.alpha(0.8).velocityDecay(0.6).restart();
+  
+  // Return to smooth floating decay after things move
   setTimeout(() => {
     if (homeSim) homeSim.velocityDecay(0.9);
-  }, 300);
+  }, 250);
 }
 
 // ── Main render ──────────────────────────────────
@@ -560,14 +561,14 @@ export function renderHome(boards) {
     .on("mouseenter", function(event, d) {
       d3.select(this).raise();
       d3.select(this).select(".group-bubble")
-        .transition("bubble-hover").duration(180)
-        .ease(d3.easeElasticOut.amplitude(1.1).period(0.6))
+        .transition("bubble-hover").duration(280)
+        .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
       _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_LARGE / 2 + BUBBLE_GAP / 2);
     })
     .on("mouseleave", function(event, d) {
       d3.select(this).select(".group-bubble")
-        .transition("bubble-hover").duration(180)
+        .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_SMALL / 2);
       _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_SMALL / 2 + BUBBLE_GAP / 2);
@@ -826,23 +827,23 @@ export function renderHome(boards) {
       const g = d3.select(this);
       g.raise(); // paint on top
       g.select(".board-bubble")
-        .transition("bubble-hover").duration(180)
-        .ease(d3.easeElasticOut.amplitude(1.1).period(0.6))
+        .transition("bubble-hover").duration(280)
+        .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
       d3.select(`#bubble-clip-${d.id} circle`)
-        .transition("bubble-hover").duration(180)
-        .ease(d3.easeElasticOut.amplitude(1.1).period(0.6))
+        .transition("bubble-hover").duration(280)
+        .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2 - 2);
       _setNodeHoverRadius(d.id, BUBBLE_LARGE / 2 + BUBBLE_GAP / 2);
     })
     .on("mouseleave.bubble", function(event, d) {
       const g = d3.select(this);
       g.select(".board-bubble")
-        .transition("bubble-hover").duration(180)
+        .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_MEDIUM / 2);
       d3.select(`#bubble-clip-${d.id} circle`)
-        .transition("bubble-hover").duration(180)
+        .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_MEDIUM / 2 - 2);
       _setNodeHoverRadius(d.id, BUBBLE_MEDIUM / 2 + BUBBLE_GAP / 2);
