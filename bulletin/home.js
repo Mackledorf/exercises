@@ -211,10 +211,11 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
     return { boardPositions: new Map(), simulation: null };
   }
 
-  // Single-board case: place just below center
+  // Single-board case: place below center with enough gap for hover growth
   if (boards.length === 1) {
     const boardPositions = new Map();
-    const pos = { x: centerX, y: centerY + BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + 12 };
+    const gap = BUBBLE_LARGE / 2 + BUBBLE_LARGE / 2 + 16;
+    const pos = { x: centerX, y: centerY + gap };
     boardPositions.set(boards[0].id, pos);
     return { boardPositions, simulation: null, singleBoard: true };
   }
@@ -224,8 +225,10 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   }
 
   const count = boards.length;
-  const orbitRadius = (BUBBLE_SMALL / 2 + BUBBLE_MEDIUM / 2 + 18) * Math.min(1.6, 0.8 + count * 0.16);
-  const collideRadius = BUBBLE_MEDIUM / 2 + 8;
+  // Orbit must keep boards clear of group center even at BUBBLE_LARGE hover size
+  const minOrbit = BUBBLE_LARGE / 2 + BUBBLE_LARGE / 2 + 12;
+  const orbitRadius = minOrbit * Math.min(1.6, 0.8 + count * 0.16);
+  const collideRadius = BUBBLE_LARGE / 2 + 4;
 
   const centerNodeId = `group-center-${groupId}`;
   const nodes = [
