@@ -213,30 +213,38 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   const boardPositions = new Map();
   const boardR = BUBBLE_MEDIUM / 2;
   const groupR = BUBBLE_SMALL / 2;
+  const minChord = BUBBLE_MEDIUM + BUBBLE_GAP;
 
-  // Distance from center to the center of a board on ring N (0-indexed)
-  // Ring 0: board edge touches group edge + GAP
-  // Ring N: board edge touches previous ring's board far edge + GAP
-  const ringRadius = (ring) =>
-    groupR + BUBBLE_GAP + boardR + ring * (BUBBLE_MEDIUM + BUBBLE_GAP);
-
-  // How many boards fit on a given ring with BUBBLE_GAP between their edges?
-  // The angular chord between adjacent board centers must be >= BUBBLE_MEDIUM + BUBBLE_GAP.
-  const capacityForRing = (ring) => {
-    const r = ringRadius(ring);
-    const minChord = BUBBLE_MEDIUM + BUBBLE_GAP;
-    // chord = 2 * r * sin(theta/2), solve for count = 2π / theta
-    const maxCount = Math.floor((Math.PI * 2) / (2 * Math.asin(Math.min(1, minChord / (2 * r)))));
-    return Math.max(1, maxCount);
+  // The minimum ring radius so that `k` boards fit with BUBBLE_GAP between edges.
+  // Derived from: chord between adjacent centers >= minChord
+  //   chord = 2r·sin(π/k)  →  r = minChord / (2·sin(π/k))
+  // Also must clear the inner structure (group or previous ring) + GAP.
+  const radiusForCount = (k, floorR) => {
+    if (k <= 1) return floorR;
+    return Math.max(floorR, minChord / (2 * Math.sin(Math.PI / k)));
   };
 
-  // Distribute boards across rings
+  // Fill rings from inside out. Each ring expands to fit its boards.
+  // Ring 0 may grow up to 3× the tight-fit radius so the first ring
+  // absorbs as many boards as possible before overflow.
+  const baseMinR = groupR + BUBBLE_GAP + boardR;
+  const maxR0 = baseMinR * 3;
+
   let remaining = [...boards];
+  let prevOuterEdge = groupR; // outer edge of innermost object so far
   let ring = 0;
+
   while (remaining.length > 0) {
-    const cap = capacityForRing(ring);
-    const batch = remaining.splice(0, cap);
-    const r = ringRadius(ring);
+    const ringMinR = prevOuterEdge + BUBBLE_GAP + boardR;
+    const maxRingR = ring === 0 ? maxR0 : ringMinR + BUBBLE_MEDIUM + BUBBLE_GAP;
+
+    // Find the largest count that fits within maxRingR
+    let count = remaining.length;
+    while (count > 1 && radiusForCount(count, ringMinR) > maxRingR) count--;
+
+    const batch = remaining.splice(0, count);
+    const r = radiusForCount(batch.length, ringMinR);
+
     batch.forEach((board, i) => {
       const angle = (Math.PI * 2 * i) / batch.length - Math.PI / 2;
       boardPositions.set(board.id, {
@@ -244,6 +252,8 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
         y: centerY + Math.sin(angle) * r,
       });
     });
+
+    prevOuterEdge = r + boardR;
     ring++;
   }
 
