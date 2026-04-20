@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Bulletin</title>
+  <style>
+    body {
+      font-family: "Pitch Sans", "Helvetica Neue", sans-serif;
+      max-width: 680px;
+      margin: 80px auto;
+      padding: 0 24px;
+      color: #1a1a1a;
+      line-height: 1.7;
+    }
+    h1 { font-size: 28px; margin-bottom: 4px; }
+    h2 { font-size: 16px; margin-top: 40px; }
+    p, li { font-size: 14px; }
+    ul { padding-left: 20px; }
+    .meta { font-size: 13px; color: #888; margin-bottom: 48px; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+
+  <h1>Privacy Policy</h1>
+  <p class="meta">Bulletin &nbsp;·&nbsp; Last updated: April 20, 2026</p>
+
+  <p>
+    Bulletin is an experimental student project built as a class exercise. It is
+    not a commercial product. This privacy policy describes how the application
+    handles user data in its current, non-production state.
+  </p>
+
+  <h2>What this app is</h2>
+  <p>
+    Bulletin is a personal visual pin-board web application. It lets users save
+    images, organize them into boards, and optionally import boards from
+    third-party services such as Are.na and Pinterest. The app is built and
+    maintained by a single student as part of a design/development course and is
+    not affiliated with any company or organization.
+  </p>
+
+  <h2>Data we collect</h2>
+  <ul>
+    <li><strong>Account credentials</strong> — email address and a hashed password, used solely to authenticate you.</li>
+    <li><strong>Board and pin data</strong> — names, descriptions, image URLs, and positions that you explicitly create inside the app.</li>
+    <li><strong>OAuth tokens</strong> — when you connect a third-party service (e.g. Pinterest), an access token and refresh token are stored server-side in a private database row scoped to your account. These tokens are never exposed to other users or transmitted to any party other than the originating service.</li>
+  </ul>
+
+  <h2>Data we do not collect</h2>
+  <ul>
+    <li>We do not collect analytics, telemetry, or usage tracking of any kind.</li>
+    <li>We do not collect payment information.</li>
+    <li>We do not sell or share any data with third parties.</li>
+    <li>We do not run advertisements.</li>
+  </ul>
+
+  <h2>Third-party services</h2>
+  <p>
+    Bulletin uses <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase</a>
+    for authentication and database storage. When you choose to connect your Pinterest account,
+    your interaction with Pinterest's OAuth flow is governed by the
+    <a href="https://policy.pinterest.com/en/privacy-policy" target="_blank" rel="noopener">Pinterest Privacy Policy</a>.
+    Bulletin only requests read-only access (<code>boards:read</code>, <code>pins:read</code>) and
+    does not post, modify, or delete any Pinterest content on your behalf.
+  </p>
+
+  <h2>Data retention</h2>
+  <p>
+    Your data is retained for as long as your account exists. You may delete your
+    account at any time, which will permanently remove all associated boards, pins,
+    and OAuth tokens from our database.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    This is a student project with no formal support channel. If you have questions,
+    you can reach out to the developer directly through the course or class in which
+    this project was submitted.
+  </p>
+
+</body>
+</html>

@@ -816,6 +816,7 @@ export function renderHome(boards) {
     .attr("class", "board-bubble-overlay")
     .attr("r", boardR)
     .style("fill", "rgba(0, 0, 0, 0)")
+    .style("mix-blend-mode", "multiply")
     .style("pointer-events", "none");
 
   // Board name (visible on hover, rendered on top)
