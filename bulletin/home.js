@@ -489,6 +489,45 @@ export function renderHome(boards) {
     if (pos) { b._x = pos.x; b._y = pos.y; }
   });
 
+  // ── Ungrouped board simulation for organic floating ──
+  const ungroupedBoards = boards.filter(b => !b.groupId);
+  if (ungroupedBoards.length > 1 && typeof d3.forceSimulation === "function") {
+    const ungroupedNodes = ungroupedBoards.map(b => {
+      const pos = allBoardPositions.get(b.id) || { x: width / 2, y: height / 2 };
+      return { id: b.id, x: pos.x, y: pos.y, _tx: pos.x, _ty: pos.y };
+    });
+
+    const ungroupedSim = d3.forceSimulation(ungroupedNodes)
+      .alpha(0.8)
+      .alphaDecay(0.03)
+      .velocityDecay(0.5)
+      .force("collide", d3.forceCollide(BUBBLE_MEDIUM / 2 + 10).iterations(2))
+      .force("x", d3.forceX(d => d._tx).strength(0.12))
+      .force("y", d3.forceY(d => d._ty).strength(0.12))
+      .stop();
+
+    for (let i = 0; i < 120; i++) ungroupedSim.tick();
+
+    // Apply settled positions
+    ungroupedNodes.forEach(n => {
+      allBoardPositions.set(n.id, { x: n.x, y: n.y });
+      const b = boards.find(board => board.id === n.id);
+      if (b) { b._x = n.x; b._y = n.y; }
+    });
+
+    // Switch to perpetual gentle floating
+    ungroupedSim
+      .alpha(0.08)
+      .alphaTarget(0.008)
+      .alphaDecay(0)
+      .velocityDecay(0.92)
+      .force("collide", d3.forceCollide(BUBBLE_MEDIUM / 2 + 10).iterations(1))
+      .force("x", d3.forceX(d => d._tx).strength(0.03))
+      .force("y", d3.forceY(d => d._ty).strength(0.03));
+
+    activeGroupSimulations.set("__ungrouped__", ungroupedSim);
+  }
+
   // On first home entry (or when no viewport has been set), fit all boards into view
   if (!homeViewportInitialized && boards.length > 0) {
     setHomeViewportInitialized(true);
@@ -513,6 +552,18 @@ export function renderHome(boards) {
       event.stopPropagation();
       if (_isSelectionModeEnabled()) return;
       zoomToGroupNode(d, layout);
+    })
+    .on("mouseenter", function() {
+      d3.select(this).select(".group-bubble")
+        .transition("bubble-hover").duration(280)
+        .ease(d3.easeCubicOut)
+        .attr("r", BUBBLE_LARGE / 2);
+    })
+    .on("mouseleave", function() {
+      d3.select(this).select(".group-bubble")
+        .transition("bubble-hover").duration(240)
+        .ease(d3.easeCubicInOut)
+        .attr("r", BUBBLE_SMALL / 2);
     });
 
   groupVisuals.each(function(groupNode) {
@@ -552,6 +603,20 @@ export function renderHome(boards) {
 
     sim.restart();
   });
+
+  // ── Ungrouped simulation tick handler ──
+  const ungroupedSim = activeGroupSimulations.get("__ungrouped__");
+  if (ungroupedSim) {
+    ungroupedSim.on("tick", () => {
+      ungroupedSim.nodes().forEach(node => {
+        allBoardPositions.set(node.id, { x: node.x, y: node.y });
+        masterG.selectAll("g.board-node")
+          .filter(d => d.id === node.id)
+          .attr("transform", `translate(${node.x},${node.y})`);
+      });
+    });
+    ungroupedSim.restart();
+  }
 
   // ── Connection edges between boards ────────────
   const connections = Store.getConnections();
@@ -731,7 +796,7 @@ export function renderHome(boards) {
       .attr("clip-path", d => `url(#${d.pinClipId})`);
   });
 
-  // Board name (visible on hover)
+  // Board name (visible on hover, rendered on top)
   boardGroups.append("text")
     .attr("class", "board-label")
     .attr("y", 4)
@@ -767,6 +832,32 @@ export function renderHome(boards) {
   if (window.lucide) {
     window.lucide.createIcons();
   }
+
+  // ── Board bubble hover animation (d3 transitions) ──
+  boardGroups
+    .on("mouseenter.bubble", function(event, d) {
+      const g = d3.select(this);
+      g.select(".board-bubble")
+        .transition("bubble-hover").duration(280)
+        .ease(d3.easeCubicOut)
+        .attr("r", BUBBLE_LARGE / 2);
+      // Grow clip path so more of pin preview is visible
+      d3.select(`#bubble-clip-${d.id} circle`)
+        .transition("bubble-hover").duration(280)
+        .ease(d3.easeCubicOut)
+        .attr("r", BUBBLE_LARGE / 2 - 2);
+    })
+    .on("mouseleave.bubble", function(event, d) {
+      const g = d3.select(this);
+      g.select(".board-bubble")
+        .transition("bubble-hover").duration(240)
+        .ease(d3.easeCubicInOut)
+        .attr("r", BUBBLE_MEDIUM / 2);
+      d3.select(`#bubble-clip-${d.id} circle`)
+        .transition("bubble-hover").duration(240)
+        .ease(d3.easeCubicInOut)
+        .attr("r", BUBBLE_MEDIUM / 2 - 2);
+    });
 
   // ── Alt+drag connection: SVG-level mousemove/mouseup ──
   svg.on("mousemove.connDrag", (event) => {

@@ -221,22 +221,12 @@ html, body {
 
 .board-bubble {
   fill: rgba(60, 60, 60, 1);
-  transition: r 0.3s cubic-bezier(0.2, 0.9, 0.16, 1);
   pointer-events: all;
-}
-
-.board-node:hover .board-bubble {
-  r: 94.5; /* BUBBLE_LARGE / 2 */
 }
 
 .group-bubble {
   fill: #fff;
-  transition: r 0.3s cubic-bezier(0.2, 0.9, 0.16, 1);
   pointer-events: none;
-}
-
-.group-node:hover .group-bubble {
-  r: 94.5; /* BUBBLE_LARGE / 2 */
 }
 
 .group-name {

@@ -18,8 +18,8 @@ export const BOARD_LOADING_MIN_PINS = 20;
 export const BOARD_LOADING_TARGET_READY = 6;
 export const BOARD_LOADING_TIMEOUT_MS = 1500;
 export const BOARD_PREVIEW_OFFSET_Y = 0;
-export const BOARD_PREVIEW_MAX_W = 90;
-export const BOARD_PREVIEW_MAX_H = 90;
+export const BOARD_PREVIEW_MAX_W = 100;
+export const BOARD_PREVIEW_MAX_H = 100;
 export const BOARD_PREVIEW_PAD = 16;
 export const HOME_WHEEL_GUARD_MS = 220;
 
@@ -28,9 +28,9 @@ export const BUBBLE_SMALL  = 72;   // group default diameter
 export const BUBBLE_MEDIUM = 117;  // board default diameter
 export const BUBBLE_LARGE  = 189;  // hover state diameter
 
-// Legacy aliases kept for imports that still reference them
-export const HOME_GRID_CELL_W = BUBBLE_MEDIUM;
-export const HOME_GRID_CELL_H = BUBBLE_MEDIUM;
+// Layout spacing (enough room for hover growth + breathing room)
+export const HOME_GRID_CELL_W = BUBBLE_LARGE;
+export const HOME_GRID_CELL_H = BUBBLE_LARGE;
 export const HOME_GRID_PAD_X = 80;
 export const HOME_GRID_PAD_Y = 110;
 export const HOME_SECTION_GAP   = 52;

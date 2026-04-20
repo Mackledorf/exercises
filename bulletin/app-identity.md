@@ -2,15 +2,18 @@
 
 ## Core Purpose
 
-bulletin is a spatial, visual workspace for collecting imagery and organizing creative references.
-It emphasizes freeform canvas exploration and treats boards as living, breathing spaces
-rather than rigid grids.
+Bulletin is a spatial, visual workspace built by designers, for designers. The
+overall purpose of this app is to seamlessly integrate the project research and moodboarding phases of the design process, something that would have previously
+taken multiple apps to achieve.
+
+Imagine this outdated workflow: the user has to search for pins on an app like Pinterest, Cosmos, or Are.na, and then individually download and reupload their images into a canvas software such as Figjam, Miro, or Mural to create a moodboard.
+
+We want to entirely eliminate the friction between research and visualization, allowing users to quickly save pins and then position them on a 2D canvas. 
 
 ## Design Principles
 
 - **Spatial over sequential** — content lives on an infinite canvas, not a feed
 - **Organic feel** — boards float, drift, breathe; nothing feels locked to a grid
-- **Minimal chrome** — the UI disappears; the content is the interface
 - **Personal curation** — this is your private studio wall, not a social network
 
 ## Sources of Inspiration
