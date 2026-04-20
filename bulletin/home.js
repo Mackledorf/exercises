@@ -723,11 +723,13 @@ export function renderHome(boards) {
     const bounds = getPinsWorldBounds(pins);
     if (!bounds) return;
 
+    // Fit the pin layout into the bubble circle with some padding
+    const bubbleDiameter = BUBBLE_MEDIUM - 16; // inset so pins don't touch edge
     const paddedW = bounds.width + BOARD_PREVIEW_PAD * 2;
     const paddedH = bounds.height + BOARD_PREVIEW_PAD * 2;
     const previewScale = Math.min(
-      BOARD_PREVIEW_MAX_W / paddedW,
-      BOARD_PREVIEW_MAX_H / paddedH
+      bubbleDiameter / paddedW,
+      bubbleDiameter / paddedH
     );
 
     const clipId = `bubble-clip-${board.id}`;
