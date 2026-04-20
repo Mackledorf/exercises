@@ -13,8 +13,8 @@ We want to entirely eliminate the friction between research and visualization, a
 ## Design Principles
 
 - **Spatial over sequential** — content lives on an infinite canvas, not a feed
-- **Organic feel** — boards float, drift, breathe; nothing feels locked to a grid
-- **Personal curation** — this is your private studio wall, not a social network
+- **Organic, outer-space feel** — boards float, drift, breathe; they gravitate towards one another put also repel each other
+- **Personal curation** — this is your private studio wall, not a social network.
 
 ## Sources of Inspiration
 
@@ -55,5 +55,5 @@ We want to entirely eliminate the friction between research and visualization, a
 | Pinterest | Pin masonry, board concept, image-first | Algorithmic feed, ads, social pressure |
 | Are.na | Multi-channel linking, minimal UI | Slow load times, steep learning curve |
 | Cosmos | Spatial floating nodes, zoom-as-navigation | Complexity of node editing |
-| Obsidian | Graph relationships, local-first ethos | Text-heaviness, plugin sprawl |
-| FigJam | Canvas UX, playful interactions | Collaboration complexity, pricing |
+| Obsidian | Graph relationships, local-first ethos | Emphasis on data visualization, being the user's "second mind" |
+| FigJam | Canvas UX, playful interactions | Collaboration complexity |
