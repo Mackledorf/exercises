@@ -415,15 +415,17 @@ function _setNodeHoverRadius(nodeId, radius) {
   const node = homeSim.nodes().find(n => n.id === nodeId);
   if (!node) return;
   node._hoverR = radius;
-  homeSim.force("collide", d3.forceCollide().radius(n => n._hoverR).iterations(4));
-  
-  // High alpha for rapid movement, but stable velocity decay
-  homeSim.alpha(0.8).velocityDecay(0.6).restart();
-  
-  // Return to smooth floating decay after things move
+
+  // Re-apply collide force so it picks up the new radius
+  homeSim.force("collide", d3.forceCollide().radius(n => n._hoverR).iterations(6));
+
+  // Wake the simulation with a burst of energy
+  homeSim.alphaTarget(0).alpha(0.8).velocityDecay(0.55).restart();
+
+  // After the burst settles, restore high friction so sim stops cleanly
   setTimeout(() => {
     if (homeSim) homeSim.velocityDecay(0.9);
-  }, 250);
+  }, 300);
 }
 
 // ── Main render ──────────────────────────────────
@@ -488,10 +490,9 @@ export function renderHome(boards) {
       .alpha(0.8)
       .alphaDecay(0.03)
       .velocityDecay(0.5)
-      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(4))
+      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(6))
       .force("x", d3.forceX(d => d._targetX ?? d.fx ?? 0).strength(d => d.isCenter ? 0 : 0.12))
       .force("y", d3.forceY(d => d._targetY ?? d.fy ?? 0).strength(d => d.isCenter ? 0 : 0.12))
-      .force("charge", d3.forceManyBody().strength(-30))
       .stop();
 
     if (simLinks.length > 0) {
@@ -499,7 +500,7 @@ export function renderHome(boards) {
     }
 
     // Settle initial positions
-    for (let i = 0; i < 150; i++) homeSim.tick();
+    for (let i = 0; i < 200; i++) homeSim.tick();
 
     // Apply settled positions
     simNodes.forEach(n => {
@@ -509,27 +510,28 @@ export function renderHome(boards) {
       if (b) { b._x = n.x; b._y = n.y; }
     });
 
-    // Switch to perpetual gentle floating
+    // Simulation is now idle — it only wakes on hover events.
+    // No passive gravity, no perpetual floating. Collide keeps padding.
     homeSim
-      .alpha(0.1)
-      .alphaTarget(0.008)
-      .alphaDecay(0)
+      .alpha(0)
+      .alphaTarget(0)
+      .alphaDecay(0.05)
       .velocityDecay(0.9)
-      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(4))
-      .force("x", d3.forceX(d => d._targetX ?? d.fx ?? 0).strength(d => d.isCenter ? 0 : 0.03))
-      .force("y", d3.forceY(d => d._targetY ?? d.fy ?? 0).strength(d => d.isCenter ? 0 : 0.03))
-      .force("charge", d3.forceManyBody().strength(-20));
+      .force("collide", d3.forceCollide().radius(d => d._hoverR).iterations(6))
+      .force("x", d3.forceX(d => d._targetX ?? d.fx ?? 0).strength(d => d.isCenter ? 0 : 0.08))
+      .force("y", d3.forceY(d => d._targetY ?? d.fy ?? 0).strength(d => d.isCenter ? 0 : 0.08))
+      .force("charge", null);
 
     if (simLinks.length > 0) {
-      // Dynamic link force that can adjust distance based on hover state
+      // Dynamic link force: distance grows when a board is hovered
       homeSim.force("link", d3.forceLink(simLinks).id(d => d.id).distance(d => {
-        const sourceNode = simNodes.find(n => n.id === d.source.id);
-        const targetNode = simNodes.find(n => n.id === d.target.id);
+        const sourceNode = typeof d.source === "object" ? d.source : simNodes.find(n => n.id === d.source);
+        const targetNode = typeof d.target === "object" ? d.target : simNodes.find(n => n.id === d.target);
         if (sourceNode?._hoverR > sourceNode?._defaultR || targetNode?._hoverR > targetNode?._defaultR) {
           return hoverOrbitDistance;
         }
         return restOrbitDistance;
-      }).strength(0.2));
+      }).strength(0.5));
     }
   }
 
