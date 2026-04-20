@@ -27,6 +27,7 @@ let homePreviewHydrateQueued = false;
 let lastHomeLayout = null;
 let hoverActiveGroupId = null;
 let connectionDrag = null;  // { sourceId, tempLine }
+let activeGroupSimulations = new Map();  // groupId → d3 simulation
 
 // ── Callback injection ───────────────────────────
 let _enterBoard = null;
@@ -202,41 +203,81 @@ export function computeRadialFallbackLayout(boards, centerX, centerY) {
   return { boardPositions, armPoints };
 }
 
+// Custom tangential "orbit" force — applies a small perpendicular nudge each tick
+function createOrbitForce(cx, cy, strength) {
+  let nodes;
+  const force = (alpha) => {
+    nodes.forEach(node => {
+      if (node.isCenter) return;
+      const dx = node.x - cx;
+      const dy = node.y - cy;
+      node.vx += -dy * strength * alpha;
+      node.vy +=  dx * strength * alpha;
+    });
+  };
+  force.initialize = (n) => { nodes = n; };
+  return force;
+}
+
+export function stopAllGroupSimulations() {
+  activeGroupSimulations.forEach(sim => sim.stop());
+  activeGroupSimulations.clear();
+}
+
 export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   if (!Array.isArray(boards) || boards.length === 0) {
-    return { boardPositions: new Map(), armPoints: new Map() };
+    return { boardPositions: new Map(), armPoints: new Map(), simulation: null };
+  }
+
+  // ── Single-board case: fixed offset, no simulation needed ──
+  if (boards.length === 1) {
+    const boardPositions = new Map();
+    const armPoints = new Map();
+    const pos = { x: centerX, y: centerY + HOME_GROUP_CIRCLE_RADIUS + 90 };
+    boardPositions.set(boards[0].id, pos);
+    armPoints.set(boards[0].id, pos);
+    return { boardPositions, armPoints, simulation: null, singleBoard: true };
   }
 
   if (typeof d3.forceSimulation !== "function") {
-    return computeRadialFallbackLayout(boards, centerX, centerY);
+    return { ...computeRadialFallbackLayout(boards, centerX, centerY), simulation: null };
   }
+
+  const count = boards.length;
+  const orbitRadius = HOME_GROUP_CLUSTER_RADIUS * Math.min(1, 0.45 + count * 0.14);
+  const collideRadius = Math.max((HOME_GRID_CELL_W - 40) / 2, (HOME_GRID_CELL_H - 40) / 2) + 14;
+  const centerAvoidRadius = HOME_GROUP_CIRCLE_RADIUS + 36;
 
   const centerNodeId = `group-center-${groupId}`;
   const nodes = [
     { id: centerNodeId, fx: centerX, fy: centerY, isCenter: true },
-    ...boards.map((board, i) => ({
-      id: board.id,
-      x: centerX + Math.cos(i) * 24,
-      y: centerY + Math.sin(i) * 24,
-      isCenter: false,
-    })),
+    ...boards.map((board, i) => {
+      const angle = (Math.PI * 2 * i) / count - Math.PI / 2;
+      return {
+        id: board.id,
+        x: centerX + Math.cos(angle) * orbitRadius,
+        y: centerY + Math.sin(angle) * orbitRadius,
+        isCenter: false,
+      };
+    }),
   ];
 
   const links = boards.map((board) => ({ source: centerNodeId, target: board.id }));
-  const collideRadius = Math.max((HOME_GRID_CELL_W - 40) / 2, (HOME_GRID_CELL_H - 40) / 2) + 20;
-  const centerAvoidRadius = HOME_GROUP_HOVER_RADIUS + 40;
 
+  // Run an initial settling pass (synchronous) to get good starting positions
   const simulation = d3.forceSimulation(nodes)
-    .alpha(0.95)
-    .alphaDecay(0.03)
-    .velocityDecay(0.42)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(HOME_GROUP_CLUSTER_RADIUS).strength(0.82))
-    .force("charge", d3.forceManyBody().strength(-500))
-    .force("collide", d3.forceCollide().radius(d => d.isCenter ? centerAvoidRadius : collideRadius).iterations(3))
-    .force("center", d3.forceCenter(centerX, centerY))
+    .alpha(0.9)
+    .alphaDecay(0.04)
+    .velocityDecay(0.5)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(orbitRadius).strength(0.5))
+    .force("charge", d3.forceManyBody().strength(-300))
+    .force("collide", d3.forceCollide().radius(d => d.isCenter ? centerAvoidRadius : collideRadius).iterations(2))
+    .force("radial", d3.forceRadial(orbitRadius, centerX, centerY).strength(d => d.isCenter ? 0 : 0.06))
+    .force("orbit", createOrbitForce(centerX, centerY, 0.0004))
     .stop();
 
-  for (let i = 0; i < 240; i++) simulation.tick();
+  // Settle to get initial positions
+  for (let i = 0; i < 180; i++) simulation.tick();
 
   const boardPositions = new Map();
   const armPoints = new Map();
@@ -248,16 +289,29 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
       hasInvalidCoords = true;
       return;
     }
-
     boardPositions.set(node.id, { x: node.x, y: node.y });
     armPoints.set(node.id, { x: node.x, y: node.y });
   });
 
   if (hasInvalidCoords || boardPositions.size !== boards.length) {
-    return computeRadialFallbackLayout(boards, centerX, centerY);
+    return { ...computeRadialFallbackLayout(boards, centerX, centerY), simulation: null };
   }
 
-  return { boardPositions, armPoints };
+  // Now reconfigure for perpetual low-energy floating
+  simulation
+    .alpha(0.15)
+    .alphaTarget(0.015)
+    .alphaDecay(0)
+    .velocityDecay(0.88)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(orbitRadius).strength(0.25))
+    .force("charge", d3.forceManyBody().strength(-150))
+    .force("radial", d3.forceRadial(orbitRadius, centerX, centerY).strength(d => d.isCenter ? 0 : 0.04))
+    .force("orbit", createOrbitForce(centerX, centerY, 0.0003));
+
+  // Store reference for lifecycle management
+  activeGroupSimulations.set(groupId, simulation);
+
+  return { boardPositions, armPoints, simulation, nodes };
 }
 
 export function computeHomeLayout() {
@@ -336,6 +390,15 @@ export function computeHomeLayout() {
         const pos = forceLayout.boardPositions.get(board.id) || { x: cx, y: cy };
         allBoardPositions.set(board.id, pos);
       });
+
+      // Tag single-board groups and store simulation refs for live ticking
+      if (forceLayout.singleBoard) {
+        entry._singleBoard = true;
+      }
+      if (forceLayout.simulation) {
+        entry._simulation = forceLayout.simulation;
+        entry._simNodes = forceLayout.nodes;
+      }
 
       const rects = boardIds.map((boardId) => {
         const p = allBoardPositions.get(boardId) || { x: cx, y: cy };
@@ -555,6 +618,7 @@ function animateGroupHover(groupNode, layout, isEnter) {
 // ── Main render ──────────────────────────────────
 
 export function renderHome(boards) {
+  stopAllGroupSimulations();
   masterG.selectAll("*").remove();
   _updateBreadcrumb(null);
 
@@ -668,6 +732,42 @@ export function renderHome(boards) {
       });
   });
 
+  // ── Start live simulations for multi-board groups ──
+  groupNodes.forEach((groupNode) => {
+    // Find the matching entry from computeHomeLayout to get the simulation
+    const sim = activeGroupSimulations.get(groupNode.groupId);
+    if (!sim) return;
+
+    sim.on("tick", () => {
+      if (hoverActiveGroupId === groupNode.groupId) return; // don't fight hover animation
+
+      sim.nodes().forEach((node) => {
+        if (node.isCenter) return;
+
+        // Update allBoardPositions so hover repulsion uses fresh data
+        allBoardPositions.set(node.id, { x: node.x, y: node.y });
+
+        // Move board node
+        masterG.selectAll("g.board-node")
+          .filter(d => d.id === node.id)
+          .attr("transform", `translate(${node.x},${node.y})`);
+
+        // Update arm line
+        const arm = computeArmEndpoint(groupNode.cx, groupNode.cy, node.x, node.y);
+        masterG.selectAll("g.group-node")
+          .filter(d => d.groupId === groupNode.groupId)
+          .selectAll("line.group-arm")
+          .filter(d => d.boardId === node.id)
+          .attr("x1", arm.x1)
+          .attr("y1", arm.y1)
+          .attr("x2", arm.x2)
+          .attr("y2", arm.y2);
+      });
+    });
+
+    sim.restart();
+  });
+
   // ── Connection edges between boards ────────────
   const connections = Store.getConnections();
   const connectionData = connections.map(c => {
@@ -686,10 +786,16 @@ export function renderHome(boards) {
     .attr("x2", d => d.x2)
     .attr("y2", d => d.y2);
 
+  // Build set of single-board-group board IDs for CSS float animation
+  const singleBoardGroupIds = new Set();
+  groupNodes.forEach((gn) => {
+    if (gn.boardIds.length === 1) singleBoardGroupIds.add(gn.boardIds[0]);
+  });
+
   const boardGroups = masterG.selectAll("g.board-node")
     .data(boards, d => d.id)
     .join("g")
-    .attr("class", "board-node")
+    .attr("class", d => singleBoardGroupIds.has(d.id) ? "board-node board-node-float" : "board-node")
     .attr("transform", d => `translate(${d._x},${d._y})`)
     .on("mousedown", function(event, d) {
       if (!event.altKey) return;

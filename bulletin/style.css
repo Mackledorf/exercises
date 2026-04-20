@@ -208,6 +208,16 @@ html, body {
   cursor: pointer;
 }
 
+.board-node-float {
+  animation: board-float 6s ease-in-out infinite;
+}
+
+@keyframes board-float {
+  0%, 100% { translate: 0 0; }
+  33%      { translate: 3px -5px; }
+  66%      { translate: -2px 4px; }
+}
+
 .group-node {
   cursor: zoom-in;
 }

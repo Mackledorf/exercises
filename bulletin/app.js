@@ -518,5 +518,9 @@ Auth.init({
       console.error("[App] Boot failed:", err);
     });
   },
-  onSignOut: () => resetApp(),
+  onSignOut: () => {
+    resetApp();
+    // Force reload to clear all module states and return to auth view
+    window.location.reload();
+  },
 });

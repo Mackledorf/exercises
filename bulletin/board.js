@@ -31,6 +31,8 @@ import {
   requestTopbarVisibilityUpdate, updateBoardZoomUIVisibility,
 } from "./viewport.js";
 
+import { stopAllGroupSimulations } from "./home.js";
+
 import {
   rememberPinMove, rememberPinResize, rememberPinAdd,
   resetPinMoveHistory, removePinMoveHistory,
@@ -408,6 +410,7 @@ export function selectPin(d, gEl) {
 
 export function enterBoard(boardId, event) {
   if (isBoardNavTransitionActive()) return;
+  stopAllGroupSimulations();
   if (activeBoardId !== boardId || currentView !== "board") {
     resetPinMoveHistory();
   }

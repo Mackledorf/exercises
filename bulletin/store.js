@@ -377,7 +377,7 @@ const Store = (function () {
       _data.pins.push(pin);
     }
 
-    // DB: upsert pin row
+    // DB: upsert pin row, then board_pins (must sequence — FK dependency)
     _sb().from("pins").upsert({
       id: pinId,
       user_id: _userId,
@@ -388,20 +388,22 @@ const Store = (function () {
       source: pin.source,
       arena_block_id: pin.arenaBlockId,
     }).then(({ error }) => {
-      if (error) console.error("[Store] upsert pin:", error.message);
-    });
-
-    // DB: upsert board_pins rows
-    nextBoardIds.forEach(bId => {
-      const p = nextPlacements[bId];
-      _sb().from("board_pins").upsert(_buildBoardPinPayload({
-        pinId,
-        boardId: bId,
-        x: p.x,
-        y: p.y,
-        pinW: p.pinW,
-      }), { onConflict: "pin_id,board_id" }).then(({ error }) => {
-        if (error) _logSupabaseError("upsert board_pin", error);
+      if (error) {
+        console.error("[Store] upsert pin:", error.message);
+        return; // Don't write board_pins if pin failed
+      }
+      // Pin row exists — now safe to write board_pins
+      nextBoardIds.forEach(bId => {
+        const p = nextPlacements[bId];
+        _sb().from("board_pins").upsert(_buildBoardPinPayload({
+          pinId,
+          boardId: bId,
+          x: p.x,
+          y: p.y,
+          pinW: p.pinW,
+        }), { onConflict: "pin_id,board_id" }).then(({ error }) => {
+          if (error) _logSupabaseError("upsert board_pin", error);
+        });
       });
     });
 
