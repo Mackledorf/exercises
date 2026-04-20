@@ -27,7 +27,7 @@ export const HOME_WHEEL_GUARD_MS = 220;
 export const BUBBLE_SMALL  = 100;   // group default diameter
 export const BUBBLE_MEDIUM = 162;  // board default diameter
 export const BUBBLE_LARGE  = 262;  // hover state diameter
-export const BUBBLE_GAP    = 32;   // desired visual gap between bubble edges
+export const BUBBLE_GAP    = 24;   // desired visual gap between bubble edges
 
 // Layout spacing (enough room for hover growth + breathing room)
 export const HOME_GRID_CELL_W = BUBBLE_LARGE + BUBBLE_GAP;
