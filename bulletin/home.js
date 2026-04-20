@@ -703,6 +703,13 @@ export function renderHome(boards) {
     .attr("class", "board-bubble")
     .attr("r", boardR);
 
+  // Overlay for hover (initially invisible)
+  boardGroups.append("circle")
+    .attr("class", "board-bubble-overlay")
+    .attr("r", boardR)
+    .style("fill", "rgba(0, 0, 0, 0)")
+    .style("pointer-events", "none");
+
   // Selection outline
   boardGroups.each(function(d) {
     if (multiSelectedBoardIds.has(d.id)) {
@@ -857,6 +864,11 @@ export function renderHome(boards) {
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
+      g.select(".board-bubble-overlay")
+        .transition("bubble-hover").duration(280)
+        .ease(d3.easeCubicOut)
+        .attr("r", BUBBLE_LARGE / 2)
+        .style("fill", "rgba(0, 0, 0, 0.4)");
       d3.select(`#bubble-clip-${d.id} circle`)
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
@@ -869,6 +881,11 @@ export function renderHome(boards) {
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
         .attr("r", BUBBLE_MEDIUM / 2);
+      g.select(".board-bubble-overlay")
+        .transition("bubble-hover").duration(240)
+        .ease(d3.easeCubicInOut)
+        .attr("r", BUBBLE_MEDIUM / 2)
+        .style("fill", "rgba(0, 0, 0, 0)");
       d3.select(`#bubble-clip-${d.id} circle`)
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
