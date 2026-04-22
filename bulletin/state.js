@@ -71,6 +71,7 @@ export let selectionModeActive = false;
 export let shiftSelectHeld = false;
 export let spacebarHeld = false;
 export let currentTransform = d3.zoomIdentity;
+export let activePinsSnapshot = []; // Cache of pins for the current board
 export let skipNextBoardAutoFit = false;
 export let homeViewportInitialized = false;
 
@@ -88,8 +89,7 @@ export function setSelectedPinId(id) { selectedPinId = id; }
 export function setSelectionModeActiveFlag(v) { selectionModeActive = v; }
 export function setShiftSelectHeld(v) { shiftSelectHeld = v; }
 export function setSpacebarHeld(v) { spacebarHeld = v; }
-export function setCurrentTransform(t) { currentTransform = t; }
-export function setSkipNextBoardAutoFit(v) { skipNextBoardAutoFit = v; }
+export function setCurrentTransform(t) { currentTransform = t; }export function setActivePinsSnapshot(pins) { activePinsSnapshot = pins; }export function setSkipNextBoardAutoFit(v) { skipNextBoardAutoFit = v; }
 export function setHomeViewportInitialized(v) { homeViewportInitialized = v; }
 export function setMarqueeStart(v) { marqueeStart = v; }
 export function setMarqueeCurrent(v) { marqueeCurrent = v; }
@@ -116,5 +116,5 @@ export function initDOM() {
   height = window.innerHeight;
   svg.attr("viewBox", [0, 0, width, height]);
 
-  masterG = svg.append("g");
+  masterG = svg.append("g").attr("class", "master-g");
 }

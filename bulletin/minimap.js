@@ -66,7 +66,7 @@ export function updateMinimap() {
       );
     }
   } else {
-    const pins = Store.getPins(S.activeBoardId);
+    const pins = S.activePinsSnapshot;
     if (pins.length > 0) {
       drawProjectedMinimapNodes(
         pins.map(p => ({ x: p.x, y: p.y, color: "#EEEBE7" })),

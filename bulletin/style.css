@@ -128,6 +128,19 @@ html, body {
   will-change: background-position, background-size;
 }
 
+.master-g {
+  will-change: transform;
+}
+
+.pin-img {
+  opacity: 0;
+  transition: opacity 0.25s ease-out;
+}
+
+.pin-img.loaded {
+  opacity: 1;
+}
+
 #canvas:active {
   cursor: grabbing;
 }

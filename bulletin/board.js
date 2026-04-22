@@ -3,6 +3,7 @@
 import {
   currentView, setCurrentView,
   activeBoardId, setActiveBoardId,
+  activePinsSnapshot, setActivePinsSnapshot,
   selectedPinId, setSelectedPinId,
   currentTransform, setCurrentTransform,
   multiSelectedPinIds, multiSelectedBoardIds,
@@ -504,6 +505,7 @@ export function renderBoard(boardId) {
   _updateBreadcrumb(board);
 
   const pins = Store.getPins(boardId);
+  setActivePinsSnapshot(pins);
 
   // Show "Add Pin" button group
   let fabContainer = document.getElementById("fab-center-group");
@@ -644,7 +646,6 @@ export function renderBoard(boardId) {
   // SVG <image>
   const pinImages = pinGroups.append("image")
     .attr("class", "pin-img")
-    .attr("href", d => getPinImageSrc(d))
     .attr("width", d => d._pw)
     .attr("height", d => d._ph)
     .attr("x", d => -d._pw / 2)
@@ -677,6 +678,7 @@ export function renderBoard(boardId) {
     .attr("cursor", "grab");
 
   pinImages.each(function (d) {
+    const imgEl = this;
     const gEl = this.parentNode;
     const src = getPinImageSrc(d);
     if (!src) return;
@@ -689,11 +691,26 @@ export function renderBoard(boardId) {
 
       const prevAspect = d._aspect;
       d._aspect = aspect;
-      if (Math.abs(prevAspect - aspect) < 0.001) return;
+      
+      // Update dimensions if aspect changed
+      if (Math.abs(prevAspect - aspect) >= 0.001) {
+        d._ph = Math.round(d._pw * d._aspect);
+        applyPinBox(d3.select(gEl), d);
+        requestTopbarVisibilityUpdate();
+      }
 
-      d._ph = Math.round(d._pw * d._aspect);
-      applyPinBox(d3.select(gEl), d);
-      requestTopbarVisibilityUpdate();
+      // Async decode to prevent main-thread jank
+      const img = new Image();
+      img.src = src;
+      img.decode().then(() => {
+        if (renderToken !== boardRenderToken) return;
+        d3.select(imgEl)
+          .attr("href", src)
+          .classed("loaded", true);
+      }).catch(() => {
+        d3.select(imgEl).attr("href", src).classed("loaded", true);
+      });
+
     }).catch(() => {
       if (renderToken !== boardRenderToken || currentView !== "board" || activeBoardId !== boardId) return;
       

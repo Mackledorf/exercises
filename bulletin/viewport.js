@@ -3,6 +3,7 @@
 import {
   svg, masterG, currentTransform, setCurrentTransform,
   currentView, activeBoardId, width, height,
+  activePinsSnapshot,
   GRID, TRANSITION_MS, ZOOM_SETTLE_MS, WHEEL_ZOOM_SENS,
   HOME_WHEEL_GUARD_MS, PAN_BOUND_SCREENS, PIN_W, PIN_H,
   topbarEl, zoomLabel, minimapContainerEl, fabGroupLeft,
@@ -96,7 +97,7 @@ export function applyGridTransform(transform, immediate) {
 // ── Viewport identity ────────────────────────────
 export function resetViewportToIdentity() {
   setCurrentTransform(d3.zoomIdentity);
-  masterG.attr("transform", currentTransform);
+  masterG.style("transform", "translate(0,0) scale(1)");
   applyGridTransform(currentTransform, true);
   svg.property("__zoom", d3.zoomIdentity);
 }
@@ -390,8 +391,7 @@ export function shouldHideTopbarForPinOverlap() {
   if (k >= 1.26) return true;
   if (k <= 1.25) return false;
 
-  const pins = Store.getPins(activeBoardId);
-  if (pins.length === 0) return false;
+  if (activePinsSnapshot.length === 0) return false;
 
   const headerHeight = 44;
   const hideThreshold = headerHeight + TOPBAR_CLIP_BUFFER;
@@ -399,7 +399,7 @@ export function shouldHideTopbarForPinOverlap() {
 
   let anyOverlap = false;
 
-  for (const pin of pins) {
+  for (const pin of activePinsSnapshot) {
     const pinW = pin._pw || pin.pinW || PIN_W;
     const pinH = pin._ph || Math.round(pinW * (pin._aspect || (PIN_H / PIN_W)));
 
@@ -436,7 +436,8 @@ export function requestTopbarVisibilityUpdate() {
 
 export function updateBoardZoomUIVisibility() {
   const isBoardView = currentView === "board";
-  const zoomTooClose = isBoardView && currentTransform.k > 1.25;
+  const { k, x, y } = currentTransform;
+  const zoomTooClose = isBoardView && k > 1.25;
   const showBoardUI = isBoardView && !zoomTooClose;
 
   document.body.classList.toggle("zoom-ui-hidden", zoomTooClose);
@@ -456,19 +457,25 @@ export function updateBoardZoomUIVisibility() {
   if (fabGroupLeft) {
     let showLeftFAB = false;
     if (isBoardView && activeBoardId) {
-      const pins = Store.getPins(activeBoardId);
-      if (pins.length > 0) {
-        // Check if any pin is in the viewport
-        const visible = pins.some(p => {
-          const screenX = currentTransform.x + p.x * currentTransform.k;
-          const screenY = currentTransform.y + p.y * currentTransform.k;
-          const w = PIN_W * currentTransform.k;
-          const h = PIN_H * currentTransform.k;
+      if (activePinsSnapshot.length > 0) {
+        // Check if any pin is in the viewport using cheap rect intersection
+        const viewportW = width;
+        const viewportH = height;
+        
+        const visible = activePinsSnapshot.some(p => {
+          const pinW = p.pinW || p._pw || PIN_W;
+          const pinH = (p.pinW || p._pw || PIN_W) * (p._aspect || (PIN_H / PIN_W));
+          
+          const screenX = x + (p.x - pinW / 2) * k;
+          const screenY = y + (p.y - pinH / 2) * k;
+          const drawW = pinW * k;
+          const drawH = pinH * k;
+          
           return (
-            screenX + w > 0 &&
-            screenX < width &&
-            screenY + h > 0 &&
-            screenY < height
+            screenX + drawW > 0 &&
+            screenX < viewportW &&
+            screenY + drawH > 0 &&
+            screenY < viewportH
           );
         });
         showLeftFAB = !visible;
@@ -481,9 +488,11 @@ export function updateBoardZoomUIVisibility() {
 // ── Zoom render flush (RAF from onZoom) ──────────
 export function flushZoomRender() {
   zoomRenderRAF = null;
-  const { k } = currentTransform;
+  const { x, y, k } = currentTransform;
 
-  masterG.attr("transform", currentTransform);
+  // Use CSS transform for hardware acceleration
+  masterG.style("transform", `translate(${x}px, ${y}px) scale(${k})`);
+  
   applyGridTransform(currentTransform, true);
   if (_requestMinimapUpdate) _requestMinimapUpdate();
   requestTopbarVisibilityUpdate();
