@@ -3,7 +3,7 @@
 // ── Module imports ───────────────────────────────
 import * as S from "./state.js";
 
-import { isSafariBrowser, screenToWorld } from "./utils.js";
+import { getABFlags, isSafariBrowser, screenToWorld } from "./utils.js";
 
 import {
   zoom, attachWheelHandler, applyGridTransform,
@@ -31,6 +31,12 @@ import * as board from "./board.js";
 import * as modals from "./modals.js";
 
 import * as explore from "./explore.js";
+
+const AB_FLAGS = getABFlags();
+
+function isBoardMinimapDisabled() {
+  return AB_FLAGS.noMinimap && S.currentView === "board";
+}
 
 // ══════════════════════════════════════════════════
 //  Coordinator helpers
@@ -117,7 +123,7 @@ function render() {
       S.svg.node().style.removeProperty("cursor");
       S.svg.call(zoom).on("dblclick.zoom", null);
       document.getElementById("zoom-indicator").style.display = "block";
-      if (S.minimapContainerEl) S.minimapContainerEl.style.display = "flex";
+      if (S.minimapContainerEl) S.minimapContainerEl.style.display = AB_FLAGS.noMinimap ? "none" : "flex";
       board.renderBoard(S.activeBoardId);
     }
   }
@@ -133,7 +139,9 @@ function render() {
   selection.syncSelectionModeUI();
   selection.updatePanBinding();
 
-  minimap.updateMinimap();
+  if (!isBoardMinimapDisabled()) {
+    minimap.updateMinimap();
+  }
   updateBoardZoomUIVisibility();
   requestTopbarVisibilityUpdate();
   requestViewportCullingUpdate();
@@ -148,6 +156,13 @@ S.initDOM();
 if (isSafariBrowser()) {
   document.body.classList.add("browser-safari");
 }
+if (AB_FLAGS.noGrid) {
+  document.body.classList.add("ab-no-grid");
+}
+if (AB_FLAGS.noMinimap) {
+  document.body.classList.add("ab-no-minimap");
+}
+document.body.dataset.abImageMode = AB_FLAGS.imageMode;
 S.setZoom(zoom);
 
 // Viewport
@@ -408,7 +423,9 @@ window.addEventListener("resize", () => {
   minimap.setupMinimapCanvas();
   home.ensureHomeAddBoardButton();
   applyGridTransform(S.currentTransform, true);
-  minimap.requestMinimapUpdate();
+  if (!isBoardMinimapDisabled()) {
+    minimap.requestMinimapUpdate();
+  }
   requestTopbarVisibilityUpdate();
   requestViewportCullingUpdate();
 });

@@ -1,16 +1,21 @@
 /* ── bulletin · minimap.js ─ Minimap canvas rendering ── */
 
 import * as S from "./state.js";
-import { isSafariBrowser } from "./utils.js";
+import { getABFlags, isSafariBrowser } from "./utils.js";
 
 let mmW, mmH, mmDpr = 1;
 let minimapRAF = null;
 let lastMinimapDrawAt = 0;
 
 const SAFARI_MINIMAP_INTERVAL_MS = 80;
+const AB_FLAGS = getABFlags();
 
 // ── Callbacks (injected by coordinator) ──────────
 let _getPanBoundsWorld = null;
+
+function shouldSkipBoardMinimap() {
+  return AB_FLAGS.noMinimap && S.currentView === "board";
+}
 
 export function init({ getPanBoundsWorld }) {
   _getPanBoundsWorld = getPanBoundsWorld;
@@ -43,6 +48,8 @@ export function setupMinimapCanvas() {
 }
 
 export function requestMinimapUpdate() {
+  if (shouldSkipBoardMinimap()) return;
+
   const isBoardView = S.currentView === "board";
   const isCameraMoving = !!S.masterG && S.masterG.classed("camera-moving");
   if (isBoardView && isCameraMoving && isSafariBrowser()) {
@@ -61,6 +68,8 @@ export function requestMinimapUpdate() {
 }
 
 export function updateMinimap() {
+  if (shouldSkipBoardMinimap()) return;
+
   S.mCtx.clearRect(0, 0, mmW, mmH);
   drawMinimapFrame();
   const worldBounds = _getPanBoundsWorld();

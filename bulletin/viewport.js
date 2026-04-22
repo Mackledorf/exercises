@@ -10,7 +10,7 @@ import {
   TOPBAR_CLIP_BUFFER,
 } from "./state.js";
 
-import { imageAspectCache, getPinImageSrc, clamp, normalizeRect, isSafariBrowser } from "./utils.js";
+import { imageAspectCache, getPinImageSrc, clamp, normalizeRect, isSafariBrowser, getABFlags } from "./utils.js";
 
 // ── Private state ────────────────────────────────
 let isZooming = false;
@@ -51,6 +51,7 @@ const wheelState = {
 
 const SAFARI_CULL_MIN_PINS = 120;
 const DEFERRED_UI_UPDATE_MS = 120;
+const AB_FLAGS = getABFlags();
 
 // ── Callback injection ───────────────────────────
 let _render = null;
@@ -63,6 +64,10 @@ export function init({ render, hideQuickAdd, updateMinimap, requestMinimapUpdate
   _hideQuickAdd = hideQuickAdd;
   _updateMinimap = updateMinimap;
   _requestMinimapUpdate = requestMinimapUpdate;
+}
+
+function isBoardMinimapABDisabled() {
+  return AB_FLAGS.noMinimap && currentView === "board";
 }
 
 function setMasterTransform(transform) {
@@ -88,26 +93,18 @@ function setMasterTransform(transform) {
 
 // ── Grid transform ───────────────────────────────
 export function writeGridTransform(transform) {
+  if (AB_FLAGS.noGrid) return;
+
   const { x, y, k } = transform;
   const canvasNode = svg.node();
-  const safari = isSafariBrowser();
 
-  // Safari repaints radial-gradient backgrounds heavily on every camera tick.
-  if (safari && masterG.classed("camera-moving")) {
-    return;
+  if (x !== lastGridX || y !== lastGridY) {
+    canvasNode.style.backgroundPosition = `${x}px ${y}px`;
+    lastGridX = x;
+    lastGridY = y;
   }
 
-  const snappedX = Math.round(x);
-  const snappedY = Math.round(y);
-
-  if (snappedX !== lastGridX || snappedY !== lastGridY) {
-    canvasNode.style.backgroundPosition = `${snappedX}px ${snappedY}px`;
-    lastGridX = snappedX;
-    lastGridY = snappedY;
-  }
-
-  // Keep grid scale tightly in sync with camera zoom to avoid visible stepping.
-  const scaleDeltaThreshold = safari ? 0.01 : 0.0001;
+  const scaleDeltaThreshold = 0.0001;
   if (!Number.isFinite(lastGridK) || Math.abs(k - lastGridK) >= scaleDeltaThreshold) {
     canvasNode.style.backgroundSize = `${GRID * k}px ${GRID * k}px`;
     lastGridK = k;
@@ -175,8 +172,10 @@ export function finishZoomInteraction() {
   document.body.classList.remove("safari-camera-moving");
   masterG.classed("camera-moving", false);
   applyGridTransform(currentTransform, true);
-  if (_updateMinimap) _updateMinimap();
-  else if (_requestMinimapUpdate) _requestMinimapUpdate();
+  if (!isBoardMinimapABDisabled()) {
+    if (_updateMinimap) _updateMinimap();
+    else if (_requestMinimapUpdate) _requestMinimapUpdate();
+  }
   requestTopbarVisibilityUpdate();
   requestViewportCullingUpdate();
   updateBoardZoomUIVisibility();
@@ -543,12 +542,13 @@ export function updateBoardZoomUIVisibility() {
   const { k, x, y } = currentTransform;
   const zoomTooClose = isBoardView && k > 1.25;
   const showBoardUI = isBoardView && !zoomTooClose;
+  const minimapDisabled = AB_FLAGS.noMinimap && isBoardView;
 
   document.body.classList.toggle("zoom-ui-hidden", zoomTooClose);
 
   zoomLabel.style.display = isBoardView ? "block" : "none";
   if (minimapContainerEl) {
-    minimapContainerEl.style.display = isBoardView ? "flex" : "none";
+    minimapContainerEl.style.display = (isBoardView && !minimapDisabled) ? "flex" : "none";
   }
 
   const fabCenter = document.getElementById("fab-center-group");
@@ -596,9 +596,8 @@ export function flushZoomRender() {
 
   setMasterTransform(currentTransform);
 
-  // Keep this deferred during motion to avoid expensive style churn.
-  applyGridTransform(currentTransform, false);
-  if (_requestMinimapUpdate) _requestMinimapUpdate();
+  applyGridTransform(currentTransform, true);
+  if (!isBoardMinimapABDisabled() && _requestMinimapUpdate) _requestMinimapUpdate();
 
   const cameraMoving = masterG.classed("camera-moving");
   const safari = isSafariBrowser();

@@ -20,9 +20,11 @@ import {
 } from "./state.js";
 
 import {
-  imageAspectCache, getPinImageSrc, loadImageAspect,
+  getABFlags, imageAspectCache, getPinImageSrc, loadImageAspect,
   roundToGrid, screenToWorld, escapeHtml,
 } from "./utils.js";
+
+const AB_FLAGS = getABFlags();
 
 import {
   runZoomTransition, computeBoardFitTransform,
@@ -678,16 +680,32 @@ export function renderBoard(boardId) {
         requestTopbarVisibilityUpdate();
       }
 
-      // Async decode to prevent main-thread jank
+      const attachImage = () => {
+        if (renderToken !== boardRenderToken || currentView !== "board" || activeBoardId !== boardId) return;
+        d3.select(imgEl).attr("href", src).classed("loaded", true);
+      };
+
+      if (AB_FLAGS.imageMode === "immediate") {
+        attachImage();
+        return;
+      }
+
+      if (AB_FLAGS.imageMode === "idle") {
+        if (typeof window.requestIdleCallback === "function") {
+          window.requestIdleCallback(() => attachImage(), { timeout: 120 });
+        } else {
+          setTimeout(() => attachImage(), 32);
+        }
+        return;
+      }
+
+      // Default: async decode before attach to reduce decode jank bursts.
       const img = new Image();
       img.src = src;
       img.decode().then(() => {
-        if (renderToken !== boardRenderToken) return;
-        d3.select(imgEl)
-          .attr("href", src)
-          .classed("loaded", true);
+        attachImage();
       }).catch(() => {
-        d3.select(imgEl).attr("href", src).classed("loaded", true);
+        attachImage();
       });
 
     }).catch(() => {

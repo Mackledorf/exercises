@@ -20,6 +20,46 @@ export function isSafariBrowser() {
   return isSafariBrowserCache;
 }
 
+let abFlagsCache;
+
+function parseBoolLike(value) {
+  if (value == null) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+export function getABFlags() {
+  if (abFlagsCache) return abFlagsCache;
+
+  const defaults = {
+    noMinimap: false,
+    noGrid: false,
+    imageMode: "decode",
+  };
+
+  if (typeof window === "undefined") {
+    abFlagsCache = defaults;
+    return abFlagsCache;
+  }
+
+  const params = new URLSearchParams(window.location.search || "");
+  const ls = window.localStorage;
+
+  const noMinimapRaw = params.get("abNoMinimap") ?? ls.getItem("abNoMinimap");
+  const noGridRaw = params.get("abNoGrid") ?? ls.getItem("abNoGrid");
+  const imageModeRaw = (params.get("abImageMode") ?? ls.getItem("abImageMode") ?? defaults.imageMode).toLowerCase();
+
+  const imageMode = ["decode", "immediate", "idle"].includes(imageModeRaw) ? imageModeRaw : defaults.imageMode;
+
+  abFlagsCache = {
+    noMinimap: parseBoolLike(noMinimapRaw),
+    noGrid: parseBoolLike(noGridRaw),
+    imageMode,
+  };
+
+  return abFlagsCache;
+}
+
 export function loadImageAspect(src) {
   if (!src) return Promise.resolve(PIN_H / PIN_W);
   if (imageAspectCache.has(src)) return Promise.resolve(imageAspectCache.get(src));

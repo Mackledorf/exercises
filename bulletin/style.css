@@ -132,8 +132,8 @@ body.browser-safari #canvas {
   will-change: auto;
 }
 
-body.browser-safari.safari-camera-moving #canvas {
-  background-image: none;
+body.ab-no-grid #canvas {
+  background-image: none !important;
 }
 
 .master-g {
