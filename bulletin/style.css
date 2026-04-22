@@ -508,20 +508,20 @@ body.profile-mode .topbar {
 }
 
 .topbar-logo {
-  font-family: var(--font-accent);
-  font-weight: 400;
-  font-size: 31.4px; /* 12px × φ² — two golden ratios above nav buttons */
-  text-align: center;
-  letter-spacing: 0.5px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding-top: 4px;
-  padding-bottom: 4px;
+  padding: 10px 0;
   cursor: pointer;
   pointer-events: all;
   line-height: 1;
+}
+
+.topbar-logo img {
+  height: auto;
+  width: 140px; /* Adjust based on desired size */
+  max-height: 24px;
 }
 
 .topbar-breadcrumb {
@@ -1420,10 +1420,11 @@ body.explore-mode .topbar {
   z-index: 50;
 }
 
-.empty-state h1 {
-  font-family: var(--font-accent);
-  font-size: 56px;
-  font-weight: 400;
+.empty-state .empty-logo img {
+  width: 320px;
+  max-width: 80vw;
+  height: auto;
+  margin-bottom: 24px;
 }
 
 .empty-state p {
@@ -2058,12 +2059,14 @@ body.auth-mode #explore-view {
 }
 
 .auth-logo {
-  font-family: var(--font-accent);
-  font-size: 36px;
-  font-weight: 400;
-  color: var(--text);
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.auth-logo img {
+  width: 200px;
+  height: auto;
 }
 
 .auth-subtitle {
