@@ -132,6 +132,10 @@ html, body {
   will-change: transform;
 }
 
+body.is-safari .master-g {
+  will-change: auto;
+}
+
 .pin-img {
   opacity: 0;
   transition: opacity 0.25s ease-out;
@@ -384,11 +388,19 @@ html, body {
 }
 
 .pin-group {
-  transition: filter 0.15s ease, opacity 0.18s ease;
+  transition: opacity 0.18s ease;
 }
 
 .camera-moving .pin-group {
   filter: none !important;
+}
+
+body.is-safari .pin-group.is-culled {
+  display: block;
+}
+
+body.is-safari .pin-group.is-simplified .pin-img {
+  display: block;
 }
 
 .pin-img {

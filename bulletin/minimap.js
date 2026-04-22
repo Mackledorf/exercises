@@ -4,6 +4,8 @@ import * as S from "./state.js";
 
 let mmW, mmH, mmDpr = 1;
 let minimapRAF = null;
+let lastDrawAt = 0;
+const SAFARI_MINIMAP_INTERVAL_MS = 75;
 
 // ── Callbacks (injected by coordinator) ──────────
 let _getPanBoundsWorld = null;
@@ -38,7 +40,16 @@ export function setupMinimapCanvas() {
   S.mCtx.imageSmoothingEnabled = false;
 }
 
-export function requestMinimapUpdate() {
+export function requestMinimapUpdate(force = false) {
+  if (
+    !force &&
+    S.isSafari &&
+    S.currentView === "board" &&
+    Date.now() - lastDrawAt < SAFARI_MINIMAP_INTERVAL_MS
+  ) {
+    return;
+  }
+
   if (!minimapRAF) {
     minimapRAF = requestAnimationFrame(() => {
       updateMinimap();
@@ -48,6 +59,7 @@ export function requestMinimapUpdate() {
 }
 
 export function updateMinimap() {
+  lastDrawAt = Date.now();
   S.mCtx.clearRect(0, 0, mmW, mmH);
   drawMinimapFrame();
   const worldBounds = _getPanBoundsWorld();

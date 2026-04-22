@@ -4,6 +4,7 @@ import {
   svg, masterG, currentTransform, setCurrentTransform,
   currentView, activeBoardId, width, height,
   activePinsSnapshot,
+  isSafari,
   GRID, TRANSITION_MS, ZOOM_SETTLE_MS, WHEEL_ZOOM_SENS,
   HOME_WHEEL_GUARD_MS, PAN_BOUND_SCREENS, PIN_W, PIN_H,
   topbarEl, zoomLabel, minimapContainerEl, fabGroupLeft,
@@ -138,7 +139,10 @@ export function finishZoomInteraction() {
   document.body.classList.remove("is-zooming");
   masterG.classed("camera-moving", false);
   applyGridTransform(currentTransform, true);
-  if (_requestMinimapUpdate) _requestMinimapUpdate();
+  if (_requestMinimapUpdate) _requestMinimapUpdate(true);
+  updateBoardZoomUIVisibility();
+  requestTopbarVisibilityUpdate();
+  requestViewportCullingUpdate();
 }
 
 export function cancelZoomInteraction() {
@@ -462,6 +466,7 @@ export function updateViewportCulling() {
 }
 
 export function requestViewportCullingUpdate() {
+  if (isSafari && isZooming) return;
   if (cullingRAF) return;
   cullingRAF = requestAnimationFrame(() => {
     cullingRAF = null;
@@ -538,8 +543,6 @@ export function flushZoomRender() {
   
   applyGridTransform(currentTransform, true);
   if (_requestMinimapUpdate) _requestMinimapUpdate();
-  requestTopbarVisibilityUpdate();
-  requestViewportCullingUpdate();
 
   const tier = k < 0.2 ? "very-far" : k < 0.6 ? "far" : "normal";
   if (tier !== lastZoomTier) {
@@ -553,8 +556,6 @@ export function flushZoomRender() {
     zoomLabel.textContent = zoomText;
     lastZoomLabelText = zoomText;
   }
-
-  updateBoardZoomUIVisibility();
 }
 
 // ── D3 zoom behavior ─────────────────────────────

@@ -145,6 +145,9 @@ function render() {
 // DOM refs
 S.initDOM();
 S.setZoom(zoom);
+if (S.isSafari) {
+  document.body.classList.add("is-safari");
+}
 
 // Viewport
 viewport.init({
