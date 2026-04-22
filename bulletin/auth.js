@@ -329,6 +329,7 @@ const Auth = (function () {
         e.preventDefault();
         try {
           await signOut();
+          if (_onSignOut) _onSignOut();
         } catch (err) {
           console.error("Sign out failed:", err);
         }

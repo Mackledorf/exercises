@@ -570,6 +570,11 @@ body.board-transition-mask-canvas #canvas {
 
 body.topbar-auto-hidden .topbar {
   transform: translateY(-100%);
+  pointer-events: auto; /* Allow detection of hover */
+}
+
+body.topbar-auto-hidden .topbar:hover {
+  transform: translateY(0);
 }
 
 body.profile-mode .topbar {
@@ -600,6 +605,7 @@ body.profile-mode .topbar {
   font-family: var(--font-accent);
   font-size: 18px;
   font-weight: 500;
+  pointer-events: auto;
 }
 
 .topbar-breadcrumb .crumb {
@@ -639,6 +645,7 @@ body.profile-mode .topbar {
   align-items: center;
   justify-content: flex-end;
   gap: 16px;
+  pointer-events: all;
 }
 
 .topbar-profile {
@@ -2236,6 +2243,7 @@ body.auth-mode #explore-view {
 
 .topbar-signout:hover {
   opacity: 1;
+  color: #ff4d4f; /* Pinkish-red color */
 }
 
 

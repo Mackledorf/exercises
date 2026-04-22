@@ -437,8 +437,8 @@ export function shouldHideTopbarForPinOverlap() {
   const t = currentTransform;
   const k = t.k;
 
-  if (k >= 1.26) return true;
-  if (k <= 1.25) return false;
+  if (k >= 1.05) return true;
+  if (k <= 1.0) return false;
 
   if (activePinsSnapshot.length === 0) return false;
 
@@ -542,7 +542,7 @@ export function updateBoardZoomUIVisibility() {
   const isHomeView = currentView === "home";
   const isPanView = isBoardView || isHomeView;
   const { k, x, y } = currentTransform;
-  const zoomTooClose = isBoardView && k > 1.25;
+  const zoomTooClose = isBoardView && k > 1.0;
   const showBoardUI = isBoardView && !zoomTooClose;
   const minimapDisabled = AB_FLAGS.noMinimap && isPanView;
 
