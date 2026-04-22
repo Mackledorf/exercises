@@ -38,6 +38,20 @@ function isBoardMinimapDisabled() {
   return AB_FLAGS.noMinimap && S.currentView === "board";
 }
 
+function updateABBadges() {
+  const container = document.getElementById("ab-badges");
+  if (!container) return;
+  
+  const badges = [];
+  if (AB_FLAGS.noMinimap) badges.push(`<div class="ab-badge active">No Minimap</div>`);
+  if (AB_FLAGS.noGrid) badges.push(`<div class="ab-badge active">No Grid</div>`);
+  if (AB_FLAGS.imageMode !== "decode") {
+    badges.push(`<div class="ab-badge active">Img: ${AB_FLAGS.imageMode}</div>`);
+  }
+
+  container.innerHTML = badges.join("");
+}
+
 // ══════════════════════════════════════════════════
 //  Coordinator helpers
 // ══════════════════════════════════════════════════
@@ -488,7 +502,8 @@ modals.bindModalEvents();
 // ══════════════════════════════════════════════════
 
 let _appInitialized = false;
-let _bootInFlight = null;
+let _bupdateABBadges();
+      ootInFlight = null;
 
 async function bootApp(user) {
   if (_appInitialized) return;

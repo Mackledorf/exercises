@@ -2216,3 +2216,43 @@ body.auth-mode #explore-view {
   opacity: 1;
 }
 
+
+/* ── A/B Test Badges ─────────────────────────── */
+.ab-badges {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+  font-family: 'Pitch Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ab-badge {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.4);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.ab-badge.active {
+  background: #ff3b30;
+  color: white;
+  border-color: #ff3b30;
+}
+
+/* Hide badges if none active or in production-like state if desired, 
+   but for now we show them if flags differ from default. */
+
+/* Browser Specific Classes */
+.is-safari .ab-badge::after {
+  content: " (Safari)";
+  opacity: 0.5;
+  font-size: 8px;
+}
