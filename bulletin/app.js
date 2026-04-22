@@ -502,8 +502,7 @@ modals.bindModalEvents();
 // ══════════════════════════════════════════════════
 
 let _appInitialized = false;
-let _bupdateABBadges();
-      ootInFlight = null;
+let _bootInFlight = null;
 
 async function bootApp(user) {
   if (_appInitialized) return;
@@ -517,6 +516,7 @@ async function bootApp(user) {
         await document.fonts.ready;
       }
 
+      updateABBadges();
       render();
 
       // Handle Are.na OAuth callback
