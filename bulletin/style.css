@@ -598,7 +598,7 @@ body.profile-mode .topbar {
   align-items: center;
   gap: 6px;
   font-family: var(--font-accent);
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 500;
 }
 
@@ -649,7 +649,7 @@ body.profile-mode .topbar {
   margin: -6px -8px;
   border-radius: 8px;
   font-family: var(--font-accent);
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 500;
   opacity: 0.4;
   cursor: pointer;

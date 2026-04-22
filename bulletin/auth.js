@@ -323,7 +323,10 @@ const Auth = (function () {
     }
 
     if (signOutBtn) {
-      signOutBtn.addEventListener("click", async () => {
+      console.log("Binding signOutBtn click");
+      signOutBtn.addEventListener("click", async (e) => {
+        console.log("Signout clicked");
+        e.preventDefault();
         try {
           await signOut();
         } catch (err) {
