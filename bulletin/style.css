@@ -221,6 +221,31 @@ body.browser-safari.safari-camera-moving .pin-img {
   to { transform: rotate(360deg); }
 }
 
+.color-swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.2);
+}
+
 /* ── Quick-add bubble (SVG) ─────────────────── */
 
 .quick-add-group {
@@ -267,6 +292,8 @@ body.browser-safari.safari-camera-moving .pin-img {
 .board-bubble {
   fill: rgba(60, 60, 60, 1);
   pointer-events: all;
+  stroke: transparent;
+  stroke-width: 4px;
 }
 
 .group-bubble {

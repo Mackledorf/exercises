@@ -23,6 +23,17 @@ export const BOARD_PREVIEW_MAX_H = 100;
 export const BOARD_PREVIEW_PAD = 16;
 export const HOME_WHEEL_GUARD_MS = 220;
 
+export const GROUP_COLORS = [
+  "#2C3E50", // Dark Blue
+  "#E67E22", // Orange
+  "#27AE60", // Green
+  "#8E44AD", // Purple
+  "#E74C3C", // Red
+  "#F1C40F", // Yellow
+  "#16A085", // Teal
+  "#BDC3C7"  // Silver
+];
+
 // ── Bubble sizes (golden-ratio steps: 100 → 162 → 262) ──
 export const BUBBLE_SMALL  = 100;   // group default diameter
 export const BUBBLE_MEDIUM = 162;  // board default diameter

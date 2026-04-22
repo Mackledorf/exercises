@@ -319,8 +319,11 @@ S.svg.on("click.quickadd", (event) => {
 
   if (board.isQuickAddActive()) {
     const target = event.target;
+    // Check if clicking inside the quick-add group
     const qg = S.masterG.select(".quick-add-group").node();
-    if (qg && qg.contains(target)) return;
+    if (qg && (qg === target || qg.contains(target))) {
+      return;
+    }
   }
 
   if (event.target.classList && event.target.classList.contains("pin-hit-area")) return;

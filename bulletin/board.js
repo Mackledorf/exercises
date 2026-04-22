@@ -124,12 +124,22 @@ export function showQuickAdd(clientX, clientY) {
   quickAddG = masterG.append("g")
     .attr("class", "quick-add-group")
     .attr("transform", `translate(${sx},${sy})`)
-    .style("cursor", "pointer");
+    .style("cursor", "pointer")
+    .style("pointer-events", "all")
+    .on("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof _openAddPinModal === "function") {
+        _openAddPinModal();
+      }
+      hideQuickAdd();
+    });
 
   quickAddG.append("circle")
     .attr("r", 18)
     .attr("fill", "#fff")
-    .attr("class", "quick-add-circle");
+    .attr("class", "quick-add-circle")
+    .style("pointer-events", "all");
 
   quickAddG.append("text")
     .attr("text-anchor", "middle")
