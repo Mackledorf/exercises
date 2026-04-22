@@ -4,14 +4,13 @@ import {
   svg, masterG, currentTransform, setCurrentTransform,
   currentView, activeBoardId, width, height,
   activePinsSnapshot,
-  isSafari,
   GRID, TRANSITION_MS, ZOOM_SETTLE_MS, WHEEL_ZOOM_SENS,
   HOME_WHEEL_GUARD_MS, PAN_BOUND_SCREENS, PIN_W, PIN_H,
   topbarEl, zoomLabel, minimapContainerEl, fabGroupLeft,
   TOPBAR_CLIP_BUFFER,
 } from "./state.js";
 
-import { imageAspectCache, getPinImageSrc, clamp, normalizeRect } from "./utils.js";
+import { imageAspectCache, getPinImageSrc, clamp, normalizeRect, isSafariBrowser } from "./utils.js";
 
 // ── Private state ────────────────────────────────
 let isZooming = false;
@@ -33,6 +32,9 @@ let boardLoadingTimer = null;
 let topbarVisibilityRAF = null;
 let isTopbarAutoHidden = false;
 let cullingRAF = null;
+let hasAppliedCulling = false;
+let lastDeferredUIUpdateAt = 0;
+let usingSvgTransform = null;
 
 let suppressHomeWheelUntil = 0;
 let pendingHomeViewportGuard = false;
@@ -47,6 +49,9 @@ const wheelState = {
   hasZoom: false,
 };
 
+const SAFARI_CULL_MIN_PINS = 120;
+const DEFERRED_UI_UPDATE_MS = 120;
+
 // ── Callback injection ───────────────────────────
 let _render = null;
 let _hideQuickAdd = null;
@@ -60,19 +65,49 @@ export function init({ render, hideQuickAdd, updateMinimap, requestMinimapUpdate
   _requestMinimapUpdate = requestMinimapUpdate;
 }
 
+function setMasterTransform(transform) {
+  const useSvgTransform = isSafariBrowser();
+
+  if (usingSvgTransform !== useSvgTransform) {
+    if (useSvgTransform) {
+      masterG.style("transform", null);
+    } else {
+      masterG.attr("transform", null);
+    }
+    usingSvgTransform = useSvgTransform;
+  }
+
+  if (useSvgTransform) {
+    masterG.attr("transform", transform);
+    return;
+  }
+
+  const { x, y, k } = transform;
+  masterG.style("transform", `translate(${x}px, ${y}px) scale(${k})`);
+}
+
 // ── Grid transform ───────────────────────────────
 export function writeGridTransform(transform) {
   const { x, y, k } = transform;
   const canvasNode = svg.node();
+  const safari = isSafariBrowser();
 
-  if (x !== lastGridX || y !== lastGridY) {
-    canvasNode.style.backgroundPosition = `${x}px ${y}px`;
-    lastGridX = x;
-    lastGridY = y;
+  // Safari repaints radial-gradient backgrounds heavily on every camera tick.
+  if (safari && masterG.classed("camera-moving")) {
+    return;
+  }
+
+  const snappedX = Math.round(x);
+  const snappedY = Math.round(y);
+
+  if (snappedX !== lastGridX || snappedY !== lastGridY) {
+    canvasNode.style.backgroundPosition = `${snappedX}px ${snappedY}px`;
+    lastGridX = snappedX;
+    lastGridY = snappedY;
   }
 
   // Keep grid scale tightly in sync with camera zoom to avoid visible stepping.
-  const scaleDeltaThreshold = 0.0001;
+  const scaleDeltaThreshold = safari ? 0.01 : 0.0001;
   if (!Number.isFinite(lastGridK) || Math.abs(k - lastGridK) >= scaleDeltaThreshold) {
     canvasNode.style.backgroundSize = `${GRID * k}px ${GRID * k}px`;
     lastGridK = k;
@@ -99,7 +134,7 @@ export function applyGridTransform(transform, immediate) {
 // ── Viewport identity ────────────────────────────
 export function resetViewportToIdentity() {
   setCurrentTransform(d3.zoomIdentity);
-  masterG.style("transform", "translate(0,0) scale(1)");
+  setMasterTransform(currentTransform);
   applyGridTransform(currentTransform, true);
   svg.property("__zoom", d3.zoomIdentity);
 }
@@ -137,12 +172,14 @@ export function finishZoomInteraction() {
   isProgrammaticZoom = false;
   hasScaleInteraction = false;
   document.body.classList.remove("is-zooming");
+  document.body.classList.remove("safari-camera-moving");
   masterG.classed("camera-moving", false);
   applyGridTransform(currentTransform, true);
-  if (_requestMinimapUpdate) _requestMinimapUpdate(true);
-  updateBoardZoomUIVisibility();
+  if (_updateMinimap) _updateMinimap();
+  else if (_requestMinimapUpdate) _requestMinimapUpdate();
   requestTopbarVisibilityUpdate();
   requestViewportCullingUpdate();
+  updateBoardZoomUIVisibility();
 }
 
 export function cancelZoomInteraction() {
@@ -154,15 +191,17 @@ export function cancelZoomInteraction() {
   isProgrammaticZoom = false;
   hasScaleInteraction = false;
   document.body.classList.remove("is-zooming");
+  document.body.classList.remove("safari-camera-moving");
   masterG.classed("camera-moving", false);
 }
 
 export function scheduleZoomSettle() {
   if (zoomSettleTimer) clearTimeout(zoomSettleTimer);
+  const settleDelay = isSafariBrowser() ? Math.min(ZOOM_SETTLE_MS, 90) : ZOOM_SETTLE_MS;
   zoomSettleTimer = setTimeout(() => {
     zoomSettleTimer = null;
     finishZoomInteraction();
-  }, ZOOM_SETTLE_MS);
+  }, settleDelay);
 }
 
 export function startZoomInteraction(isScaleChange) {
@@ -172,6 +211,9 @@ export function startZoomInteraction(isScaleChange) {
   }
   if (isScaleChange && _hideQuickAdd) _hideQuickAdd();
   masterG.classed("camera-moving", true);
+  if (isSafariBrowser()) {
+    document.body.classList.add("safari-camera-moving");
+  }
   if (hasScaleInteraction) document.body.classList.add("is-zooming");
   scheduleZoomSettle();
 }
@@ -181,6 +223,9 @@ export function runZoomTransition(transform, onDone, options = {}) {
   cancelZoomInteraction();
   isProgrammaticZoom = true;
   masterG.classed("camera-moving", true);
+  if (isSafariBrowser()) {
+    document.body.classList.add("safari-camera-moving");
+  }
   svg.interrupt();
 
   const transition = svg.transition().duration(TRANSITION_MS);
@@ -434,6 +479,21 @@ export function updateTopbarAutoVisibility() {
 export function updateViewportCulling() {
   if (currentView !== "board" || !activeBoardId) return;
 
+  const shouldCull = activePinsSnapshot.length >= SAFARI_CULL_MIN_PINS
+    && (!isSafariBrowser() || !masterG.classed("camera-moving"));
+
+  if (!shouldCull) {
+    if (hasAppliedCulling) {
+      masterG.selectAll("g.pin-group.is-culled, g.pin-group.is-simplified")
+        .classed("is-culled", false)
+        .classed("is-simplified", false);
+      hasAppliedCulling = false;
+    }
+    return;
+  }
+
+  hasAppliedCulling = true;
+
   const { x, y, k } = currentTransform;
   const viewportW = width;
   const viewportH = height;
@@ -456,17 +516,13 @@ export function updateViewportCulling() {
       screenY < viewportH + pad
     );
 
-    d3.select(this).classed("is-culled", !isVisible);
-    
-    // Phase 6: Simplify content when zoomed out very far
-    if (isVisible) {
-      d3.select(this).classed("is-simplified", k < 0.25);
-    }
+    const node = d3.select(this);
+    node.classed("is-culled", !isVisible);
+    node.classed("is-simplified", isVisible && k < 0.25);
   });
 }
 
 export function requestViewportCullingUpdate() {
-  if (isSafari && isZooming) return;
   if (cullingRAF) return;
   cullingRAF = requestAnimationFrame(() => {
     cullingRAF = null;
@@ -538,11 +594,26 @@ export function flushZoomRender() {
   zoomRenderRAF = null;
   const { x, y, k } = currentTransform;
 
-  // Use CSS transform for hardware acceleration
-  masterG.style("transform", `translate(${x}px, ${y}px) scale(${k})`);
-  
-  applyGridTransform(currentTransform, true);
+  setMasterTransform(currentTransform);
+
+  // Keep this deferred during motion to avoid expensive style churn.
+  applyGridTransform(currentTransform, false);
   if (_requestMinimapUpdate) _requestMinimapUpdate();
+
+  const cameraMoving = masterG.classed("camera-moving");
+  const safari = isSafariBrowser();
+  const now = performance.now();
+  const shouldRunDeferredUpdates = !cameraMoving || !safari || (now - lastDeferredUIUpdateAt) >= DEFERRED_UI_UPDATE_MS;
+
+  if (shouldRunDeferredUpdates) {
+    lastDeferredUIUpdateAt = now;
+    requestTopbarVisibilityUpdate();
+    requestViewportCullingUpdate();
+
+    if (!cameraMoving) {
+      updateBoardZoomUIVisibility();
+    }
+  }
 
   const tier = k < 0.2 ? "very-far" : k < 0.6 ? "far" : "normal";
   if (tier !== lastZoomTier) {

@@ -22,7 +22,6 @@ export const BOARD_PREVIEW_MAX_W = 100;
 export const BOARD_PREVIEW_MAX_H = 100;
 export const BOARD_PREVIEW_PAD = 16;
 export const HOME_WHEEL_GUARD_MS = 220;
-export const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 // ── Bubble sizes (golden-ratio steps: 100 → 162 → 262) ──
 export const BUBBLE_SMALL  = 100;   // group default diameter

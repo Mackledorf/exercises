@@ -3,7 +3,7 @@
 import {
   currentView, setCurrentView,
   activeBoardId, setActiveBoardId,
-  activePinsSnapshot, setActivePinsSnapshot,
+  setActivePinsSnapshot,
   selectedPinId, setSelectedPinId,
   currentTransform, setCurrentTransform,
   multiSelectedPinIds, multiSelectedBoardIds,
@@ -29,7 +29,7 @@ import {
   resetViewportToIdentity, getPinsWorldBounds,
   getBoardPinsForFitAndTransition, applyGridTransform,
   clearViewportInputCarryover, guardHomeWheelInput,
-  requestTopbarVisibilityUpdate, updateBoardZoomUIVisibility,
+  requestTopbarVisibilityUpdate, requestViewportCullingUpdate,
 } from "./viewport.js";
 
 import { stopAllGroupSimulations } from "./home.js";
@@ -353,10 +353,6 @@ export function selectPin(d, gEl) {
       setBox(g.select(".pin-img"));
       setBox(g.select(".pin-hit-area"));
       setBox(g.select(".pin-select-outline"));
-
-      d3.select(`#pin-clip-${d.id} rect`)
-        .attr("x", -d._pw / 2).attr("y", -d._ph / 2)
-        .attr("width", d._pw).attr("height", d._ph);
 
       g.selectAll(".pin-handle").each(function () {
         const k = this.dataset.corner;
@@ -908,6 +904,7 @@ export function renderBoard(boardId) {
 
   if (!shouldShowVeil) hideBoardLoadingVeil();
   requestTopbarVisibilityUpdate();
+  requestViewportCullingUpdate();
 }
 
 // ── New pin placement helper ─────────────────────

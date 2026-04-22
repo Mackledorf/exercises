@@ -1,11 +1,13 @@
 /* ── bulletin · minimap.js ─ Minimap canvas rendering ── */
 
 import * as S from "./state.js";
+import { isSafariBrowser } from "./utils.js";
 
 let mmW, mmH, mmDpr = 1;
 let minimapRAF = null;
-let lastDrawAt = 0;
-const SAFARI_MINIMAP_INTERVAL_MS = 75;
+let lastMinimapDrawAt = 0;
+
+const SAFARI_MINIMAP_INTERVAL_MS = 80;
 
 // ── Callbacks (injected by coordinator) ──────────
 let _getPanBoundsWorld = null;
@@ -40,14 +42,14 @@ export function setupMinimapCanvas() {
   S.mCtx.imageSmoothingEnabled = false;
 }
 
-export function requestMinimapUpdate(force = false) {
-  if (
-    !force &&
-    S.isSafari &&
-    S.currentView === "board" &&
-    Date.now() - lastDrawAt < SAFARI_MINIMAP_INTERVAL_MS
-  ) {
-    return;
+export function requestMinimapUpdate() {
+  const isBoardView = S.currentView === "board";
+  const isCameraMoving = !!S.masterG && S.masterG.classed("camera-moving");
+  if (isBoardView && isCameraMoving && isSafariBrowser()) {
+    const now = performance.now();
+    if ((now - lastMinimapDrawAt) < SAFARI_MINIMAP_INTERVAL_MS) {
+      return;
+    }
   }
 
   if (!minimapRAF) {
@@ -59,7 +61,6 @@ export function requestMinimapUpdate(force = false) {
 }
 
 export function updateMinimap() {
-  lastDrawAt = Date.now();
   S.mCtx.clearRect(0, 0, mmW, mmH);
   drawMinimapFrame();
   const worldBounds = _getPanBoundsWorld();
@@ -81,13 +82,14 @@ export function updateMinimap() {
     const pins = S.activePinsSnapshot;
     if (pins.length > 0) {
       drawProjectedMinimapNodes(
-        pins.map(p => ({ x: p.x, y: p.y, color: "#EEEBE7" })),
+        pins,
         worldBounds
       );
     }
   }
 
   drawMinimapViewport(worldBounds);
+  lastMinimapDrawAt = performance.now();
 }
 
 function drawMinimapFrame() {
@@ -115,7 +117,7 @@ function drawProjectedMinimapNodes(nodes, bounds) {
     const ny = (n.y - bounds.minY) * sy;
     if (nx < -8 || nx > mmW + 8 || ny < -8 || ny > mmH + 8) return;
 
-    S.mCtx.fillStyle = n.color;
+    S.mCtx.fillStyle = n.color || "#EEEBE7";
     S.mCtx.beginPath();
     S.mCtx.arc(nx, ny, markerSize, 0, Math.PI * 2);
     S.mCtx.fill();

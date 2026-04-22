@@ -10,6 +10,16 @@ export function getPinImageSrc(pin) {
   return pin.imageData || pin.imageUrl || "";
 }
 
+let isSafariBrowserCache;
+
+export function isSafariBrowser() {
+  if (isSafariBrowserCache !== undefined) return isSafariBrowserCache;
+
+  const ua = typeof navigator !== "undefined" ? (navigator.userAgent || "") : "";
+  isSafariBrowserCache = /Safari/i.test(ua) && !/(Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS)/i.test(ua);
+  return isSafariBrowserCache;
+}
+
 export function loadImageAspect(src) {
   if (!src) return Promise.resolve(PIN_H / PIN_W);
   if (imageAspectCache.has(src)) return Promise.resolve(imageAspectCache.get(src));

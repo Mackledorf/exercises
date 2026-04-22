@@ -128,11 +128,15 @@ html, body {
   will-change: background-position, background-size;
 }
 
-.master-g {
-  will-change: transform;
+body.browser-safari #canvas {
+  will-change: auto;
 }
 
-body.is-safari .master-g {
+body.browser-safari.safari-camera-moving #canvas {
+  background-image: none;
+}
+
+.master-g {
   will-change: auto;
 }
 
@@ -149,8 +153,14 @@ body.is-safari .master-g {
   clip-path: inset(0 round 6px);
 }
 
+body.browser-safari.safari-camera-moving .pin-img {
+  clip-path: none;
+}
+
 .pin-group.is-culled {
-  display: none;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .pin-group.is-simplified .pin-img {
@@ -393,14 +403,8 @@ body.is-safari .master-g {
 
 .camera-moving .pin-group {
   filter: none !important;
-}
-
-body.is-safari .pin-group.is-culled {
-  display: block;
-}
-
-body.is-safari .pin-group.is-simplified .pin-img {
-  display: block;
+  transition: none;
+  pointer-events: none;
 }
 
 .pin-img {

@@ -3,14 +3,14 @@
 // ── Module imports ───────────────────────────────
 import * as S from "./state.js";
 
-import { screenToWorld } from "./utils.js";
+import { isSafariBrowser, screenToWorld } from "./utils.js";
 
 import {
   zoom, attachWheelHandler, applyGridTransform,
   resetViewportToIdentity, cancelZoomInteraction,
   clearViewportInputCarryover, guardHomeWheelInput,
   runZoomTransition, requestTopbarVisibilityUpdate,
-  updateBoardZoomUIVisibility, setTopbarAutoHidden,
+  requestViewportCullingUpdate, updateBoardZoomUIVisibility, setTopbarAutoHidden,
   getPanBoundsWorld,
   getPendingHomeViewportGuard, setPendingHomeViewportGuard,
 } from "./viewport.js";
@@ -136,6 +136,7 @@ function render() {
   minimap.updateMinimap();
   updateBoardZoomUIVisibility();
   requestTopbarVisibilityUpdate();
+  requestViewportCullingUpdate();
 }
 
 // ══════════════════════════════════════════════════
@@ -144,10 +145,10 @@ function render() {
 
 // DOM refs
 S.initDOM();
-S.setZoom(zoom);
-if (S.isSafari) {
-  document.body.classList.add("is-safari");
+if (isSafariBrowser()) {
+  document.body.classList.add("browser-safari");
 }
+S.setZoom(zoom);
 
 // Viewport
 viewport.init({
@@ -409,6 +410,7 @@ window.addEventListener("resize", () => {
   applyGridTransform(S.currentTransform, true);
   minimap.requestMinimapUpdate();
   requestTopbarVisibilityUpdate();
+  requestViewportCullingUpdate();
 });
 
 // ══════════════════════════════════════════════════
