@@ -141,6 +141,24 @@ html, body {
   opacity: 1;
 }
 
+.pin-img {
+  clip-path: inset(0 round 6px);
+}
+
+.pin-group.is-culled {
+  display: none;
+}
+
+.pin-group.is-simplified .pin-img {
+  display: none;
+}
+
+.pin-group.is-simplified .pin-bg {
+  fill: var(--alt-grey);
+  stroke: var(--dot);
+  stroke-width: 1px;
+}
+
 #canvas:active {
   cursor: grabbing;
 }

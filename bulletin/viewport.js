@@ -31,6 +31,7 @@ let lastZoomTier = "normal";
 let boardLoadingTimer = null;
 let topbarVisibilityRAF = null;
 let isTopbarAutoHidden = false;
+let cullingRAF = null;
 
 let suppressHomeWheelUntil = 0;
 let pendingHomeViewportGuard = false;
@@ -426,6 +427,48 @@ export function updateTopbarAutoVisibility() {
   setTopbarAutoHidden(shouldHide);
 }
 
+export function updateViewportCulling() {
+  if (currentView !== "board" || !activeBoardId) return;
+
+  const { x, y, k } = currentTransform;
+  const viewportW = width;
+  const viewportH = height;
+  const pad = 100; // Culling buffer
+
+  masterG.selectAll("g.pin-group").each(function(d) {
+    if (!d) return;
+    const pinW = d._pw || d.pinW || PIN_W;
+    const pinH = d._ph || (pinW * (d._aspect || (PIN_H / PIN_W)));
+    
+    const screenX = x + (d.x - pinW / 2) * k;
+    const screenY = y + (d.y - pinH / 2) * k;
+    const drawW = pinW * k;
+    const drawH = pinH * k;
+
+    const isVisible = (
+      screenX + drawW > -pad &&
+      screenX < viewportW + pad &&
+      screenY + drawH > -pad &&
+      screenY < viewportH + pad
+    );
+
+    d3.select(this).classed("is-culled", !isVisible);
+    
+    // Phase 6: Simplify content when zoomed out very far
+    if (isVisible) {
+      d3.select(this).classed("is-simplified", k < 0.25);
+    }
+  });
+}
+
+export function requestViewportCullingUpdate() {
+  if (cullingRAF) return;
+  cullingRAF = requestAnimationFrame(() => {
+    cullingRAF = null;
+    updateViewportCulling();
+  });
+}
+
 export function requestTopbarVisibilityUpdate() {
   if (topbarVisibilityRAF) return;
   topbarVisibilityRAF = requestAnimationFrame(() => {
@@ -496,6 +539,7 @@ export function flushZoomRender() {
   applyGridTransform(currentTransform, true);
   if (_requestMinimapUpdate) _requestMinimapUpdate();
   requestTopbarVisibilityUpdate();
+  requestViewportCullingUpdate();
 
   const tier = k < 0.2 ? "very-far" : k < 0.6 ? "far" : "normal";
   if (tier !== lastZoomTier) {

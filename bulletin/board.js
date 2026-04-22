@@ -241,12 +241,6 @@ function applyPinBox(g, d) {
   setBox(g.select(".pin-img"));
   setBox(g.select(".pin-hit-area"));
   setBox(g.select(".pin-select-outline"));
-
-  d3.select(`#pin-clip-${d.id} rect`)
-    .attr("x", -d._pw / 2)
-    .attr("y", -d._ph / 2)
-    .attr("width", d._pw)
-    .attr("height", d._ph);
 }
 
 // ── Pin deselect / select ────────────────────────
@@ -609,6 +603,11 @@ export function renderBoard(boardId) {
     boardLoadingTimer = setTimeout(hideBoardLoadingVeil, BOARD_LOADING_TIMEOUT_MS);
   }
 
+  // ── Render Board ─────────────────────────────────
+  
+  // Clean up existing defs if re-rendering
+  masterG.select("defs").remove();
+
   // Render pin cards
   const pinGroups = masterG.selectAll("g.pin-group")
     .data(pins, d => d.id)
@@ -616,21 +615,6 @@ export function renderBoard(boardId) {
     .attr("class", "pin-group")
     .attr("data-id", d => d.id)
     .attr("transform", d => `translate(${d.x},${d.y})`);
-
-  // ── SVG defs for pin styling ──
-  const defs = masterG.append("defs");
-
-  pins.forEach(d => {
-    defs.append("clipPath")
-      .attr("id", `pin-clip-${d.id}`)
-      .append("rect")
-      .attr("width", d._pw)
-      .attr("height", d._ph)
-      .attr("x", -d._pw / 2)
-      .attr("y", -d._ph / 2)
-      .attr("rx", 6)
-      .attr("ry", 6);
-  });
 
   // Background rect
   pinGroups.append("rect")
@@ -651,7 +635,6 @@ export function renderBoard(boardId) {
     .attr("x", d => -d._pw / 2)
     .attr("y", d => -d._ph / 2)
     .attr("preserveAspectRatio", "xMidYMid meet")
-    .attr("clip-path", d => `url(#pin-clip-${d.id})`)
     .attr("pointer-events", "none");
 
   // Missing Link Label (Hidden by default)
