@@ -350,11 +350,11 @@ body.browser-safari.safari-camera-moving .pin-img {
 
 .board-node:hover .board-edit-icon,
 .board-edit-icon:hover {
-  opacity: 0.8 !important;
+  opacity: 0.9 !important;
 }
 
-.board-edit-icon:hover i {
-  opacity: 1 !important;
+.board-edit-icon:hover path {
+  stroke: #FFF !important;
 }
 
 .board-label {

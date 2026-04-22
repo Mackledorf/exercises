@@ -835,22 +835,29 @@ export function renderHome(boards) {
     });
 
   // Board edit icon (visible on hover)
-  boardGroups.append("foreignObject")
+  const editIconGroup = boardGroups.append("g")
     .attr("class", "board-edit-icon")
-    .attr("width", 24)
-    .attr("height", 24)
-    .attr("x", -12)
-    .attr("y", -(boardR + 20))
+    .attr("transform", `translate(0, ${boardR + 12})`) // Moved to bottom
     .attr("pointer-events", "all")
-    .html(`
-      <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.01); pointer-events: all; cursor: pointer;">
-        <i data-lucide="square-pen" style="width: 16px; height: 16px; stroke: #EEEBE7; stroke-width: 1.5; pointer-events: none;"></i>
-      </div>
-    `)
+    .style("cursor", "pointer")
     .on("click", (event, d) => {
       event.stopPropagation();
       _openEditBoardModal(d);
     });
+
+  editIconGroup.append("circle")
+    .attr("r", 12)
+    .attr("fill", "rgba(255,255,255,0.01)");
+
+  // Using a path instead of foreignObject for Safari compatibility
+  editIconGroup.append("path")
+    .attr("d", "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z")
+    .attr("fill", "none")
+    .attr("stroke", "#EEEBE7")
+    .attr("stroke-width", "1.5")
+    .attr("stroke-linecap", "round")
+    .attr("stroke-linejoin", "round")
+    .attr("transform", "scale(0.7) translate(-12, -12)");
 
   if (window.lucide) {
     window.lucide.createIcons();
@@ -862,7 +869,7 @@ export function renderHome(boards) {
       const g = d3.select(this);
       g.raise(); // paint on top
       g.select(".board-bubble")
-        .transition("bubble-hover").duration(280)
+        .transition("bubble-hover").dura6ion(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
       g.select(".board-bubble-overlay")
