@@ -67,7 +67,7 @@ export function init({ render, hideQuickAdd, updateMinimap, requestMinimapUpdate
 }
 
 function isBoardMinimapABDisabled() {
-  return AB_FLAGS.noMinimap && currentView === "board";
+  return AB_FLAGS.noMinimap && (currentView === "board" || currentView === "home");
 }
 
 function setMasterTransform(transform) {
@@ -539,16 +539,18 @@ export function requestTopbarVisibilityUpdate() {
 
 export function updateBoardZoomUIVisibility() {
   const isBoardView = currentView === "board";
+  const isHomeView = currentView === "home";
+  const isPanView = isBoardView || isHomeView;
   const { k, x, y } = currentTransform;
   const zoomTooClose = isBoardView && k > 1.25;
   const showBoardUI = isBoardView && !zoomTooClose;
-  const minimapDisabled = AB_FLAGS.noMinimap && isBoardView;
+  const minimapDisabled = AB_FLAGS.noMinimap && isPanView;
 
   document.body.classList.toggle("zoom-ui-hidden", zoomTooClose);
 
-  zoomLabel.style.display = isBoardView ? "block" : "none";
+  zoomLabel.style.display = isPanView ? "block" : "none";
   if (minimapContainerEl) {
-    minimapContainerEl.style.display = (isBoardView && !minimapDisabled) ? "flex" : "none";
+    minimapContainerEl.style.display = (isPanView && !minimapDisabled) ? "flex" : "none";
   }
 
   const fabCenter = document.getElementById("fab-center-group");
@@ -606,8 +608,10 @@ export function flushZoomRender() {
 
   if (shouldRunDeferredUpdates) {
     lastDeferredUIUpdateAt = now;
-    requestTopbarVisibilityUpdate();
-    requestViewportCullingUpdate();
+    if (!cameraMoving || !safari) {
+      requestTopbarVisibilityUpdate();
+      requestViewportCullingUpdate();
+    }
 
     if (!cameraMoving) {
       updateBoardZoomUIVisibility();
@@ -634,7 +638,7 @@ function onZoom(event) {
   setCurrentTransform(event.transform);
   const isScaleChange = Math.abs(prevK - currentTransform.k) > 0.0001;
 
-  if (currentView === "board" && !isProgrammaticZoom) {
+  if ((currentView === "board" || currentView === "home") && !isProgrammaticZoom) {
     startZoomInteraction(isScaleChange);
   }
 

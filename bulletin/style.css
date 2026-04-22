@@ -397,6 +397,28 @@ body.browser-safari.safari-camera-moving .pin-img {
   opacity: 1;
 }
 
+body.browser-safari.safari-camera-moving .board-node,
+body.browser-safari.safari-camera-moving .group-node,
+body.browser-safari.safari-camera-moving .board-connection,
+body.browser-safari.safari-camera-moving .board-edit-icon {
+  pointer-events: none !important;
+}
+
+body.browser-safari.safari-camera-moving .board-label,
+body.browser-safari.safari-camera-moving .board-count,
+body.browser-safari.safari-camera-moving .group-name {
+  transition: none !important;
+}
+
+body.browser-safari.safari-camera-moving .board-bubble-overlay {
+  mix-blend-mode: normal !important;
+  fill: rgba(0, 0, 0, 0) !important;
+}
+
+body.browser-safari.safari-camera-moving .board-preview-pin-img {
+  clip-path: none !important;
+}
+
 .pin-group {
   transition: opacity 0.18s ease;
 }
@@ -2251,6 +2273,7 @@ body.auth-mode #explore-view {
    but for now we show them if flags differ from default. */
 
 /* Browser Specific Classes */
+body.browser-safari .ab-badge::after,
 .is-safari .ab-badge::after {
   content: " (Safari)";
   opacity: 0.5;

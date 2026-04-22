@@ -13,8 +13,8 @@ const AB_FLAGS = getABFlags();
 // ── Callbacks (injected by coordinator) ──────────
 let _getPanBoundsWorld = null;
 
-function shouldSkipBoardMinimap() {
-  return AB_FLAGS.noMinimap && S.currentView === "board";
+function shouldSkipMinimap() {
+  return AB_FLAGS.noMinimap && (S.currentView === "board" || S.currentView === "home");
 }
 
 export function init({ getPanBoundsWorld }) {
@@ -48,13 +48,14 @@ export function setupMinimapCanvas() {
 }
 
 export function requestMinimapUpdate() {
-  if (shouldSkipBoardMinimap()) return;
+  if (shouldSkipMinimap()) return;
 
-  const isBoardView = S.currentView === "board";
+  const isPanSensitiveView = S.currentView === "board" || S.currentView === "home";
   const isCameraMoving = !!S.masterG && S.masterG.classed("camera-moving");
-  if (isBoardView && isCameraMoving && isSafariBrowser()) {
+  const safariMinimapInterval = AB_FLAGS.safariMinimapIntervalMs ?? SAFARI_MINIMAP_INTERVAL_MS;
+  if (isPanSensitiveView && isCameraMoving && isSafariBrowser()) {
     const now = performance.now();
-    if ((now - lastMinimapDrawAt) < SAFARI_MINIMAP_INTERVAL_MS) {
+    if ((now - lastMinimapDrawAt) < safariMinimapInterval) {
       return;
     }
   }
@@ -68,7 +69,7 @@ export function requestMinimapUpdate() {
 }
 
 export function updateMinimap() {
-  if (shouldSkipBoardMinimap()) return;
+  if (shouldSkipMinimap()) return;
 
   S.mCtx.clearRect(0, 0, mmW, mmH);
   drawMinimapFrame();
@@ -78,12 +79,17 @@ export function updateMinimap() {
     const boards = Store.getBoards();
     if (boards.length > 0) {
       const cols = Math.max(1, Math.ceil(Math.sqrt(boards.length)));
-      boards.forEach((b, i) => {
-        b._x = (i % cols) * S.BOARD_SPREAD + S.width / 2 - ((cols - 1) * S.BOARD_SPREAD) / 2;
-        b._y = Math.floor(i / cols) * S.BOARD_SPREAD + S.height / 2 - (Math.floor((boards.length - 1) / cols) * S.BOARD_SPREAD) / 2;
+      const projectedBoards = boards.map((b, i) => {
+        const fallbackX = (i % cols) * S.BOARD_SPREAD + S.width / 2 - ((cols - 1) * S.BOARD_SPREAD) / 2;
+        const fallbackY = Math.floor(i / cols) * S.BOARD_SPREAD + S.height / 2 - (Math.floor((boards.length - 1) / cols) * S.BOARD_SPREAD) / 2;
+        return {
+          x: Number.isFinite(b._x) ? b._x : fallbackX,
+          y: Number.isFinite(b._y) ? b._y : fallbackY,
+          color: b.color,
+        };
       });
       drawProjectedMinimapNodes(
-        boards.map(b => ({ x: b._x, y: b._y, color: b.color })),
+        projectedBoards,
         worldBounds
       );
     }

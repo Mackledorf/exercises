@@ -35,7 +35,7 @@ import * as explore from "./explore.js";
 const AB_FLAGS = getABFlags();
 
 function isBoardMinimapDisabled() {
-  return AB_FLAGS.noMinimap && S.currentView === "board";
+  return AB_FLAGS.noMinimap && (S.currentView === "board" || S.currentView === "home");
 }
 
 function updateABBadges() {
@@ -47,6 +47,9 @@ function updateABBadges() {
   if (AB_FLAGS.noGrid) badges.push(`<div class="ab-badge active">No Grid</div>`);
   if (AB_FLAGS.imageMode !== "decode") {
     badges.push(`<div class="ab-badge active">Img: ${AB_FLAGS.imageMode}</div>`);
+  }
+  if (AB_FLAGS.safariMinimapIntervalMs != null) {
+    badges.push(`<div class="ab-badge active">MM: ${AB_FLAGS.safariMinimapIntervalMs}ms</div>`);
   }
 
   container.innerHTML = badges.join("");
@@ -132,7 +135,7 @@ function render() {
         S.svg.on(".zoom", null);
       }
       document.getElementById("zoom-indicator").style.display = "block";
-      if (S.minimapContainerEl) S.minimapContainerEl.style.display = "flex";
+      if (S.minimapContainerEl) S.minimapContainerEl.style.display = AB_FLAGS.noMinimap ? "none" : "flex";
     } else if (S.currentView === "board") {
       S.svg.node().style.removeProperty("cursor");
       S.svg.call(zoom).on("dblclick.zoom", null);

@@ -35,6 +35,7 @@ export function getABFlags() {
     noMinimap: false,
     noGrid: false,
     imageMode: "decode",
+    safariMinimapIntervalMs: null,
   };
 
   if (typeof window === "undefined") {
@@ -48,13 +49,21 @@ export function getABFlags() {
   const noMinimapRaw = params.get("abNoMinimap") ?? ls.getItem("abNoMinimap");
   const noGridRaw = params.get("abNoGrid") ?? ls.getItem("abNoGrid");
   const imageModeRaw = (params.get("abImageMode") ?? ls.getItem("abImageMode") ?? defaults.imageMode).toLowerCase();
+  const safariMinimapIntervalRaw = params.get("abSafariMinimapMs") ?? ls.getItem("abSafariMinimapMs");
 
   const imageMode = ["decode", "immediate", "idle"].includes(imageModeRaw) ? imageModeRaw : defaults.imageMode;
+  const parsedMinimapInterval = Number(safariMinimapIntervalRaw);
+  const safariMinimapIntervalMs = Number.isFinite(parsedMinimapInterval)
+    && parsedMinimapInterval >= 16
+    && parsedMinimapInterval <= 250
+    ? Math.round(parsedMinimapInterval)
+    : defaults.safariMinimapIntervalMs;
 
   abFlagsCache = {
     noMinimap: parseBoolLike(noMinimapRaw),
     noGrid: parseBoolLike(noGridRaw),
     imageMode,
+    safariMinimapIntervalMs,
   };
 
   return abFlagsCache;

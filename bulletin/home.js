@@ -15,7 +15,7 @@ import {
 
 import {
   unionRects, normalizeRect, imageAspectCache,
-  getPinImageSrc, loadImageAspect, escapeHtml, screenToWorld,
+  getPinImageSrc, loadImageAspect, escapeHtml, screenToWorld, isSafariBrowser,
 } from "./utils.js";
 
 import {
@@ -439,10 +439,15 @@ export function resetHomeViewport() {
   setHomeViewportInitialized(false);
 }
 
+function shouldSuspendHomeMotionEffects() {
+  return currentView === "home" && isSafariBrowser() && masterG.classed("camera-moving");
+}
+
 // ── Deterministic overlap resolver (replaces D3 simulation) ──
 
 /** Iteratively push overlapping bubbles apart until all have BUBBLE_GAP clearance */
 function _resolveOverlaps() {
+  if (shouldSuspendHomeMotionEffects()) return;
   const nodes = _bubbleNodes;
   for (let iter = 0; iter < 40; iter++) {
     let anyMoved = false;
@@ -479,6 +484,7 @@ function _resolveOverlaps() {
 
 /** D3-transition every board node <g> to its current _bubbleNodes position */
 function _transitionBubbles(durationMs) {
+  if (shouldSuspendHomeMotionEffects()) return;
   _bubbleNodes.forEach(node => {
     if (node.isCenter) return;
     masterG.selectAll("g.board-node")
@@ -492,6 +498,7 @@ function _transitionBubbles(durationMs) {
 
 /** Called on hover enter/leave — changes a node's radius, resolves, transitions */
 function _setNodeHoverRadius(nodeId, visualRadius) {
+  if (shouldSuspendHomeMotionEffects()) return;
   const node = _bubbleNodes.find(n => n.id === nodeId);
   if (!node) return;
   node.radius = visualRadius;
@@ -598,6 +605,7 @@ export function renderHome(boards) {
       zoomToGroupNode(d, layout);
     })
     .on("mouseenter", function(event, d) {
+      if (shouldSuspendHomeMotionEffects()) return;
       d3.select(this).raise();
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(280)
@@ -606,6 +614,7 @@ export function renderHome(boards) {
       _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_LARGE / 2);
     })
     .on("mouseleave", function(event, d) {
+      if (shouldSuspendHomeMotionEffects()) return;
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
@@ -866,10 +875,11 @@ export function renderHome(boards) {
   // ── Board bubble hover animation (d3 transitions) ──
   boardGroups
     .on("mouseenter.bubble", function(event, d) {
+      if (shouldSuspendHomeMotionEffects()) return;
       const g = d3.select(this);
       g.raise(); // paint on top
       g.select(".board-bubble")
-        .transition("bubble-hover").dura6ion(280)
+        .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
         .attr("r", BUBBLE_LARGE / 2);
       g.select(".board-bubble-overlay")
@@ -884,6 +894,7 @@ export function renderHome(boards) {
       _setNodeHoverRadius(d.id, BUBBLE_LARGE / 2);
     })
     .on("mouseleave.bubble", function(event, d) {
+      if (shouldSuspendHomeMotionEffects()) return;
       const g = d3.select(this);
       g.select(".board-bubble")
         .transition("bubble-hover").duration(240)
