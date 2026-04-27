@@ -481,6 +481,7 @@ export function getSavedPinsWithImages() {
 
   return Store.getAllPins()
     .filter((pin) => pin.imageData || pin.imageUrl)
+    .filter((pin) => !Array.isArray(pin.boardIds) || pin.boardIds.length === 0)
     .sort((a, b) => {
       const aCreatedAt = Number.isFinite(a.createdAt) ? a.createdAt : Number(a.createdAt) || 0;
       const bCreatedAt = Number.isFinite(b.createdAt) ? b.createdAt : Number(b.createdAt) || 0;
@@ -850,7 +851,7 @@ export function initFileDrop() {
     e.preventDefault();
   });
 
-  document.addEventListener("drop", (e) => {
+  document.addEventListener("drop", async (e) => {
     e.preventDefault();
     dragEnterCount = 0;
     dropOverlay.hidden = true;
@@ -874,11 +875,34 @@ export function initFileDrop() {
         position: { x: px, y: py },
       });
     } else if (currentView === "network") {
-      openAddPinModal({
-        context: "network",
-        file: files[0],
-      });
+      await addDroppedFilesToNetwork(files);
     }
+  });
+}
+
+async function addDroppedFilesToNetwork(files) {
+  if (!files.length) return;
+
+  await Promise.all(files.map(async (file) => {
+    try {
+      const imageUrl = await Store.uploadImage(file);
+      Store.addPin({ imageUrl, tags: [] });
+    } catch (err) {
+      console.error("Image upload failed:", err);
+      const imageData = await readFileAsDataUrl(file);
+      Store.addPin({ imageData, tags: [] });
+    }
+  }));
+
+  if (currentView === "network") _render();
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
   });
 }
 

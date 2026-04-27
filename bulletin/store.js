@@ -203,7 +203,7 @@ const Store = (function () {
         boardIds,
         placements,
       };
-    }).filter(pin => pin.boardIds.length > 0);
+    });
 
     const groups = (groupsRes.data || []).map(g => ({
       id: g.id,
@@ -292,8 +292,12 @@ const Store = (function () {
 
     // Detach pins from this board in cache
     _data.pins = _data.pins
-      .map(pin => _detachPinFromBoardInternal(pin, id))
-      .filter(pin => pin.boardIds.length > 0);
+      .map(pin => {
+        const wasAttachedToDeletedBoard = pin.boardIds.includes(id);
+        const nextPin = _detachPinFromBoardInternal(pin, id);
+        return nextPin.boardIds.length > 0 || !wasAttachedToDeletedBoard ? nextPin : null;
+      })
+      .filter(Boolean);
 
     // Remove connections referencing this board
     _data.connections = _data.connections.filter(
