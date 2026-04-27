@@ -35,6 +35,7 @@ import * as explore from "./explore.js";
 import * as network from "./network.js";
 
 const AB_FLAGS = getABFlags();
+let viewportSyncRAF = null;
 
 function isBoardMinimapDisabled() {
   return AB_FLAGS.noMinimap && (S.currentView === "board" || S.currentView === "home");
@@ -55,6 +56,68 @@ function updateABBadges() {
   }
 
   container.innerHTML = badges.join("");
+}
+
+function readViewportMetrics() {
+  const visualViewport = window.visualViewport;
+  return {
+    width: visualViewport?.width || window.innerWidth,
+    height: visualViewport?.height || window.innerHeight,
+    offsetTop: visualViewport?.offsetTop || 0,
+    offsetLeft: visualViewport?.offsetLeft || 0,
+  };
+}
+
+function syncViewportMetrics() {
+  const prevWidth = S.width;
+  const prevHeight = S.height;
+  const wasCompact = S.isCompactViewport();
+  const wasLandscape = prevWidth > prevHeight;
+
+  S.setViewportMetrics(readViewportMetrics());
+
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty("--app-vw", `${S.width}px`);
+  rootStyle.setProperty("--app-vh", `${S.height}px`);
+  rootStyle.setProperty("--app-offset-top", `${S.visualOffsetTop}px`);
+  rootStyle.setProperty("--app-offset-left", `${S.visualOffsetLeft}px`);
+
+  document.body.classList.toggle("is-compact-viewport", S.isCompactViewport());
+  document.body.classList.toggle("is-coarse-pointer", S.isCoarsePointer());
+
+  const sizeChanged = prevWidth !== S.width || prevHeight !== S.height;
+  const compactChanged = wasCompact !== S.isCompactViewport();
+  const orientationChanged = sizeChanged && wasLandscape !== (S.width > S.height);
+
+  return { sizeChanged, compactChanged, orientationChanged };
+}
+
+function handleViewportChange(reason = "resize") {
+  if (viewportSyncRAF) return;
+  viewportSyncRAF = requestAnimationFrame(() => {
+    viewportSyncRAF = null;
+    const { sizeChanged, compactChanged, orientationChanged } = syncViewportMetrics();
+    const shouldRefitHome = compactChanged || orientationChanged || reason === "orientationchange";
+
+    S.svg.attr("viewBox", [0, 0, S.width, S.height]);
+    minimap.setupMinimapCanvas();
+    home.ensureHomeAddBoardButton();
+
+    if (S.currentView === "home" && (sizeChanged || compactChanged || orientationChanged)) {
+      if (shouldRefitHome) home.resetHomeViewport();
+      render();
+      return;
+    }
+
+    if (S.currentView === "network") network.renderNetwork();
+    applyGridTransform(S.currentTransform, true);
+    if (!isBoardMinimapDisabled()) {
+      minimap.requestMinimapUpdate();
+    }
+    requestTopbarVisibilityUpdate();
+    requestViewportCullingUpdate();
+    updateBoardZoomUIVisibility();
+  });
 }
 
 // ══════════════════════════════════════════════════
@@ -90,6 +153,8 @@ function render() {
   document.body.classList.toggle("profile-mode", S.currentView === "profile");
   document.body.classList.toggle("explore-mode", S.currentView === "explore");
   document.body.classList.toggle("network-mode", S.currentView === "network");
+  document.body.classList.toggle("home-mode", S.currentView === "home");
+  document.body.classList.toggle("board-mode", S.currentView === "board");
 
   if (S.currentView !== "network") {
     network.destroyNetwork();
@@ -199,6 +264,8 @@ function render() {
 
 // DOM refs
 S.initDOM();
+syncViewportMetrics();
+S.svg.attr("viewBox", [0, 0, S.width, S.height]);
 if (isSafariBrowser()) {
   document.body.classList.add("browser-safari");
 }
@@ -475,19 +542,12 @@ document.addEventListener("keyup", (e) => {
 //  Window resize
 // ══════════════════════════════════════════════════
 
-window.addEventListener("resize", () => {
-  S.setSize(window.innerWidth, window.innerHeight);
-  S.svg.attr("viewBox", [0, 0, S.width, S.height]);
-  minimap.setupMinimapCanvas();
-  home.ensureHomeAddBoardButton();
-  if (S.currentView === "network") network.renderNetwork();
-  applyGridTransform(S.currentTransform, true);
-  if (!isBoardMinimapDisabled()) {
-    minimap.requestMinimapUpdate();
-  }
-  requestTopbarVisibilityUpdate();
-  requestViewportCullingUpdate();
-});
+window.addEventListener("resize", () => handleViewportChange("resize"));
+window.addEventListener("orientationchange", () => handleViewportChange("orientationchange"));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => handleViewportChange("visualViewport"));
+  window.visualViewport.addEventListener("scroll", () => handleViewportChange("visualViewport"));
+}
 
 // ══════════════════════════════════════════════════
 //  Navigation buttons
@@ -529,8 +589,8 @@ document.getElementById("btn-map-pin-house").addEventListener("click", () => {
       const y0 = d3.min(ys) - pad, y1 = d3.max(ys) + pad;
       const scale = 1;
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-      const tx = (innerWidth / 2) - (cx * scale);
-      const ty = (innerHeight / 2) - (cy * scale);
+      const tx = (S.width / 2) - (cx * scale);
+      const ty = (S.height / 2) - (cy * scale);
       runZoomTransition(d3.zoomIdentity.translate(tx, ty).scale(scale));
     } else {
       runZoomTransition(d3.zoomIdentity);

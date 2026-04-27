@@ -44,6 +44,9 @@ export const HOME_GROUP_HOVER_RADIUS = BUBBLE_LARGE / 2;
 export const PIN_HANDLE_R = 5;
 export const PIN_SEL_EDIT_H = 26;
 export const PIN_SEL_EDIT_W = 54;
+export const COMPACT_VIEWPORT_MAX_W = 767;
+export const COMPACT_VIEWPORT_MAX_H = 600;
+export const COMPACT_TOPBAR_H = 48;
 
 // ── DOM refs (set once via initDOM) ──────────────
 export let svg, masterG, emptyState, fabGroup, fabGroupLeft, topbarEl, breadcrumb;
@@ -53,10 +56,108 @@ export let minimapEl, minimapContainerEl, mCtx;
 // ── Viewport dimensions ──────────────────────────
 export let width  = 0;
 export let height = 0;
+export let visualWidth = 0;
+export let visualHeight = 0;
+export let visualOffsetTop = 0;
+export let visualOffsetLeft = 0;
 
 export function setSize(w, h) {
-  width = w;
-  height = h;
+  setViewportMetrics({ width: w, height: h });
+}
+
+export function setViewportMetrics(metrics = {}) {
+  const nextW = Math.max(1, Math.round(metrics.width || window.innerWidth || 1));
+  const nextH = Math.max(1, Math.round(metrics.height || window.innerHeight || 1));
+  width = nextW;
+  height = nextH;
+  visualWidth = nextW;
+  visualHeight = nextH;
+  visualOffsetTop = Math.max(0, Math.round(metrics.offsetTop || 0));
+  visualOffsetLeft = Math.max(0, Math.round(metrics.offsetLeft || 0));
+}
+
+export function getAppViewportRect() {
+  return {
+    width,
+    height,
+    offsetTop: visualOffsetTop,
+    offsetLeft: visualOffsetLeft,
+  };
+}
+
+export function isCompactViewport() {
+  return width <= COMPACT_VIEWPORT_MAX_W || height <= COMPACT_VIEWPORT_MAX_H;
+}
+
+export function isCoarsePointer() {
+  return typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+
+export function getHomeLayoutMetrics() {
+  const compact = isCompactViewport();
+  if (!compact) {
+    return {
+      compact,
+      coarsePointer: isCoarsePointer(),
+      gridCellW: HOME_GRID_CELL_W,
+      gridCellH: HOME_GRID_CELL_H,
+      padX: HOME_GRID_PAD_X,
+      padY: HOME_GRID_PAD_Y,
+      sectionGap: HOME_SECTION_GAP,
+      groupClusterRadius: HOME_GROUP_CLUSTER_RADIUS,
+      groupClusterPad: HOME_GROUP_CLUSTER_PAD,
+      groupCircleRadius: HOME_GROUP_CIRCLE_RADIUS,
+      groupHoverScale: HOME_GROUP_HOVER_SCALE,
+      groupHoverRadius: HOME_GROUP_HOVER_RADIUS,
+      bubbleSmall: BUBBLE_SMALL,
+      bubbleMedium: BUBBLE_MEDIUM,
+      bubbleLarge: BUBBLE_LARGE,
+      bubbleGap: BUBBLE_GAP,
+      boardRadius: BUBBLE_MEDIUM / 2,
+      groupRadius: BUBBLE_SMALL / 2,
+      hoverRadius: BUBBLE_LARGE / 2,
+      previewPad: BOARD_PREVIEW_PAD,
+      previewMaxW: BOARD_PREVIEW_MAX_W,
+      previewMaxH: BOARD_PREVIEW_MAX_H,
+      fitPadding: 180,
+    };
+  }
+
+  const coarsePointer = isCoarsePointer();
+  const bubbleSmall = 64;
+  const bubbleMedium = 112;
+  const bubbleLarge = coarsePointer ? 112 : 136;
+  const bubbleGap = 32;
+  const gridCellW = Math.min(168, Math.max(132, width - 48));
+  const gridCellH = 168;
+
+  return {
+    compact,
+    coarsePointer,
+    gridCellW,
+    gridCellH,
+    padX: 20,
+    padY: COMPACT_TOPBAR_H + 28,
+    sectionGap: 36,
+    groupClusterRadius: bubbleLarge + bubbleGap,
+    groupClusterPad: 28,
+    groupCircleRadius: bubbleSmall / 2,
+    groupHoverScale: bubbleLarge / bubbleSmall,
+    groupHoverRadius: bubbleLarge / 2,
+    bubbleSmall,
+    bubbleMedium,
+    bubbleLarge,
+    bubbleGap,
+    boardRadius: bubbleMedium / 2,
+    groupRadius: bubbleSmall / 2,
+    hoverRadius: bubbleLarge / 2,
+    previewPad: 12,
+    previewMaxW: bubbleMedium - 18,
+    previewMaxH: bubbleMedium - 18,
+    fitPadding: 52,
+  };
 }
 
 // ── Zoom behavior (set by viewport.js) ───────────
@@ -115,8 +216,7 @@ export function initDOM() {
   minimapContainerEl = document.querySelector(".minimap-container");
   mCtx         = minimapEl.getContext("2d");
 
-  width  = window.innerWidth;
-  height = window.innerHeight;
+  setViewportMetrics({ width: window.innerWidth, height: window.innerHeight });
   svg.attr("viewBox", [0, 0, width, height]);
 
   masterG = svg.append("g").attr("class", "master-g");

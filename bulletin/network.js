@@ -7,11 +7,15 @@ let _updateBreadcrumb = null;
 let simulation = null;
 let initialized = false;
 let activeFocusId = null;
+let hoveredNetworkNodeCount = 0;
 
 const TAG_RADIUS = 24;
-const PIN_RADIUS = 22;
+const PIN_RADIUS = 36;
 const TAG_HOVER_RADIUS = 62;
 const PIN_HOVER_SCALE = TAG_HOVER_RADIUS / PIN_RADIUS;
+const NETWORK_COLLISION_PAD = 14;
+const NETWORK_TAG_COLLISION_PAD = 8;
+const NETWORK_HOVER_ALPHA = 0.075;
 const UNTAGGED_TAG_ID = "tag:__untagged__";
 
 export function init({ render, openAddPinModal, openEditPinModal, updateBreadcrumb }) {
@@ -27,6 +31,7 @@ export function destroyNetwork() {
     simulation = null;
   }
   activeFocusId = null;
+  hoveredNetworkNodeCount = 0;
 }
 
 export function renderNetwork() {
@@ -37,12 +42,16 @@ export function renderNetwork() {
   const wrap = document.getElementById("network-canvas-wrap");
   const empty = document.getElementById("network-empty");
   const emptyText = document.getElementById("network-empty-text");
+  hoveredNetworkNodeCount = 0;
   if (!svgEl || !wrap) return;
 
   destroyNetwork();
 
-  const width = Math.max(320, wrap.clientWidth || window.innerWidth);
-  const height = Math.max(320, wrap.clientHeight || window.innerHeight - 140);
+  const viewport = window.visualViewport;
+  const viewportWidth = viewport?.width || window.innerWidth;
+  const viewportHeight = viewport?.height || window.innerHeight;
+  const width = Math.max(320, wrap.clientWidth || viewportWidth);
+  const height = Math.max(320, wrap.clientHeight || viewportHeight - 140);
   const graph = buildNetworkGraph(Store.getAllPins(), width, height);
 
   const svg = d3.select(svgEl)
@@ -166,9 +175,11 @@ export function renderNetwork() {
   });
 
   simulation = d3.forceSimulation(graph.nodes)
+    .velocityDecay(0.5)
+    .alphaDecay(0.045)
     .force("link", d3.forceLink(graph.links).id(d => d.id).distance(d => d.kind === "untagged" ? 20 : 40).strength(0.5))
     .force("charge", d3.forceManyBody().strength(d => d.type === "tag" ? -400 : -20))
-    .force("collide", d3.forceCollide().radius(networkCollisionRadius).iterations(4))
+    .force("collide", d3.forceCollide().radius(networkCollisionRadius).strength(0.72).iterations(3))
     .force("pinOrbit", forcePinsAroundTags(graph.links).strength(0.12))
     .force("center", d3.forceCenter(width / 2, height / 2))
     .force("x", d3.forceX(d => d.type === "tag" ? d.anchorX : width / 2).strength(d => d.type === "tag" ? 0.15 : 0.08))
@@ -351,8 +362,29 @@ function clearFocus(nodes, links) {
 }
 
 function networkCollisionRadius(d) {
-  if (d.type === "tag") return TAG_HOVER_RADIUS + 18;
-  return PIN_RADIUS * PIN_HOVER_SCALE * 0.55 + 18;
+  if (Number.isFinite(d.collisionRadius)) return d.collisionRadius;
+  if (d.type === "tag") return TAG_RADIUS + NETWORK_TAG_COLLISION_PAD;
+  return PIN_RADIUS + NETWORK_COLLISION_PAD;
+}
+
+function networkHoverCollisionRadius(d, hovered) {
+  if (d.type === "tag") return (hovered ? TAG_HOVER_RADIUS : TAG_RADIUS) + NETWORK_TAG_COLLISION_PAD;
+  return (hovered ? TAG_HOVER_RADIUS : PIN_RADIUS) + NETWORK_COLLISION_PAD;
+}
+
+function warmNetworkSimulation(alphaTarget = NETWORK_HOVER_ALPHA) {
+  if (!simulation) return;
+  simulation.force("collide")?.radius(networkCollisionRadius);
+  simulation.alphaTarget(alphaTarget);
+  if (simulation.alpha() < alphaTarget) simulation.alpha(alphaTarget);
+  simulation.restart();
+}
+
+function coolNetworkSimulationSoon() {
+  if (!simulation) return;
+  window.setTimeout(() => {
+    if (simulation && hoveredNetworkNodeCount === 0) simulation.alphaTarget(0);
+  }, 180);
 }
 
 function linkRadius(d) {
@@ -431,7 +463,7 @@ function forcePinsAroundTags(links) {
       const siblings = Array.isArray(tag.pinIds) && tag.pinIds.length ? tag.pinIds : [pin.id];
       const index = Math.max(0, siblings.indexOf(pin.id));
       const angle = (-Math.PI / 2) + (index / Math.max(1, siblings.length)) * Math.PI * 2;
-      const radius = Math.max(104, Math.min(176, 98 + siblings.length * 7));
+      const radius = Math.max(82, Math.min(142, 78 + siblings.length * 5));
       const targetX = tag.x + Math.cos(angle) * radius;
       const targetY = tag.y + Math.sin(angle) * radius;
 
@@ -525,12 +557,35 @@ function renderPinNode(node, d) {
 
 function animateNetworkNodeHover(node, d, hovered) {
   node.raise();
+  if (hovered && !d.hovered) hoveredNetworkNodeCount++;
+  if (!hovered && d.hovered) hoveredNetworkNodeCount = Math.max(0, hoveredNetworkNodeCount - 1);
+  d.hovered = hovered;
   node.classed("is-hovered", hovered);
+
+  const collisionStart = networkCollisionRadius(d);
+  const collisionEnd = networkHoverCollisionRadius(d, hovered);
+  const hoverDuration = hovered ? 360 : 280;
+
+  node.transition("network-collision-hover")
+    .duration(hoverDuration)
+    .ease(d3.easeCubicOut)
+    .tween("collisionRadius", () => {
+      const interpolateRadius = d3.interpolateNumber(collisionStart, collisionEnd);
+      return (t) => {
+        d.collisionRadius = interpolateRadius(t);
+        warmNetworkSimulation(hovered ? NETWORK_HOVER_ALPHA : 0.035);
+      };
+    })
+    .on("end", () => {
+      d.collisionRadius = collisionEnd;
+      warmNetworkSimulation(hovered ? NETWORK_HOVER_ALPHA : 0.02);
+      if (!hovered) coolNetworkSimulationSoon();
+    });
 
   if (d.type === "tag") {
     node.select(".network-tag-bubble")
       .transition("tag-hover")
-      .duration(hovered ? 280 : 240)
+      .duration(hoverDuration)
       .ease(hovered ? d3.easeCubicOut : d3.easeCubicInOut)
       .attr("r", hovered ? TAG_HOVER_RADIUS : TAG_RADIUS)
       .attr("stroke-width", hovered ? 2 : 1.2);
@@ -539,12 +594,12 @@ function animateNetworkNodeHover(node, d, hovered) {
 
   node.select(".network-pin-body")
     .transition("pin-hover")
-    .duration(hovered ? 280 : 240)
+    .duration(hoverDuration)
     .ease(hovered ? d3.easeCubicOut : d3.easeCubicInOut)
     .attr("transform", hovered ? `scale(${PIN_HOVER_SCALE})` : "scale(1)");
   node.select(".network-pin-ring")
     .transition("pin-hover")
-    .duration(hovered ? 280 : 240)
+    .duration(hoverDuration)
     .ease(hovered ? d3.easeCubicOut : d3.easeCubicInOut)
     .attr("stroke-width", hovered ? 1.6 : 1);
 }

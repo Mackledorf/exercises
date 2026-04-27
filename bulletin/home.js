@@ -1,16 +1,12 @@
 /* ── bulletin · home.js ─ Home view rendering & layout ── */
 
 import {
-  HOME_GRID_CELL_W, HOME_GRID_CELL_H, HOME_GRID_PAD_X, HOME_GRID_PAD_Y,
-  HOME_SECTION_GAP, HOME_GROUP_CLUSTER_RADIUS, HOME_GROUP_CLUSTER_PAD,
-  HOME_GROUP_HOVER_SCALE, HOME_GROUP_CIRCLE_RADIUS, HOME_GROUP_HOVER_RADIUS,
-  BUBBLE_SMALL, BUBBLE_MEDIUM, BUBBLE_LARGE, BUBBLE_GAP,
   BOARD_SPREAD, PIN_W, PIN_H, GRID,
-  BOARD_PREVIEW_OFFSET_Y, BOARD_PREVIEW_MAX_W, BOARD_PREVIEW_MAX_H, BOARD_PREVIEW_PAD,
   currentView, activeBoardId, selectionModeActive,
   multiSelectedBoardIds, multiSelectedPinIds,
   masterG, svg, width, height, emptyState, fabGroup, currentTransform,
   homeViewportInitialized, setHomeViewportInitialized,
+  getHomeLayoutMetrics,
 } from "./state.js";
 
 import {
@@ -223,9 +219,10 @@ export function scheduleHomePreviewHydrate() {
 // ── Layout computation ───────────────────────────
 
 export function computeRadialFallbackLayout(boards, centerX, centerY) {
+  const metrics = getHomeLayoutMetrics();
   const count = Math.max(1, boards.length);
   const boardPositions = new Map();
-  const baseRadius = Math.max(BUBBLE_MEDIUM * 1.2, 100);
+  const baseRadius = Math.max(metrics.bubbleMedium * 1.2, 100);
 
   boards.forEach((board, i) => {
     const angle = (-Math.PI / 2) + ((Math.PI * 2 * i) / count);
@@ -241,17 +238,17 @@ export function stopAllGroupSimulations() {
   _bubbleNodes = [];
 }
 
-export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
+export function computeGroupForceLayout(groupId, boards, centerX, centerY, metrics = getHomeLayoutMetrics()) {
   if (!Array.isArray(boards) || boards.length === 0) {
     return { boardPositions: new Map() };
   }
 
   const boardPositions = new Map();
-  const boardR = BUBBLE_MEDIUM / 2;
-  const groupR = BUBBLE_SMALL / 2;
-  const minChord = BUBBLE_MEDIUM + BUBBLE_GAP;
+  const boardR = metrics.boardRadius;
+  const groupR = metrics.groupRadius;
+  const minChord = metrics.bubbleMedium + metrics.bubbleGap;
 
-  // The minimum ring radius so that `k` boards fit with BUBBLE_GAP between edges.
+  // The minimum ring radius so that `k` boards fit with the configured gap between edges.
   // Derived from: chord between adjacent centers >= minChord
   //   chord = 2r·sin(π/k)  →  r = minChord / (2·sin(π/k))
   // Also must clear the inner structure (group or previous ring) + GAP.
@@ -263,7 +260,7 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   // Fill rings from inside out. Each ring expands to fit its boards.
   // Ring 0 may grow up to 3× the tight-fit radius so the first ring
   // absorbs as many boards as possible before overflow.
-  const baseMinR = groupR + BUBBLE_GAP + boardR;
+  const baseMinR = groupR + metrics.bubbleGap + boardR;
   const maxR0 = baseMinR * 3;
 
   let remaining = [...boards];
@@ -271,8 +268,8 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
   let ring = 0;
 
   while (remaining.length > 0) {
-    const ringMinR = prevOuterEdge + BUBBLE_GAP + boardR;
-    const maxRingR = ring === 0 ? maxR0 : ringMinR + BUBBLE_MEDIUM + BUBBLE_GAP;
+    const ringMinR = prevOuterEdge + metrics.bubbleGap + boardR;
+    const maxRingR = ring === 0 ? maxR0 : ringMinR + metrics.bubbleMedium + metrics.bubbleGap;
 
     // Find the largest count that fits within maxRingR
     let count = remaining.length;
@@ -297,11 +294,12 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY) {
 }
 
 export function computeHomeLayout() {
+  const metrics = getHomeLayoutMetrics();
   const boards = Store.getBoards();
   const groups = typeof Store.getGroups === "function" ? Store.getGroups() : [];
 
-  const usableW = Math.max(1, width - HOME_GRID_PAD_X * 2);
-  const maxCols = Math.max(1, Math.floor(usableW / HOME_GRID_CELL_W));
+  const usableW = Math.max(1, width - metrics.padX * 2);
+  const maxCols = Math.max(1, Math.floor(usableW / metrics.gridCellW));
 
   const ungrouped = boards.filter(b => !b.groupId);
   const groupedMap = new Map();
@@ -324,22 +322,22 @@ export function computeHomeLayout() {
   const hasUngrouped = ungrouped.length > 0;
   const ungroupedCols = Math.max(1, Math.min(maxCols, Math.max(1, ungrouped.length)));
   const ungroupedRows = hasUngrouped ? Math.max(1, Math.ceil(ungrouped.length / ungroupedCols)) : 0;
-  const ungroupedSpanH = hasUngrouped ? (ungroupedRows - 1) * HOME_GRID_CELL_H : 0;
+  const ungroupedSpanH = hasUngrouped ? (ungroupedRows - 1) * metrics.gridCellH : 0;
 
   if (hasUngrouped) {
     const boardsInLastRow = ungrouped.length - (ungroupedRows - 1) * ungroupedCols;
-    const gridW = Math.max(0, (ungroupedCols - 1) * HOME_GRID_CELL_W);
+    const gridW = Math.max(0, (ungroupedCols - 1) * metrics.gridCellW);
     const startX = width / 2 - gridW / 2;
-    const startY = Math.max(HOME_GRID_PAD_Y + 10, height * 0.24);
+    const startY = Math.max(metrics.padY + 10, height * 0.24);
 
     ungrouped.forEach((board, i) => {
       const row = Math.floor(i / ungroupedCols);
       const col = i % ungroupedCols;
       const rowCols = row === ungroupedRows - 1 ? boardsInLastRow : ungroupedCols;
-      const rowOffset = (ungroupedCols - rowCols) * HOME_GRID_CELL_W / 2;
+      const rowOffset = (ungroupedCols - rowCols) * metrics.gridCellW / 2;
       const pos = {
-        x: startX + rowOffset + col * HOME_GRID_CELL_W,
-        y: startY + row * HOME_GRID_CELL_H,
+        x: startX + rowOffset + col * metrics.gridCellW,
+        y: startY + row * metrics.gridCellH,
       };
       ungroupedPositions.set(board.id, pos);
       allBoardPositions.set(board.id, pos);
@@ -347,12 +345,12 @@ export function computeHomeLayout() {
   }
 
   if (groupedNodes.length > 0) {
-    const groupsPerRow = Math.max(1, Math.floor(usableW / (HOME_GROUP_CLUSTER_RADIUS * 2 + HOME_GROUP_CLUSTER_PAD)));
-    const rowGap = HOME_GROUP_CLUSTER_RADIUS * 2 + HOME_GROUP_CLUSTER_PAD * 2;
-    const colGap = HOME_GROUP_CLUSTER_RADIUS * 2 + HOME_GROUP_CLUSTER_PAD;
+    const groupsPerRow = Math.max(1, Math.floor(usableW / (metrics.groupClusterRadius * 2 + metrics.groupClusterPad)));
+    const rowGap = metrics.groupClusterRadius * 2 + metrics.groupClusterPad * 2;
+    const colGap = metrics.groupClusterRadius * 2 + metrics.groupClusterPad;
     const groupsStartY = (hasUngrouped
-      ? Math.max(HOME_GRID_PAD_Y + ungroupedSpanH + HOME_SECTION_GAP * 2 + 90, height * 0.52)
-      : Math.max(HOME_GRID_PAD_Y + 70, height * 0.36));
+      ? Math.max(metrics.padY + ungroupedSpanH + metrics.sectionGap * 2 + 90, height * 0.52)
+      : Math.max(metrics.padY + 70, height * 0.36));
 
     groupedNodes.forEach((entry, i) => {
       const row = Math.floor(i / groupsPerRow);
@@ -363,9 +361,9 @@ export function computeHomeLayout() {
       const cx = rowStartX + col * colGap;
       const cy = groupsStartY + row * rowGap;
 
-      const forceLayout = computeGroupForceLayout(entry.group.id, entry.boards, cx, cy);
+      const forceLayout = computeGroupForceLayout(entry.group.id, entry.boards, cx, cy, metrics);
       const boardIds = entry.boards.map(b => b.id);
-      const r = BUBBLE_MEDIUM / 2;
+      const r = metrics.boardRadius;
 
       entry.boards.forEach((board) => {
         const pos = forceLayout.boardPositions.get(board.id) || { x: cx, y: cy };
@@ -377,15 +375,15 @@ export function computeHomeLayout() {
         return {
           left: p.x - r,
           top: p.y - r,
-          width: BUBBLE_MEDIUM,
-          height: BUBBLE_MEDIUM,
+          width: metrics.bubbleMedium,
+          height: metrics.bubbleMedium,
         };
       });
       const bounds = unionRects(rects) || {
-        left: cx - HOME_GROUP_CLUSTER_RADIUS,
-        top: cy - HOME_GROUP_CLUSTER_RADIUS,
-        width: HOME_GROUP_CLUSTER_RADIUS * 2,
-        height: HOME_GROUP_CLUSTER_RADIUS * 2,
+        left: cx - metrics.groupClusterRadius,
+        top: cy - metrics.groupClusterRadius,
+        width: metrics.groupClusterRadius * 2,
+        height: metrics.groupClusterRadius * 2,
       };
 
       groupBounds.set(entry.group.id, {
@@ -417,6 +415,7 @@ export function computeHomeLayout() {
     ungroupedPositions,
     groupNodes,
     groupBounds,
+    metrics,
   };
 }
 
@@ -426,14 +425,15 @@ export function getHomeBoardGridPositions() {
 
 export function computeGroupFocusBounds(groupNode, layout) {
   if (!groupNode) return null;
+  const metrics = layout?.metrics || getHomeLayoutMetrics();
   const direct = layout?.groupBounds?.get(groupNode.groupId);
   if (direct) return direct;
 
-  const r = BUBBLE_MEDIUM / 2;
+  const r = metrics.boardRadius;
   const rects = (groupNode.boardIds || []).map((boardId) => {
     const p = layout?.allBoardPositions?.get(boardId);
     if (!p) return null;
-    return { left: p.x - r, top: p.y - r, width: BUBBLE_MEDIUM, height: BUBBLE_MEDIUM };
+    return { left: p.x - r, top: p.y - r, width: metrics.bubbleMedium, height: metrics.bubbleMedium };
   }).filter(Boolean);
   return unionRects(rects);
 }
@@ -441,11 +441,13 @@ export function computeGroupFocusBounds(groupNode, layout) {
 export function zoomToGroupNode(groupNode, layout) {
   const raw = computeGroupFocusBounds(groupNode, layout);
   if (!raw) return;
+  const metrics = layout?.metrics || getHomeLayoutMetrics();
+  const pad = metrics.compact ? 56 : 140;
   const padded = {
-    left: raw.left - 140,
-    top: raw.top - 140,
-    width: raw.width + 280,
-    height: raw.height + 280,
+    left: raw.left - pad,
+    top: raw.top - pad,
+    width: raw.width + pad * 2,
+    height: raw.height + pad * 2,
   };
   runZoomTransition(computeFitTransformForWorldRect(padded));
 }
@@ -454,11 +456,12 @@ export function computeHomeFitTransform(layout) {
   const { allBoardPositions, groupBounds } = layout || lastHomeLayout || {};
   if (!allBoardPositions || allBoardPositions.size === 0) return null;
 
-  const r = BUBBLE_MEDIUM / 2;
+  const metrics = layout?.metrics || lastHomeLayout?.metrics || getHomeLayoutMetrics();
+  const r = metrics.boardRadius;
   const rects = [];
 
   allBoardPositions.forEach((pos) => {
-    rects.push({ left: pos.x - r, top: pos.y - r, width: BUBBLE_MEDIUM, height: BUBBLE_MEDIUM });
+    rects.push({ left: pos.x - r, top: pos.y - r, width: metrics.bubbleMedium, height: metrics.bubbleMedium });
   });
 
   if (groupBounds) {
@@ -469,7 +472,7 @@ export function computeHomeFitTransform(layout) {
 
   const worldRect = unionRects(rects);
   if (!worldRect) return null;
-  return computeFitTransformForWorldRect(worldRect, 180);
+  return computeFitTransformForWorldRect(worldRect, metrics.fitPadding);
 }
 
 export function resetHomeViewport() {
@@ -482,8 +485,8 @@ function shouldSuspendHomeMotionEffects() {
 
 // ── Deterministic overlap resolver (replaces D3 simulation) ──
 
-/** Iteratively push overlapping bubbles apart until all have BUBBLE_GAP clearance */
-function _resolveOverlaps() {
+/** Iteratively push overlapping bubbles apart until all have the configured clearance */
+function _resolveOverlaps(metrics = lastHomeLayout?.metrics || getHomeLayoutMetrics()) {
   if (shouldSuspendHomeMotionEffects()) return;
   const nodes = _bubbleNodes;
   for (let iter = 0; iter < 40; iter++) {
@@ -495,7 +498,7 @@ function _resolveOverlaps() {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
-        const minDist = a.radius + b.radius + BUBBLE_GAP;
+        const minDist = a.radius + b.radius + metrics.bubbleGap;
         if (dist >= minDist) continue;
         const overlap = minDist - dist;
         const nx = dx / dist;
@@ -574,6 +577,7 @@ export function renderHome(boards) {
   _updateBreadcrumb(null);
 
   const layout = computeHomeLayout();
+  const metrics = layout.metrics;
   const { allBoardPositions, groupNodes, groupBounds } = layout;
   const groupsById = new Map(groupNodes.map(groupNode => [groupNode.groupId, groupNode]));
   const boardGroupIds = new Map(boards.map(board => [board.id, board.groupId || null]));
@@ -595,7 +599,7 @@ export function renderHome(boards) {
       id: b.id, type: "board",
       x: pos.x, y: pos.y,
       restX: pos.x, restY: pos.y,
-      radius: BUBBLE_MEDIUM / 2, restRadius: BUBBLE_MEDIUM / 2,
+      radius: metrics.boardRadius, restRadius: metrics.boardRadius,
       fixed: false, isCenter: false,
     });
   });
@@ -606,7 +610,7 @@ export function renderHome(boards) {
       id: `gc-${gn.groupId}`, type: "group",
       x: gn.cx, y: gn.cy,
       restX: gn.cx, restY: gn.cy,
-      radius: BUBBLE_SMALL / 2, restRadius: BUBBLE_SMALL / 2,
+      radius: metrics.groupRadius, restRadius: metrics.groupRadius,
       fixed: true, isCenter: true,
       groupId: gn.groupId,
     });
@@ -616,7 +620,7 @@ export function renderHome(boards) {
         id: boardId, type: "board",
         x: pos.x, y: pos.y,
         restX: pos.x, restY: pos.y,
-        radius: BUBBLE_MEDIUM / 2, restRadius: BUBBLE_MEDIUM / 2,
+        radius: metrics.boardRadius, restRadius: metrics.boardRadius,
         fixed: false, isCenter: false,
         groupId: gn.groupId,
       });
@@ -724,8 +728,8 @@ export function renderHome(boards) {
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
-        .attr("r", BUBBLE_LARGE / 2);
-      _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_LARGE / 2);
+        .attr("r", metrics.groupHoverRadius);
+      _setNodeHoverRadius(`gc-${d.groupId}`, metrics.groupHoverRadius);
     })
     .on("mouseleave", function(event, d) {
       if (shouldSuspendHomeMotionEffects()) return;
@@ -733,8 +737,8 @@ export function renderHome(boards) {
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
-        .attr("r", BUBBLE_SMALL / 2);
-      _setNodeHoverRadius(`gc-${d.groupId}`, BUBBLE_SMALL / 2);
+        .attr("r", metrics.groupRadius);
+      _setNodeHoverRadius(`gc-${d.groupId}`, metrics.groupRadius);
     });
 
   groupVisuals.each(function(groupNode) {
@@ -742,12 +746,12 @@ export function renderHome(boards) {
 
     g.append("circle")
       .attr("class", "group-halo")
-      .attr("r", BUBBLE_SMALL / 2 + 10)
+      .attr("r", metrics.groupRadius + 10)
       .attr("stroke", groupNode.groupColor);
 
     g.append("circle")
       .attr("class", "group-bubble")
-      .attr("r", BUBBLE_SMALL / 2);
+      .attr("r", metrics.groupRadius);
 
     g.append("text")
       .attr("class", "group-name")
@@ -758,7 +762,7 @@ export function renderHome(boards) {
     // Group Edit Icon
     const groupEditIcon = g.append("g")
       .attr("class", "group-edit-icon")
-      .attr("transform", "translate(0, 22)")
+      .attr("transform", `translate(0, ${Math.max(16, metrics.groupRadius * 0.44)})`)
       .on("click", (event) => {
         event.stopPropagation();
         const group = Store.getGroups().find(gr => gr.id === groupNode.groupId);
@@ -782,7 +786,7 @@ export function renderHome(boards) {
 
     g.append("circle")
       .attr("class", "group-hit-area")
-      .attr("r", BUBBLE_LARGE / 2)
+      .attr("r", metrics.hoverRadius)
       .style("pointer-events", "auto") // Re-enable pointer events
       .style("fill", "transparent");  // Keep it invisible but interactive
 
@@ -791,7 +795,7 @@ export function renderHome(boards) {
   });
 
   // ── Board bubbles (dark grey circles) ──────────
-  const boardR = BUBBLE_MEDIUM / 2;
+  const boardR = metrics.boardRadius;
 
   const boardGroups = masterG.selectAll("g.board-node")
     .data(boards, d => d.id)
@@ -858,9 +862,9 @@ export function renderHome(boards) {
     if (!bounds) return;
 
     // Fit the pin layout into the bubble circle with some padding
-    const bubbleDiameter = BUBBLE_MEDIUM - 16; // inset so pins don't touch edge
-    const paddedW = bounds.width + BOARD_PREVIEW_PAD * 2;
-    const paddedH = bounds.height + BOARD_PREVIEW_PAD * 2;
+    const bubbleDiameter = metrics.bubbleMedium - 16;
+    const paddedW = bounds.width + metrics.previewPad * 2;
+    const paddedH = bounds.height + metrics.previewPad * 2;
     const previewScale = Math.min(
       bubbleDiameter / paddedW,
       bubbleDiameter / paddedH
@@ -1007,17 +1011,17 @@ export function renderHome(boards) {
       g.select(".board-bubble")
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
-        .attr("r", BUBBLE_LARGE / 2);
+        .attr("r", metrics.hoverRadius);
       g.select(".board-bubble-overlay")
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
-        .attr("r", BUBBLE_LARGE / 2)
+        .attr("r", metrics.hoverRadius)
         .style("fill", "rgba(0, 0, 0, 0.55)");
       d3.select(`#bubble-clip-${d.id} circle`)
         .transition("bubble-hover").duration(280)
         .ease(d3.easeCubicOut)
-        .attr("r", BUBBLE_LARGE / 2 - 2);
-      _setNodeHoverRadius(d.id, BUBBLE_LARGE / 2);
+        .attr("r", metrics.hoverRadius - 2);
+      _setNodeHoverRadius(d.id, metrics.hoverRadius);
     })
     .on("mouseleave.bubble", function(event, d) {
       if (shouldSuspendHomeMotionEffects()) return;
@@ -1026,17 +1030,17 @@ export function renderHome(boards) {
       g.select(".board-bubble")
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
-        .attr("r", BUBBLE_MEDIUM / 2);
+        .attr("r", metrics.boardRadius);
       g.select(".board-bubble-overlay")
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
-        .attr("r", BUBBLE_MEDIUM / 2)
+        .attr("r", metrics.boardRadius)
         .style("fill", "rgba(0, 0, 0, 0)");
       d3.select(`#bubble-clip-${d.id} circle`)
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
-        .attr("r", BUBBLE_MEDIUM / 2 - 2);
-      _setNodeHoverRadius(d.id, BUBBLE_MEDIUM / 2);
+        .attr("r", metrics.boardRadius - 2);
+      _setNodeHoverRadius(d.id, metrics.boardRadius);
     });
 
   svg.on("mousemove.connDrag", null);

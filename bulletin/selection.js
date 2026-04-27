@@ -11,8 +11,7 @@ import {
   marqueeStart, marqueeCurrent, marqueePointerId,
   setMarqueeStart, setMarqueeCurrent, setMarqueePointerId,
   zoom,
-  HOME_GRID_CELL_W, HOME_GRID_CELL_H,
-  BUBBLE_MEDIUM,
+  getHomeLayoutMetrics,
 } from "./state.js";
 
 import {
@@ -437,7 +436,7 @@ export function commitMarqueeSelection() {
     multiSelectedBoardIds.clear();
     const boards = Store.getBoards();
     const { allBoardPositions } = _computeHomeLayout();
-    const bubbleR = BUBBLE_MEDIUM / 2;
+    const bubbleR = getHomeLayoutMetrics().boardRadius;
     boards.forEach(b => {
       const pos = allBoardPositions.get(b.id);
       if (!pos) return;

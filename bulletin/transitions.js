@@ -4,8 +4,7 @@ import {
   currentTransform, currentView, activeBoardId,
   width, height, masterG,
   PIN_W, PIN_H, BOARD_NAV_OVERLAY_MS,
-  BOARD_PREVIEW_OFFSET_Y, BOARD_PREVIEW_MAX_W, BOARD_PREVIEW_MAX_H, BOARD_PREVIEW_PAD,
-  BUBBLE_MEDIUM,
+  getHomeLayoutMetrics,
 } from "./state.js";
 
 import {
@@ -96,7 +95,8 @@ export function computeHomeBoardPreviewGeometry(boardId) {
   const pos = posMap.get(boardId);
   if (!pos) return null;
 
-  const bubbleR = BUBBLE_MEDIUM / 2;
+  const metrics = getHomeLayoutMetrics();
+  const bubbleR = metrics.boardRadius;
 
   const boardPins = Store.getPins(boardId);
   if (boardPins.length === 0) {
@@ -105,8 +105,8 @@ export function computeHomeBoardPreviewGeometry(boardId) {
       cardRect: {
         left: pos.x - bubbleR,
         top: pos.y - bubbleR,
-        width: BUBBLE_MEDIUM,
-        height: BUBBLE_MEDIUM,
+        width: metrics.bubbleMedium,
+        height: metrics.bubbleMedium,
       },
       pins: [
         {
@@ -123,11 +123,11 @@ export function computeHomeBoardPreviewGeometry(boardId) {
   const bounds = getPinsWorldBounds(pins);
   if (!bounds) return null;
 
-  const paddedW = bounds.width + BOARD_PREVIEW_PAD * 2;
-  const paddedH = bounds.height + BOARD_PREVIEW_PAD * 2;
+  const paddedW = bounds.width + metrics.previewPad * 2;
+  const paddedH = bounds.height + metrics.previewPad * 2;
   const previewScale = Math.min(
-    BOARD_PREVIEW_MAX_W / paddedW,
-    BOARD_PREVIEW_MAX_H / paddedH
+    metrics.previewMaxW / paddedW,
+    metrics.previewMaxH / paddedH
   );
 
   const previewCenterX = pos.x;
@@ -153,8 +153,8 @@ export function computeHomeBoardPreviewGeometry(boardId) {
   const cardRect = {
     left: pos.x - bubbleR,
     top: pos.y - bubbleR,
-    width: BUBBLE_MEDIUM,
-    height: BUBBLE_MEDIUM,
+    width: metrics.bubbleMedium,
+    height: metrics.bubbleMedium,
   };
 
   return {

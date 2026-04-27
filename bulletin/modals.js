@@ -829,7 +829,7 @@ export function initFileDrop() {
   const dropOverlay = document.getElementById("drop-overlay");
 
   document.addEventListener("dragenter", (e) => {
-    if (currentView !== "board") return;
+    if (currentView !== "board" && currentView !== "network") return;
     const hasFile = e.dataTransfer && [...e.dataTransfer.items].some(
       it => it.kind === "file" && SUPPORTED_DROP_TYPES.includes(it.type)
     );
@@ -855,23 +855,30 @@ export function initFileDrop() {
     dragEnterCount = 0;
     dropOverlay.hidden = true;
 
-    if (currentView !== "board") return;
+    if (currentView !== "board" && currentView !== "network") return;
 
     const files = [...e.dataTransfer.files].filter(
       f => SUPPORTED_DROP_TYPES.includes(f.type)
     );
     if (!files.length) return;
 
-    const dropWorldX = (e.clientX - currentTransform.x) / currentTransform.k;
-    const dropWorldY = (e.clientY - currentTransform.y) / currentTransform.k;
+    if (currentView === "board") {
+      const dropWorldX = (e.clientX - currentTransform.x) / currentTransform.k;
+      const dropWorldY = (e.clientY - currentTransform.y) / currentTransform.k;
 
-    const px = Math.round(dropWorldX / GRID) * GRID;
-    const py = Math.round(dropWorldY / GRID) * GRID;
-    openAddPinModal({
-      context: "board",
-      file: files[0],
-      position: { x: px, y: py },
-    });
+      const px = Math.round(dropWorldX / GRID) * GRID;
+      const py = Math.round(dropWorldY / GRID) * GRID;
+      openAddPinModal({
+        context: "board",
+        file: files[0],
+        position: { x: px, y: py },
+      });
+    } else if (currentView === "network") {
+      openAddPinModal({
+        context: "network",
+        file: files[0],
+      });
+    }
   });
 }
 
