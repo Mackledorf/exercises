@@ -265,21 +265,15 @@ const Store = (function () {
     return _data.groups;
   }
 
-  function addGroup({ name, color }) {
+  function addGroup({ name }) {
     const id = _uid();
-    const group = { 
-      id, 
-      name: name || "Untitled Group", 
-      color: color || null,
-      createdAt: Date.now() 
-    };
+    const group = { id, name: name || "Untitled Group", createdAt: Date.now() };
     _data.groups.push(group);
 
     _dbInsert("groups", {
       id,
       user_id: _userId,
       name: group.name,
-      color: group.color,
     });
 
     return group;
@@ -292,7 +286,6 @@ const Store = (function () {
 
     const dbChanges = {};
     if ("name" in changes) dbChanges.name = changes.name;
-    if ("color" in changes) dbChanges.color = changes.color;
     if (Object.keys(dbChanges).length > 0) {
       _dbUpdate("groups", id, dbChanges);
     }

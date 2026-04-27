@@ -9,7 +9,6 @@ import {
   emptyState, fabGroup, topbarEl, breadcrumb,
   currentTransform,
   multiSelectedBoardIds,
-  GROUP_COLORS,
 } from "./state.js";
 
 import * as S from "./state.js";
@@ -162,48 +161,6 @@ export function populateBoardGroupSelect(selectedGroupId) {
   }
   const newGroupInput = document.getElementById("board-new-group-name");
   if (newGroupInput) newGroupInput.hidden = true;
-
-  updateColorUI();
-}
-
-function updateColorUI() {
-  const select = document.getElementById("board-group");
-  const colorSection = document.getElementById("group-color-section");
-  const colorSwatches = document.getElementById("group-color-swatches");
-  const colorInput = document.getElementById("board-group-color");
-
-  if (select.value === "__new__") {
-    colorSection.hidden = false;
-    renderColorSwatches("");
-  } else {
-    const group = Store.getGroups().find(g => g.id === select.value);
-    if (group) {
-      colorSection.hidden = false;
-      renderColorSwatches(group.color || "");
-    } else {
-      colorSection.hidden = true;
-      colorInput.value = "";
-    }
-  }
-}
-
-function renderColorSwatches(selectedColor) {
-  const container = document.getElementById("group-color-swatches");
-  const colorInput = document.getElementById("board-group-color");
-  container.innerHTML = "";
-  colorInput.value = selectedColor;
-
-  GROUP_COLORS.forEach(color => {
-    const swatch = document.createElement("div");
-    swatch.className = "color-swatch" + (color === selectedColor ? " active" : "");
-    swatch.style.backgroundColor = color;
-    swatch.addEventListener("click", () => {
-      container.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("active"));
-      swatch.classList.add("active");
-      colorInput.value = color;
-    });
-    container.appendChild(swatch);
-  });
 }
 
 export function openEditBoardModal(board) {
@@ -764,7 +721,6 @@ export function bindModalEvents() {
       newGroupInput.hidden = e.target.value !== "__new__";
       if (!newGroupInput.hidden) newGroupInput.focus();
     }
-    updateColorUI();
   });
 
   // Prevent newlines in editable title
@@ -790,8 +746,7 @@ export function bindModalEvents() {
     if (!name) return;
 
     if (id === "__group_mode__") {
-      const color = document.getElementById("board-group-color").value;
-      const newGroup = Store.addGroup({ name, color });
+      const newGroup = Store.addGroup({ name });
       const boardIds = Array.from(multiSelectedBoardIds);
       boardIds.forEach(bid => {
         Store.updateBoard(bid, { groupId: newGroup.id });
@@ -801,21 +756,17 @@ export function bindModalEvents() {
     } else {
       const desc  = document.getElementById("board-desc").value.trim();
       const color = "#EEEBE7";
-      const groupColor = document.getElementById("board-group-color").value;
 
       let groupId = document.getElementById("board-group").value;
       if (groupId === "__new__") {
         const newNameInput = document.getElementById("board-new-group-name");
         const newName = newNameInput ? newNameInput.value.trim() : "";
         if (newName) {
-          const newGroup = Store.addGroup({ name: newName, color: groupColor });
+          const newGroup = Store.addGroup({ name: newName });
           groupId = newGroup.id;
         } else {
           groupId = "";
         }
-      } else if (groupId) {
-        // Update existing group color if it changed
-        Store.updateGroup(groupId, { color: groupColor });
       }
 
       if (id && id !== "__group_mode__") {

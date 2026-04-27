@@ -710,12 +710,7 @@ export function renderHome(boards) {
   // Board bubble circle (dark grey)
   boardGroups.append("circle")
     .attr("class", "board-bubble")
-    .attr("r", boardR)
-    .attr("stroke", d => {
-      if (!d.groupId) return "transparent";
-      const group = Store.getGroup(d.groupId);
-      return (group && group.color) ? group.color : "transparent";
-    });
+    .attr("r", boardR);
 
   // Selection outline
   boardGroups.each(function(d) {
