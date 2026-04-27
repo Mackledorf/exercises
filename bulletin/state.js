@@ -26,8 +26,8 @@ export const HOME_WHEEL_GUARD_MS = 220;
 // ── Bubble sizes (golden-ratio steps: 100 → 162 → 262) ──
 export const BUBBLE_SMALL  = 100;   // group default diameter
 export const BUBBLE_MEDIUM = 162;  // board default diameter
-export const BUBBLE_LARGE  = 262;  // hover state diameter
-export const BUBBLE_GAP    = 24;   // desired visual gap between bubble edges
+export const BUBBLE_LARGE  = 300;  // hover state diameter
+export const BUBBLE_GAP    = 60;   // desired visual gap between bubble edges
 
 // Layout spacing (enough room for hover growth + breathing room)
 export const HOME_GRID_CELL_W = BUBBLE_LARGE + BUBBLE_GAP;
@@ -47,7 +47,7 @@ export const PIN_SEL_EDIT_W = 54;
 
 // ── DOM refs (set once via initDOM) ──────────────
 export let svg, masterG, emptyState, fabGroup, fabGroupLeft, topbarEl, breadcrumb;
-export let topbarLogo, topbarProfileBtn, profileView, exploreView, zoomLabel;
+export let topbarLogo, topbarProfileBtn, profileView, exploreView, networkView, zoomLabel;
 export let minimapEl, minimapContainerEl, mCtx;
 
 // ── Viewport dimensions ──────────────────────────
@@ -109,6 +109,7 @@ export function initDOM() {
   topbarProfileBtn = document.getElementById("topbar-profile");
   profileView  = document.getElementById("profile-view");
   exploreView  = document.getElementById("explore-view");
+  networkView  = document.getElementById("network-view");
   zoomLabel    = document.getElementById("zoom-indicator");
   minimapEl    = document.getElementById("minimap");
   minimapContainerEl = document.querySelector(".minimap-container");

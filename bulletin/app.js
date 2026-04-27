@@ -32,6 +32,8 @@ import * as modals from "./modals.js";
 
 import * as explore from "./explore.js";
 
+import * as network from "./network.js";
+
 const AB_FLAGS = getABFlags();
 
 function isBoardMinimapDisabled() {
@@ -81,8 +83,17 @@ function render() {
   const boards = Store.getBoards();
   const hasBoards = boards.length > 0;
 
+  if (S.currentView !== "board") {
+    modals.updateBreadcrumb(null);
+  }
+
   document.body.classList.toggle("profile-mode", S.currentView === "profile");
   document.body.classList.toggle("explore-mode", S.currentView === "explore");
+  document.body.classList.toggle("network-mode", S.currentView === "network");
+
+  if (S.currentView !== "network") {
+    network.destroyNetwork();
+  }
 
   if (S.currentView === "explore") {
     setTopbarAutoHidden(false);
@@ -92,12 +103,28 @@ function render() {
     S.fabGroup.hidden = true;
     S.profileView.hidden = true;
     S.exploreView.hidden = false;
+    S.networkView.hidden = true;
     cancelZoomInteraction();
     resetViewportToIdentity();
     S.svg.on(".zoom", null);
     document.getElementById("zoom-indicator").style.display = "none";
     if (S.minimapContainerEl) S.minimapContainerEl.style.display = "none";
     explore.renderExplore();
+  } else if (S.currentView === "network") {
+    setTopbarAutoHidden(false);
+    document.body.classList.remove("zoom-ui-hidden");
+    S.svg.node().style.cursor = "default";
+    S.emptyState.hidden = true;
+    S.fabGroup.hidden = true;
+    S.profileView.hidden = true;
+    S.exploreView.hidden = true;
+    S.networkView.hidden = false;
+    cancelZoomInteraction();
+    resetViewportToIdentity();
+    S.svg.on(".zoom", null);
+    document.getElementById("zoom-indicator").style.display = "none";
+    if (S.minimapContainerEl) S.minimapContainerEl.style.display = "none";
+    network.renderNetwork();
   } else if (S.currentView === "profile") {
     setTopbarAutoHidden(false);
     document.body.classList.remove("zoom-ui-hidden");
@@ -106,6 +133,7 @@ function render() {
     S.fabGroup.hidden = true;
     S.profileView.hidden = false;
     S.exploreView.hidden = true;
+    S.networkView.hidden = true;
     cancelZoomInteraction();
     resetViewportToIdentity();
     S.svg.on(".zoom", null);
@@ -115,6 +143,7 @@ function render() {
   } else {
     S.profileView.hidden = true;
     S.exploreView.hidden = true;
+    S.networkView.hidden = true;
     S.emptyState.hidden = hasBoards;
     S.fabGroup.hidden = !hasBoards;
 
@@ -223,6 +252,7 @@ home.init({
   enterBoard: (id, event) => board.enterBoard(id, event),
   openModal: (id) => modals.openModal(id),
   openEditBoardModal: (b) => modals.openEditBoardModal(b),
+  openEditGroupModal: (g) => modals.openEditGroupModal(g),
   openDeleteBoardConfirmation: (ids) => modals.openDeleteBoardConfirmation(ids),
   setSelectionModeActive: (v) => selection.setSelectionModeActive(v),
   render,
@@ -264,6 +294,14 @@ modals.init({
 // Explore
 explore.init({
   render,
+});
+
+// Network
+network.init({
+  render,
+  openAddPinModal: (options) => modals.openAddPinModal(options),
+  openEditPinModal: (pin) => modals.openEditPinModal(pin),
+  updateBreadcrumb: () => modals.updateBreadcrumb(null),
 });
 
 // ══════════════════════════════════════════════════
@@ -442,6 +480,7 @@ window.addEventListener("resize", () => {
   S.svg.attr("viewBox", [0, 0, S.width, S.height]);
   minimap.setupMinimapCanvas();
   home.ensureHomeAddBoardButton();
+  if (S.currentView === "network") network.renderNetwork();
   applyGridTransform(S.currentTransform, true);
   if (!isBoardMinimapDisabled()) {
     minimap.requestMinimapUpdate();
@@ -457,7 +496,7 @@ window.addEventListener("resize", () => {
 S.topbarLogo.addEventListener("click", () => {
   modals.hideAddPinButton();
   explore.destroyExplore();
-  // Clear any existing state and go to home
+  network.destroyNetwork();
   if (S.currentView === "board") {
     S.setActiveBoardId(null);
     history.resetPinMoveHistory();
@@ -465,13 +504,15 @@ S.topbarLogo.addEventListener("click", () => {
     S.multiSelectedBoardIds.clear();
   }
   resetViewportToIdentity();
-  S.setCurrentView("home");
-  window.history.pushState({ view: "home" }, "Home");
+  S.setCurrentView("explore");
+  window.history.pushState({ view: "explore" }, "Search");
   render();
 });
 
 S.topbarProfileBtn.addEventListener("click", () => {
   modals.hideAddPinButton();
+  explore.destroyExplore();
+  network.destroyNetwork();
   S.setCurrentView("profile");
   render();
 });

@@ -324,8 +324,62 @@ body.browser-safari.safari-camera-moving .pin-img {
   pointer-events: all;
 }
 
+.group-edit-icon {
+  fill: #fff;
+  stroke: none;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.group-node:hover .group-edit-icon {
+  opacity: 0.6;
+}
+
+.group-node:hover .group-edit-icon:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 .group-node:hover .group-name {
   opacity: 1;
+}
+
+/* Color Swatches */
+.group-color-swatches {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-swatch.active {
+  border-color: #171717;
+  transform: scale(1.1);
+}
+
+.group-only-field[hidden] {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .color-swatch.active {
+    border-color: #fff;
+  }
 }
 
 /* ── Board connections (home canvas) ──────────── */
@@ -334,6 +388,17 @@ body.browser-safari.safari-camera-moving .pin-img {
 .group-board-arm,
 .board-connection {
   fill: none;
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  transition: stroke 0.2s, stroke-width 0.2s, stroke-opacity 0.2s;
+  pointer-events: stroke; /* Important: makes the line itself hoverable without a fill */
+  cursor: pointer;
+}
+
+.board-connection:hover {
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 3;
 }
 
 .group-bridge {
@@ -681,7 +746,7 @@ body.profile-mode .topbar {
 .topbar-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 20px;
   font-family: var(--font-accent);
   font-size: 18px;
   font-weight: 500;
@@ -709,7 +774,8 @@ body.profile-mode .topbar {
   opacity: 1;
 }
 
-.topbar-breadcrumb .crumb-current {
+.topbar-breadcrumb .crumb-current,
+.topbar-breadcrumb .crumb.active {
   color: var(--text);
   opacity: 1;
 }
@@ -1302,6 +1368,221 @@ body.explore-mode .topbar {
   max-width: 1600px;
   margin: 0 auto;
   padding: 20px 24px 80px;
+}
+
+/* ── Network view ─────────────────────────────── */
+
+#network-view {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  z-index: 90;
+}
+
+.network-shell {
+  position: absolute;
+  inset: 56px 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body.network-mode .topbar {
+  background: transparent;
+}
+
+body.network-mode .network-shell {
+  inset: 0;
+}
+
+.network-add-pin-btn {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 130;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: all;
+}
+
+.network-add-pin-btn:hover {
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.network-add-pin-btn:active {
+  transform: translateX(-50%);
+}
+
+.network-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.network-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+.network-svg:active {
+  cursor: grabbing;
+}
+
+.network-link {
+  stroke: rgba(238, 235, 231, 0.22);
+  stroke-linecap: round;
+  transition: opacity 0.16s ease, stroke 0.16s ease, stroke-width 0.16s ease;
+}
+
+.network-link-untagged {
+  stroke-dasharray: 5 8;
+  stroke: rgba(238, 235, 231, 0.12);
+}
+
+.network-link.is-focused {
+  stroke: rgba(238, 235, 231, 0.38);
+}
+
+.network-node {
+  cursor: pointer;
+  transition: opacity 0.16s ease;
+}
+
+.network-grid {
+  pointer-events: none;
+}
+
+.network-tag-bubble {
+  fill: #ffffff;
+  stroke: rgba(238, 235, 231, 0.34);
+  stroke-width: 1.2;
+  transition: r 0.24s ease, stroke-width 0.24s ease;
+}
+
+.network-node-tag.is-muted .network-tag-bubble {
+  fill: rgba(238, 235, 231, 0.16);
+  stroke: rgba(238, 235, 231, 0.2);
+}
+
+.network-tag-label,
+.network-tag-count {
+  text-anchor: middle;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+
+.network-tag-label {
+  fill: #171717;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.network-node-tag.is-muted .network-tag-label,
+.network-node-tag.is-muted .network-tag-count {
+  fill: rgba(238, 235, 231, 0.72);
+}
+
+.network-tag-count {
+  fill: rgba(23, 23, 23, 0.58);
+  font-size: 10px;
+}
+
+.network-node-tag:hover .network-tag-bubble {
+  r: 62;
+  stroke-width: 2;
+}
+
+.network-node-tag:hover .network-tag-label,
+.network-node-tag:hover .network-tag-count,
+.network-node-tag.is-hovered .network-tag-label,
+.network-node-tag.is-hovered .network-tag-count {
+  opacity: 1;
+}
+
+.network-pin-ring {
+  fill: rgba(238, 235, 231, 0.1);
+  stroke: rgba(238, 235, 231, 0.38);
+  stroke-width: 1;
+}
+
+.network-pin-image,
+.network-pin-fallback {
+  pointer-events: none;
+}
+
+.network-pin-fallback {
+  fill: #c7ceea;
+}
+
+.network-empty {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  max-width: 280px;
+  background: var(--alt-grey);
+  border: 1px solid rgba(238, 235, 231, 0.18);
+  border-radius: 12px;
+  padding: 16px 40px 16px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-mono);
+  color: rgba(238, 235, 231, 0.58);
+  pointer-events: auto;
+  animation: networkToast 0.3s ease forwards;
+}
+
+@keyframes networkToast {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.network-empty-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: rgba(238, 235, 231, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.14s ease;
+}
+
+.network-empty-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFF;
+}
+
+.network-empty-close i {
+  width: 14px;
+  height: 14px;
+}
+
+.network-empty strong {
+  display: block;
+  color: rgba(238, 235, 231, 0.95);
+  font-size: 13px;
+}
+
+.network-empty span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 /* Search bar */
@@ -2017,6 +2298,18 @@ body.explore-mode .topbar {
   margin-bottom: 6px;
 }
 
+.pin-field-optional {
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+.pin-tags-section {
+  border: 1px solid rgba(226, 240, 203, 0.18);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(226, 240, 203, 0.035);
+}
+
 .tag-input-wrap {
   border: 1px solid rgba(238, 235, 231, 0.18);
   border-radius: 10px;
@@ -2038,6 +2331,11 @@ body.explore-mode .topbar {
   padding: 4px 8px;
   border-radius: 999px;
   background: rgba(238, 235, 231, 0.12);
+}
+
+.tag-pill-locked {
+  background: rgba(226, 240, 203, 0.18);
+  color: rgba(238, 235, 231, 0.9);
 }
 
 .tag-pill button {

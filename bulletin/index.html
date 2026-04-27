@@ -16,7 +16,8 @@
   <!-- Top bar -->
   <header class="topbar">
     <nav class="topbar-breadcrumb" id="breadcrumb">
-      <span class="crumb active" data-view="explore">Explore</span>
+      <span class="crumb active" data-view="home">Boards</span>
+      <span class="crumb" data-view="network">Network</span>
     </nav>
     <div id="ab-badges" class="ab-badges"></div>
     <div class="topbar-logo" id="topbar-logo">
@@ -97,6 +98,22 @@
     </div>
   </div>
 
+  <!-- Network view -->
+  <div id="network-view" hidden>
+    <div class="network-shell">
+      <div class="network-canvas-wrap" id="network-canvas-wrap">
+        <svg class="network-svg" id="network-svg"></svg>
+        <div class="network-empty" id="network-empty" hidden>
+          <div class="network-empty-content" id="network-empty-text"></div>
+          <button type="button" class="network-empty-close" onclick="this.parentElement.hidden = true">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <button type="button" class="fab-add-pin-btn network-add-pin-btn" id="btn-network-add-pin">+ Add Pin</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Auth view (shown when not signed in) -->
   <div id="auth-view" class="auth-view" hidden>
     <div class="auth-container">
@@ -155,6 +172,14 @@
                  placeholder="Group name…" maxlength="40" hidden>
         </div>
 
+        <div class="board-section group-only-field" id="group-color-section" hidden>
+          <span class="board-section-label">Color</span>
+          <div class="group-color-swatches" id="group-color-swatches">
+            <!-- colors added by JS -->
+          </div>
+          <input type="hidden" id="group-color-value">
+        </div>
+
         <!-- Actions -->
         <div class="modal-actions board-modal-actions">
           <button type="button" class="btn btn-ghost board-arena-shortcut" id="btn-board-to-arena" style="border: 0; background: transparent; display: flex; align-items: center;">
@@ -205,13 +230,14 @@
         </div>
 
         <!-- Tags section -->
-        <div class="pin-section">
-          <span class="pin-field-label">Tags</span>
+        <div class="pin-section pin-tags-section">
+          <span class="pin-field-label">Tags <span class="pin-field-optional">optional</span></span>
           <div class="tag-input-wrap" id="tag-input-wrap">
             <div class="tag-list" id="tag-list"></div>
-            <input type="text" id="pin-tags-input" placeholder="Add a tag…">
+            <input type="text" id="pin-tags-input" placeholder="Add a tag…" list="pin-tags-suggestions" autocomplete="off">
+            <datalist id="pin-tags-suggestions"></datalist>
           </div>
-          <span class="pin-field-hint">Press Enter or comma to add</span>
+          <span class="pin-field-hint" id="pin-tags-hint">Add tags to connect this pin in Network. Press Enter or comma to add.</span>
         </div>
 
         <div class="modal-actions">

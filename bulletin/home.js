@@ -15,7 +15,7 @@ import {
 
 import {
   unionRects, normalizeRect, imageAspectCache,
-  getPinImageSrc, loadImageAspect, escapeHtml, screenToWorld, isSafariBrowser,
+  getPinImageSrc, loadImageAspect, escapeHtml, isSafariBrowser,
 } from "./utils.js";
 
 import {
@@ -26,10 +26,7 @@ import {
 // ── Private state ────────────────────────────────
 let homePreviewHydrateQueued = false;
 let lastHomeLayout = null;
-let connectionDrag = null;  // { sourceId, tempLine }
 let _bubbleNodes = [];       // deterministic bubble positions
-let connectModeActive = false;
-let pendingConnectionSourceId = null;
 
 const HOME_GROUP_COLORS = [
   "#c7f28a",
@@ -46,6 +43,7 @@ const HOME_GROUP_COLORS = [
 let _enterBoard = null;
 let _openModal = null;
 let _openEditBoardModal = null;
+let _openEditGroupModal = null;
 let _openDeleteBoardConfirmation = null;
 let _setSelectionModeActive = null;
 let _render = null;
@@ -57,6 +55,7 @@ export function init({
   enterBoard,
   openModal,
   openEditBoardModal,
+  openEditGroupModal,
   openDeleteBoardConfirmation,
   setSelectionModeActive,
   render,
@@ -67,6 +66,7 @@ export function init({
   _enterBoard = enterBoard;
   _openModal = openModal;
   _openEditBoardModal = openEditBoardModal;
+  _openEditGroupModal = openEditGroupModal;
   _openDeleteBoardConfirmation = openDeleteBoardConfirmation;
   _setSelectionModeActive = setSelectionModeActive;
   _render = render;
@@ -114,31 +114,13 @@ function hashString(value) {
 }
 
 function getGroupColor(groupId) {
+  const group = Store.getGroup(groupId);
+  if (group && group.color) return group.color;
   return HOME_GROUP_COLORS[hashString(groupId) % HOME_GROUP_COLORS.length];
 }
 
 function makeStraightPath(x1, y1, x2, y2) {
   return `M${x1},${y1}L${x2},${y2}`;
-}
-
-function makeCurvedPath(x1, y1, x2, y2, key = "", curve = 0.16) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-  const bend = Math.min(120, Math.max(28, dist * curve));
-  const sign = hashString(key) % 2 === 0 ? 1 : -1;
-  const mx = (x1 + x2) / 2;
-  const my = (y1 + y2) / 2;
-  const cx = mx + (-dy / dist) * bend * sign;
-  const cy = my + (dx / dist) * bend * sign;
-  return `M${x1},${y1}Q${cx},${cy} ${x2},${y2}`;
-}
-
-function setHomeConnectMode(nextActive, { render = true } = {}) {
-  connectModeActive = !!nextActive;
-  if (!connectModeActive) pendingConnectionSourceId = null;
-  updateHomeActionRow();
-  if (render && currentView === "home" && typeof _render === "function") _render();
 }
 
 export function ensureHomeAddBoardButton() {
@@ -156,7 +138,6 @@ export function ensureHomeAddBoardButton() {
     button.className = "btn btn-primary fab-add-pin-btn home-add-board-btn";
     button.textContent = "+ Add Board";
     button.addEventListener("click", () => {
-      if (connectModeActive) setHomeConnectMode(false, { render: false });
       if (multiSelectedBoardIds.size > 1) {
         openGroupModal();
       } else {
@@ -170,26 +151,10 @@ export function ensureHomeAddBoardButton() {
     selectBtn.title = "Selection Mode";
     selectBtn.innerHTML = `<i data-lucide="square-dashed-mouse-pointer"></i>`;
     selectBtn.addEventListener("click", () => {
-      if (!selectionModeActive && connectModeActive) {
-        setHomeConnectMode(false, { render: false });
-      }
       _setSelectionModeActive(!selectionModeActive);
     });
 
-    const connectBtn = document.createElement("button");
-    connectBtn.id = "btn-home-connect-mode";
-    connectBtn.className = "fab-select-btn";
-    connectBtn.title = "Connect Boards";
-    connectBtn.innerHTML = `<i data-lucide="waypoints"></i>`;
-    connectBtn.addEventListener("click", () => {
-      if (!connectModeActive && selectionModeActive) {
-        _setSelectionModeActive(false);
-      }
-      setHomeConnectMode(!connectModeActive);
-    });
-
     btnWrapper.appendChild(button);
-    btnWrapper.appendChild(connectBtn);
     btnWrapper.appendChild(selectBtn);
     group.appendChild(btnWrapper);
     document.body.appendChild(group);
@@ -211,14 +176,6 @@ export function ensureHomeAddBoardButton() {
 
 export function updateHomeActionRow() {
   const button = document.getElementById("btn-home-add-board");
-  const connectBtn = document.getElementById("btn-home-connect-mode");
-
-  if (connectBtn) {
-    connectBtn.classList.toggle("active", connectModeActive);
-    connectBtn.classList.toggle("is-pending", !!pendingConnectionSourceId);
-    connectBtn.title = pendingConnectionSourceId ? "Choose another board" : "Connect Boards";
-    connectBtn.setAttribute("aria-pressed", connectModeActive ? "true" : "false");
-  }
 
   if (!button) return;
 
@@ -588,16 +545,6 @@ function _transitionBubbles(durationMs) {
       return makeStraightPath(groupNode.x, groupNode.y, boardNode.x, boardNode.y);
     });
 
-  masterG.selectAll("path.board-connection")
-    .transition("bubble-pos")
-    .duration(durationMs)
-    .ease(d3.easeCubicInOut)
-    .attr("d", d => {
-      const sourceNode = nodesById.get(d.sourceId);
-      const targetNode = nodesById.get(d.targetId);
-      if (!sourceNode || !targetNode) return d.path;
-      return makeCurvedPath(sourceNode.x, sourceNode.y, targetNode.x, targetNode.y, d.id);
-    });
 }
 
 /** Called on hover enter/leave — changes a node's radius, resolves, transitions */
@@ -701,8 +648,6 @@ export function renderHome(boards) {
 
   const defs = masterG.append("defs");
 
-  const connections = Store.getConnections();
-
   const groupArmData = [];
   groupNodes.forEach((groupNode) => {
     groupNode.boardIds.forEach((boardId) => {
@@ -722,62 +667,10 @@ export function renderHome(boards) {
     });
   });
 
-  const connectionData = connections.map(c => {
-    const srcPos = allBoardPositions.get(c.sourceId);
-    const tgtPos = allBoardPositions.get(c.targetId);
-    if (!srcPos || !tgtPos) return null;
-    const sourceGroupId = boardGroupIds.get(c.sourceId);
-    const targetGroupId = boardGroupIds.get(c.targetId);
-    return {
-      ...c,
-      sourceGroupId,
-      targetGroupId,
-      x1: srcPos.x,
-      y1: srcPos.y,
-      x2: tgtPos.x,
-      y2: tgtPos.y,
-      path: makeCurvedPath(srcPos.x, srcPos.y, tgtPos.x, tgtPos.y, c.id),
-    };
-  }).filter(Boolean);
-
-  const bridgePairs = new Map();
-  connectionData.forEach((connection) => {
-    const sourceGroupId = connection.sourceGroupId;
-    const targetGroupId = connection.targetGroupId;
-    if (!sourceGroupId || !targetGroupId || sourceGroupId === targetGroupId) return;
-    const pair = [sourceGroupId, targetGroupId].sort();
-    const key = pair.join(":");
-    const existing = bridgePairs.get(key) || {
-      key,
-      sourceGroupId: pair[0],
-      targetGroupId: pair[1],
-      count: 0,
-      color: getGroupColor(pair[0]),
-    };
-    existing.count += 1;
-    bridgePairs.set(key, existing);
-  });
-
-  const bridgeData = Array.from(bridgePairs.values()).map((bridge) => {
-    const sourceGroup = groupsById.get(bridge.sourceGroupId);
-    const targetGroup = groupsById.get(bridge.targetGroupId);
-    if (!sourceGroup || !targetGroup) return null;
-    return {
-      ...bridge,
-      x1: sourceGroup.cx,
-      y1: sourceGroup.cy,
-      x2: targetGroup.cx,
-      y2: targetGroup.cy,
-      path: makeCurvedPath(sourceGroup.cx, sourceGroup.cy, targetGroup.cx, targetGroup.cy, bridge.key, 0.1),
-    };
-  }).filter(Boolean);
-
   function applyHomeFocus(focus) {
     const hasFocus = !!focus;
     const relatedBoardIds = new Set();
     const relatedGroupIds = new Set();
-    const relatedConnectionIds = new Set();
-    const relatedBridgeKeys = new Set();
 
     if (focus?.groupId) {
       relatedGroupIds.add(focus.groupId);
@@ -794,24 +687,6 @@ export function renderHome(boards) {
       }
     }
 
-    if (hasFocus) {
-      connectionData.forEach((connection) => {
-        const touchesFocus = relatedBoardIds.has(connection.sourceId) || relatedBoardIds.has(connection.targetId);
-        if (!touchesFocus) return;
-        relatedConnectionIds.add(connection.id);
-        relatedBoardIds.add(connection.sourceId);
-        relatedBoardIds.add(connection.targetId);
-        if (connection.sourceGroupId) relatedGroupIds.add(connection.sourceGroupId);
-        if (connection.targetGroupId) relatedGroupIds.add(connection.targetGroupId);
-      });
-
-      bridgeData.forEach((bridge) => {
-        if (relatedGroupIds.has(bridge.sourceGroupId) || relatedGroupIds.has(bridge.targetGroupId)) {
-          relatedBridgeKeys.add(bridge.key);
-        }
-      });
-    }
-
     masterG.classed("home-focus-active", hasFocus);
     masterG.selectAll("g.board-node")
       .classed("is-focused", d => hasFocus && relatedBoardIds.has(d.id))
@@ -822,21 +697,7 @@ export function renderHome(boards) {
     masterG.selectAll("path.group-board-arm")
       .classed("is-focused", d => hasFocus && relatedGroupIds.has(d.groupId) && relatedBoardIds.has(d.boardId))
       .classed("is-dimmed", d => hasFocus && !(relatedGroupIds.has(d.groupId) && relatedBoardIds.has(d.boardId)));
-    masterG.selectAll("path.board-connection")
-      .classed("is-focused", d => hasFocus && relatedConnectionIds.has(d.id))
-      .classed("is-dimmed", d => hasFocus && !relatedConnectionIds.has(d.id));
-    masterG.selectAll("path.group-bridge")
-      .classed("is-focused", d => hasFocus && relatedBridgeKeys.has(d.key))
-      .classed("is-dimmed", d => hasFocus && !relatedBridgeKeys.has(d.key));
   }
-
-  masterG.selectAll("path.group-bridge")
-    .data(bridgeData, d => d.key)
-    .join("path")
-    .attr("class", "group-bridge")
-    .attr("d", d => d.path)
-    .attr("stroke", d => d.color)
-    .attr("stroke-width", d => Math.min(8, 2 + d.count));
 
   masterG.selectAll("path.group-board-arm")
     .data(groupArmData, d => d.id)
@@ -844,12 +705,6 @@ export function renderHome(boards) {
     .attr("class", "group-board-arm")
     .attr("d", d => d.path)
     .attr("stroke", d => d.color);
-
-  masterG.selectAll("path.board-connection")
-    .data(connectionData, d => d.id)
-    .join("path")
-    .attr("class", "board-connection")
-    .attr("d", d => d.path);
 
   // ── Group center bubbles (white) ───────────────
   const groupVisuals = masterG.selectAll("g.group-node")
@@ -900,6 +755,31 @@ export function renderHome(boards) {
       .attr("y", 0)
       .text(groupNode.groupName || "Untitled Group");
 
+    // Group Edit Icon
+    const groupEditIcon = g.append("g")
+      .attr("class", "group-edit-icon")
+      .attr("transform", `translate(0, ${BUBBLE_SMALL / 2 + 16})`)
+      .on("click", (event) => {
+        event.stopPropagation();
+        const group = Store.getGroups().find(gr => gr.id === groupNode.groupId);
+        if (group && _openEditGroupModal) {
+          _openEditGroupModal(group);
+        }
+      });
+
+    groupEditIcon.append("circle")
+      .attr("r", 12)
+      .attr("fill", "rgba(255,255,255,0.01)");
+
+    groupEditIcon.append("path")
+      .attr("d", "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z")
+      .attr("fill", "none")
+      .attr("stroke", "currentColor")
+      .attr("stroke-width", "2")
+      .attr("stroke-linecap", "round")
+      .attr("stroke-linejoin", "round")
+      .style("opacity", "0.7");
+
     g.append("circle")
       .attr("class", "group-hit-area")
       .attr("r", BUBBLE_LARGE / 2);
@@ -912,46 +792,9 @@ export function renderHome(boards) {
     .data(boards, d => d.id)
     .join("g")
     .attr("class", "board-node")
-    .classed("is-connect-mode", connectModeActive)
-    .classed("is-connect-source", d => d.id === pendingConnectionSourceId)
     .attr("transform", d => `translate(${d._x},${d._y})`)
-    .on("mousedown", function(event, d) {
-      if (!event.altKey) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const tempLine = masterG.append("line")
-        .attr("class", "board-connection-temp")
-        .attr("x1", d._x).attr("y1", d._y)
-        .attr("x2", d._x).attr("y2", d._y)
-        .attr("stroke", "var(--text)")
-        .attr("stroke-width", 1.5)
-        .attr("stroke-opacity", 0.4)
-        .attr("stroke-dasharray", "6 4")
-        .attr("pointer-events", "none");
-      connectionDrag = { sourceId: d.id, tempLine };
-    })
     .on("click", (event, d) => {
       if (event.altKey) return;
-      if (connectModeActive) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!pendingConnectionSourceId) {
-          pendingConnectionSourceId = d.id;
-          updateHomeActionRow();
-          _render();
-          return;
-        }
-        if (pendingConnectionSourceId === d.id) {
-          pendingConnectionSourceId = null;
-          updateHomeActionRow();
-          _render();
-          return;
-        }
-        Store.addConnection({ sourceId: pendingConnectionSourceId, targetId: d.id });
-        setHomeConnectMode(false, { render: false });
-        _render();
-        return;
-      }
       if (_isSelectionModeEnabled()) {
         if (multiSelectedBoardIds.has(d.id)) {
           multiSelectedBoardIds.delete(d.id);
@@ -987,13 +830,6 @@ export function renderHome(boards) {
       .attr("class", "board-group-ring")
       .attr("r", boardR + 7)
       .attr("stroke", d._groupColor);
-  });
-
-  boardGroups.each(function(d) {
-    if (d.id !== pendingConnectionSourceId) return;
-    d3.select(this).insert("circle", ".board-bubble")
-      .attr("class", "board-connect-source-ring")
-      .attr("r", boardR + 14);
   });
 
   // Selection outline
@@ -1198,37 +1034,8 @@ export function renderHome(boards) {
       _setNodeHoverRadius(d.id, BUBBLE_MEDIUM / 2);
     });
 
-  // ── Alt+drag connection: SVG-level mousemove/mouseup ──
-  svg.on("mousemove.connDrag", (event) => {
-    if (!connectionDrag) return;
-    const [wx, wy] = screenToWorld(event.clientX, event.clientY);
-    connectionDrag.tempLine.attr("x2", wx).attr("y2", wy);
-  });
-  svg.on("mouseup.connDrag", (event) => {
-    if (!connectionDrag) return;
-    const src = connectionDrag.sourceId;
-    connectionDrag.tempLine.remove();
-    connectionDrag = null;
-    // Check if released over a board node
-    const target = event.target.closest && event.target.closest("g.board-node");
-    if (target) {
-      const targetData = d3.select(target).datum();
-      if (targetData && targetData.id !== src) {
-        Store.addConnection({ sourceId: src, targetId: targetData.id });
-        _render();
-      }
-    }
-  });
-
-  // ── Connection click-to-delete ──
-  masterG.selectAll("path.board-connection")
-    .on("click", function(event, d) {
-      event.stopPropagation();
-      Store.deleteConnection(d.id);
-      _render();
-    })
-    .style("cursor", "pointer")
-    .attr("pointer-events", "stroke");
+  svg.on("mousemove.connDrag", null);
+  svg.on("mouseup.connDrag", null);
 
   // Stash layout for hover repulsion
   lastHomeLayout = layout;

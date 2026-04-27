@@ -71,6 +71,50 @@ const Store = (function () {
     };
   }
 
+  function _normalizeTagKey(tag) {
+    return String(tag || "").trim().toLowerCase();
+  }
+
+  function _boardTagsForBoardIds(boardIds) {
+    if (!Array.isArray(boardIds)) return [];
+    const seen = new Set();
+    return boardIds
+      .map(boardId => _data.boards.find(board => board.id === boardId)?.name?.trim())
+      .filter(Boolean)
+      .filter(tag => {
+        const key = _normalizeTagKey(tag);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function _mergeTags(tags, lockedTags = []) {
+    const seen = new Set();
+    return [...lockedTags, ...(Array.isArray(tags) ? tags : [])]
+      .map(tag => String(tag || "").trim())
+      .filter(Boolean)
+      .filter(tag => {
+        const key = _normalizeTagKey(tag);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function _uniqueTags(tags) {
+    const seen = new Set();
+    return (Array.isArray(tags) ? tags : [])
+      .map(tag => String(tag || "").trim())
+      .filter(Boolean)
+      .filter(tag => {
+        const key = _normalizeTagKey(tag);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
   function _withBoardPlacement(pin, boardId) {
     if (!pin || !boardId || !pin.placements?.[boardId]) return null;
     const placement = pin.placements[boardId];
@@ -265,18 +309,28 @@ const Store = (function () {
     return _data.groups;
   }
 
-  function addGroup({ name }) {
+  function addGroup({ name, color }) {
     const id = _uid();
-    const group = { id, name: name || "Untitled Group", createdAt: Date.now() };
+    const group = {
+      id,
+      name: name || "Untitled Group",
+      color: color || null,
+      createdAt: Date.now()
+    };
     _data.groups.push(group);
 
     _dbInsert("groups", {
       id,
       user_id: _userId,
       name: group.name,
+      color: group.color,
     });
 
     return group;
+  }
+
+  function getGroup(id) {
+    return _data.groups.find(g => g.id === id);
   }
 
   function updateGroup(id, changes) {
@@ -286,6 +340,8 @@ const Store = (function () {
 
     const dbChanges = {};
     if ("name" in changes) dbChanges.name = changes.name;
+    if ("color" in changes) dbChanges.color = changes.color;
+
     if (Object.keys(dbChanges).length > 0) {
       _dbUpdate("groups", id, dbChanges);
     }
@@ -339,6 +395,13 @@ const Store = (function () {
     });
   }
 
+  function getAllTags() {
+    return _uniqueTags([
+      ..._data.pins.flatMap(pin => Array.isArray(pin.tags) ? pin.tags : []),
+      ..._data.boards.map(board => board.name),
+    ]).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }
+
   function addPin({ id, sharedPinId, boardId, boardIds, placements, tags, imageUrl, imageData, linkUrl, source, arenaBlockId, x, y, pinW, createdAt }) {
     const pinId = id || _uid();
 
@@ -359,7 +422,7 @@ const Store = (function () {
     const pin = {
       id: pinId,
       sharedPinId: sharedPinId || pinId,
-      tags: Array.isArray(tags) ? tags : [],
+      tags: _mergeTags(tags, _boardTagsForBoardIds(nextBoardIds)),
       imageUrl: imageUrl || "",
       imageData: imageData || null,
       linkUrl: linkUrl || null,
@@ -421,9 +484,16 @@ const Store = (function () {
     delete nextChanges.pinW;
     delete nextChanges.sharedPinId;
 
+    const sharedPins = _data.pins.filter(entry => (entry.sharedPinId || entry.id) === sharedPinId);
+    if ("tags" in nextChanges) {
+      nextChanges.tags = _mergeTags(
+        nextChanges.tags,
+        sharedPins.flatMap(entry => _boardTagsForBoardIds(entry.boardIds))
+      );
+    }
+
     // Update all pins sharing the same sharedPinId in cache
-    _data.pins.forEach(entry => {
-      if ((entry.sharedPinId || entry.id) !== sharedPinId) return;
+    sharedPins.forEach(entry => {
       Object.assign(entry, nextChanges);
     });
 
@@ -442,7 +512,13 @@ const Store = (function () {
         .eq("shared_pin_id", sharedPinId)
         .eq("user_id", _userId)
         .then(({ error }) => {
-          if (error) console.error("[Store] update pin:", error.message);
+          if (error) console.error("[Store] update pin by shared id:", error.message);
+        });
+      _sb().from("pins").update(dbChanges)
+        .eq("id", sharedPinId)
+        .eq("user_id", _userId)
+        .then(({ error }) => {
+          if (error) console.error("[Store] update pin by id:", error.message);
         });
     }
 
@@ -484,6 +560,7 @@ const Store = (function () {
       ...pin.placements[boardId],
       ...placement,
     });
+    pin.tags = _mergeTags(pin.tags, _boardTagsForBoardIds(pin.boardIds));
 
     const p = pin.placements[boardId];
     _sb().from("board_pins").upsert(_buildBoardPinPayload({
@@ -495,6 +572,8 @@ const Store = (function () {
     }), { onConflict: "pin_id,board_id" }).then(({ error }) => {
       if (error) _logSupabaseError("upsert board_pin (attach)", error);
     });
+
+    _dbUpdate("pins", id, { tags: pin.tags });
 
     return getPin(id, boardId);
   }
@@ -662,12 +741,14 @@ const Store = (function () {
     updateBoard,
     deleteBoard,
     getGroups,
+    getGroup,
     addGroup,
     updateGroup,
     deleteGroup,
     getPins,
     getPin,
     getAllPins,
+    getAllTags,
     addPin,
     updatePin,
     updatePinPlacement,

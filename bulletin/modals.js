@@ -68,7 +68,10 @@ export function init({
 
 // ── Private state ────────────────────────────────
 let currentPinTags = [];
+let lockedPinTags = [];
 let selectedSavedPinIds = new Set();
+let pinModalContext = "board";
+let pendingModalPinFile = null;
 let pinToDelete = null;
 let boardsToDelete = null;
 let pendingPinPos = null;
@@ -179,28 +182,139 @@ export function openEditBoardModal(board) {
   const arenaBtn = document.getElementById("btn-board-to-arena");
   if (arenaBtn) arenaBtn.hidden = true;
 
+  document.querySelectorAll(".group-only-field").forEach(el => el.hidden = true);
+  const descField = document.querySelector(".board-field");
+  const groupSection = document.querySelector(".board-section");
+  if (descField) descField.hidden = false;
+  if (groupSection) groupSection.hidden = false;
+
   populateBoardGroupSelect(board.groupId || "");
 
   if (window.lucide) lucide.createIcons();
   openModal("modal-board");
 }
 
+export function openEditGroupModal(group) {
+  const title = document.getElementById("modal-board-title");
+  const idInput = document.getElementById("board-id");
+  const deleteBtn = document.getElementById("btn-delete-board");
+  const saveBtn = document.getElementById("btn-save-board");
+  const descField = document.querySelector(".board-field");
+  const groupSection = document.querySelector(".board-section");
+  const arenaBtn = document.getElementById("btn-board-to-arena");
+
+  title.textContent = group.name || "Untitled Group";
+  idInput.value = "__group_edit__:" + group.id;
+  deleteBtn.hidden = false;
+  saveBtn.textContent = "Save";
+
+  if (descField) descField.hidden = true;
+  if (groupSection) groupSection.hidden = true;
+  if (arenaBtn) arenaBtn.hidden = true;
+
+  const colorSection = document.getElementById("group-color-section");
+  if (colorSection) colorSection.hidden = false;
+
+  renderGroupColorSwatches(group.color || "");
+
+  if (window.lucide) lucide.createIcons();
+  openModal("modal-board");
+}
+
+function renderGroupColorSwatches(selectedColor) {
+  const container = document.getElementById("group-color-swatches");
+  const input = document.getElementById("group-color-value");
+  if (!container || !input) return;
+
+  container.innerHTML = "";
+
+  const colors = [
+    "#ffffff", // Default/none
+    "#FFB7B2", // Salmon
+    "#FFDAC1", // Peach
+    "#E2F0CB", // Mint
+    "#B5EAD7", // Teal
+    "#C7CEEA", // Periwinkle
+    "#FF9AA2", // Pink
+    "#B8F2E6", // Aqua
+    "#F7AEF8", // Lavender
+    "#A0C4FF", // Sky
+  ];
+
+  // If selectedColor is not in list but exists, add it (edge case)
+  if (selectedColor && !colors.includes(selectedColor)) {
+    colors.push(selectedColor);
+  }
+
+  colors.forEach(col => {
+    const sw = document.createElement("div");
+    sw.className = "color-swatch";
+    if (col === "#ffffff") {
+      sw.style.backgroundColor = col;
+      sw.style.border = "1px solid #ddd";
+    } else {
+      sw.style.backgroundColor = col;
+    }
+
+    if (col === selectedColor || (!selectedColor && col === "#ffffff")) {
+      sw.classList.add("active");
+      input.value = col;
+    }
+
+    sw.addEventListener("click", () => {
+      container.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("active"));
+      sw.classList.add("active");
+      input.value = col;
+    });
+    container.appendChild(sw);
+  });
+}
+
 // ══════════════════════════════════════════════════
 //  PIN MODAL
 // ══════════════════════════════════════════════════
 
-export function openAddPinModal() {
+export function openAddPinModal(options = {}) {
   resetPinToggle();
+  pinModalContext = options.context || (currentView === "network" ? "network" : "board");
+  pendingModalPinFile = options.file || null;
+
+  if (options.position) {
+    pendingPinPos = options.position;
+  }
+
+  const title = document.getElementById("modal-pin-title");
+  const savedToggle = document.getElementById("pin-saved-toggle");
+  const tagsInput = document.getElementById("pin-tags-input");
+  const tagsHint = document.getElementById("pin-tags-hint");
+  const fileLabel = document.querySelector(".file-drop-label");
+
+  if (pinModalContext === "network") {
+    title.textContent = "Add Pin to Network";
+    if (savedToggle) savedToggle.hidden = true;
+    if (tagsInput) tagsInput.placeholder = "Tag this pin…";
+    if (tagsHint) tagsHint.textContent = "Optional, but tags are what connect pins in Network.";
+  } else {
+    lockedPinTags = getLockedBoardTagsForPin(null, activeBoardId);
+    renderTagList();
+  }
+
+  if (pendingModalPinFile && fileLabel) {
+    fileLabel.textContent = `Ready to add: ${pendingModalPinFile.name}`;
+  }
+
   renderSavedPinsPicker();
   openModal("modal-pin");
 }
 
 export function openEditPinModal(pin) {
   resetPinToggle();
+  pinModalContext = currentView === "network" ? "network" : "board";
 
   document.getElementById("modal-pin-title").textContent = "Edit Pin";
   document.getElementById("pin-id").value = pin.id;
-  currentPinTags = Array.isArray(pin.tags) ? pin.tags.slice() : [];
+  lockedPinTags = getLockedBoardTagsForPin(pin, pinModalContext === "board" ? activeBoardId : null);
+  currentPinTags = removeLockedTags(Array.isArray(pin.tags) ? pin.tags.slice() : [], lockedPinTags);
   renderTagList();
   document.querySelector("#form-pin button[type='submit']").textContent = "Update";
   document.getElementById("btn-pin-delete").textContent = "Remove";
@@ -251,18 +365,97 @@ export function openDeleteBoardConfirmation(boardIds) {
 
 export function renderTagList() {
   const list = document.getElementById("tag-list");
-  list.innerHTML = currentPinTags.map((t, i) =>
+  const lockedMarkup = lockedPinTags.map(t =>
+    `<span class="tag-pill tag-pill-locked" title="Board tag">${escapeHtml(t)}</span>`
+  ).join("");
+  const editableMarkup = currentPinTags.map((t, i) =>
     `<span class="tag-pill">${escapeHtml(t)}<button type="button" data-idx="${i}">&times;</button></span>`
   ).join("");
+  list.innerHTML = lockedMarkup + editableMarkup;
+  renderTagSuggestions();
+}
+
+function getLockedBoardTagsForPin(pin, fallbackBoardId = null) {
+  const boardIds = new Set();
+  if (Array.isArray(pin?.boardIds)) pin.boardIds.forEach(id => boardIds.add(id));
+  if (pin?.boardId) boardIds.add(pin.boardId);
+  if (fallbackBoardId) boardIds.add(fallbackBoardId);
+
+  return Array.from(boardIds)
+    .map(id => Store.getBoard(id)?.name?.trim())
+    .filter(Boolean)
+    .filter((tag, index, tags) => tags.findIndex(t => t.toLowerCase() === tag.toLowerCase()) === index);
+}
+
+function removeLockedTags(tags, lockedTags) {
+  const lockedKeys = new Set(lockedTags.map(tag => tag.toLowerCase()));
+  return tags.filter(tag => !lockedKeys.has(String(tag || "").trim().toLowerCase()));
+}
+
+function getKnownTagOptions() {
+  if (typeof Store.getAllTags !== "function") return [];
+  const usedKeys = new Set([...lockedPinTags, ...currentPinTags].map(tag => String(tag || "").trim().toLowerCase()));
+  return Store.getAllTags().filter(tag => !usedKeys.has(String(tag || "").trim().toLowerCase()));
+}
+
+function renderTagSuggestions() {
+  const datalist = document.getElementById("pin-tags-suggestions");
+  const input = document.getElementById("pin-tags-input");
+  if (!datalist || !input) return;
+
+  input.setAttribute("list", datalist.id);
+  datalist.innerHTML = getKnownTagOptions()
+    .map(tag => `<option value="${escapeHtml(tag)}"></option>`)
+    .join("");
+}
+
+function addPinTagFromValue(rawValue) {
+  const value = String(rawValue || "").trim().replace(/,+$/g, "");
+  if (!value) return false;
+
+  const valueKey = value.toLowerCase();
+  const known = typeof Store.getAllTags === "function"
+    ? Store.getAllTags().find(tag => String(tag || "").trim().toLowerCase() === valueKey)
+    : null;
+  const tag = known || value;
+  const tagKey = tag.toLowerCase();
+  const existingKeys = new Set([...lockedPinTags, ...currentPinTags].map(t => String(t || "").trim().toLowerCase()));
+  if (existingKeys.has(tagKey)) return false;
+
+  currentPinTags.push(tag);
+  renderTagList();
+  return true;
+}
+
+function getSubmittedPinTags() {
+  const seen = new Set();
+  return [...lockedPinTags, ...currentPinTags]
+    .map(tag => String(tag || "").trim())
+    .filter(Boolean)
+    .filter(tag => {
+      const key = tag.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 export function resetPinToggle() {
+  pinModalContext = "board";
+  pendingModalPinFile = null;
   document.querySelectorAll(".pin-source-toggle .toggle-btn").forEach((b, i) =>
     b.classList.toggle("active", i === 0));
   document.getElementById("pin-url-panel").hidden = true;
   document.getElementById("pin-file-panel").hidden = false;
   document.getElementById("pin-saved-panel").hidden = true;
   document.getElementById("pin-saved-toggle").hidden = false;
+  const fileLabel = document.querySelector(".file-drop-label");
+  if (fileLabel) fileLabel.innerHTML = "Drop image here or <u>browse</u>";
+  const tagsInput = document.getElementById("pin-tags-input");
+  if (tagsInput) tagsInput.placeholder = "Add a tag…";
+  renderTagSuggestions();
+  const tagsHint = document.getElementById("pin-tags-hint");
+  if (tagsHint) tagsHint.textContent = "Add tags to connect this pin in Network. Press Enter or comma to add.";
 
   document.getElementById("modal-pin-title").textContent = "Add Pin";
   document.getElementById("pin-id").value = "";
@@ -270,6 +463,7 @@ export function resetPinToggle() {
   document.getElementById("btn-pin-delete").textContent = "Remove";
   document.getElementById("btn-pin-delete").hidden = true;
   currentPinTags = [];
+  lockedPinTags = [];
   selectedSavedPinIds.clear();
   renderTagList();
   renderSavedPinsPicker();
@@ -410,11 +604,11 @@ function getNewPinPlacement(index = 0) {
 }
 
 export function addPinAndRender(pinData) {
-  if (pendingPinPos) {
+  if (pinData.boardId && pendingPinPos) {
     pinData.x = pendingPinPos.x;
     pinData.y = pendingPinPos.y;
     pendingPinPos = null;
-  } else {
+  } else if (pinData.boardId) {
     const cx = (-currentTransform.x + width / 2) / currentTransform.k;
     const cy = (-currentTransform.y + height / 2) / currentTransform.k;
     const ox = (Math.random() - 0.5) * 200;
@@ -424,8 +618,12 @@ export function addPinAndRender(pinData) {
   }
 
   const pin = Store.addPin(pinData);
-  rememberPinAdd(pin);
-  _renderBoard(activeBoardId);
+  if (pinData.boardId && pin) rememberPinAdd(pin);
+  if (currentView === "board" && activeBoardId) {
+    _renderBoard(activeBoardId);
+  } else {
+    _render();
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -510,15 +708,26 @@ export function renderProfileView() {
 export function updateBreadcrumb(board) {
   breadcrumb.innerHTML = "";
 
-  const home = document.createElement("span");
-  home.className = "crumb";
-  home.classList.add("crumb-home");
-  home.textContent = "Search";
-  home.dataset.view = "explore";
-  home.addEventListener("click", () => {
+  const makeCrumb = (label, view) => {
+    const crumb = document.createElement("span");
+    crumb.className = "crumb crumb-home";
+    crumb.classList.toggle("active", S.currentView === view);
+    crumb.textContent = label;
+    crumb.dataset.view = view;
+    crumb.addEventListener("click", () => {
+      if (S.currentView === view) return;
+      navigateTopLevelView(view, label);
+    });
+    return crumb;
+  };
+
+  breadcrumb.appendChild(makeCrumb("Boards", "home"));
+  breadcrumb.appendChild(makeCrumb("Network", "network"));
+}
+
+function navigateTopLevelView(view, label) {
     hideAddPinButton();
     explore.destroyExplore();
-    // Reset view to explore
     if (S.currentView === "board") {
       S.setActiveBoardId(null);
       history.resetPinMoveHistory();
@@ -526,12 +735,9 @@ export function updateBreadcrumb(board) {
       S.multiSelectedBoardIds.clear();
       resetViewportToIdentity();
     }
-    // We already do this above, but to be safe and consistent with user intent:
-    S.setCurrentView("explore");
-    window.history.pushState({ view: "explore" }, "Search");
+    S.setCurrentView(view);
+    window.history.pushState({ view }, label);
     _render();
-  });
-  breadcrumb.appendChild(home);
 }
 
 export function hideAddPinButton() {
@@ -659,40 +865,12 @@ export function initFileDrop() {
     const dropWorldX = (e.clientX - currentTransform.x) / currentTransform.k;
     const dropWorldY = (e.clientY - currentTransform.y) / currentTransform.k;
 
-    files.forEach((file, i) => {
-      const offset = i * GRID * 2;
-      const px = Math.round((dropWorldX + offset) / GRID) * GRID;
-      const py = Math.round((dropWorldY + offset) / GRID) * GRID;
-
-      Store.uploadImage(file).then((imageUrl) => {
-        const pin = Store.addPin({
-          boardId: activeBoardId,
-          tags: [],
-          imageUrl,
-          source: "local",
-          x: px,
-          y: py,
-        });
-        rememberPinAdd(pin);
-        if (i === files.length - 1) _renderBoard(activeBoardId);
-      }).catch((err) => {
-        console.error("Drop upload failed:", err);
-        // Fallback: read as base64
-        const reader = new FileReader();
-        reader.onload = () => {
-          const pin = Store.addPin({
-            boardId: activeBoardId,
-            tags: [],
-            imageData: reader.result,
-            source: "local",
-            x: px,
-            y: py,
-          });
-          rememberPinAdd(pin);
-          if (i === files.length - 1) _renderBoard(activeBoardId);
-        };
-        reader.readAsDataURL(file);
-      });
+    const px = Math.round(dropWorldX / GRID) * GRID;
+    const py = Math.round(dropWorldY / GRID) * GRID;
+    openAddPinModal({
+      context: "board",
+      file: files[0],
+      position: { x: px, y: py },
     });
   });
 }
@@ -753,6 +931,12 @@ export function bindModalEvents() {
       });
       multiSelectedBoardIds.clear();
       // Selection mode is managed by the caller via callbacks if needed
+    } else if (id.startsWith("__group_edit__:")) {
+      const groupId = id.split(":")[1];
+      const color = document.getElementById("group-color-value").value;
+      const deleteBtn = document.getElementById("btn-delete-board");
+
+      Store.updateGroup(groupId, { name, color });
     } else {
       const desc  = document.getElementById("board-desc").value.trim();
       const color = "#EEEBE7";
@@ -798,6 +982,17 @@ export function bindModalEvents() {
     deleteBtn.addEventListener("click", () => {
       const id = document.getElementById("board-id").value;
       if (!id) return;
+
+      if (id.startsWith("__group_edit__:")) {
+        const groupId = id.split(":")[1];
+        if (confirm("Delete this group? Boards inside will be un-grouped.")) {
+          Store.deleteGroup(groupId);
+          closeModal("modal-board");
+          _render();
+        }
+        return;
+      }
+
       if (confirm("Are you sure you want to delete this board? This action cannot be undone.")) {
         Store.deleteBoard(id);
         closeModal("modal-board");
@@ -823,11 +1018,20 @@ export function bindModalEvents() {
   // ── Pin form submit ────────────────────────────
   document.getElementById("form-pin").addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!activeBoardId) return;
 
-    const tags = currentPinTags.slice();
+    const tags = getSubmittedPinTags();
     const pinId = document.getElementById("pin-id").value;
     const activeSource = document.querySelector(".pin-source-toggle .toggle-btn.active")?.dataset.source;
+    const boardId = activeBoardId || null;
+    const renderAfterPinChange = () => {
+      if (currentView === "board" && activeBoardId) _renderBoard(activeBoardId);
+      else _render();
+    };
+    const finishPinSubmit = () => {
+      closeModal("modal-pin");
+      e.target.reset();
+      resetPinToggle();
+    };
 
     if (activeSource === "url") {
       const url = document.getElementById("pin-url").value.trim();
@@ -835,22 +1039,17 @@ export function bindModalEvents() {
 
       if (pinId) {
         Store.updatePin(pinId, { tags, imageUrl: url, imageData: null });
-        _renderBoard(activeBoardId);
-        closeModal("modal-pin");
+        renderAfterPinChange();
       } else {
-        addPinAndRender({ boardId: activeBoardId, tags, imageUrl: url });
-        closeModal("modal-pin");
+        addPinAndRender({ boardId, tags, imageUrl: url });
       }
-      e.target.reset();
-      resetPinToggle();
+      finishPinSubmit();
     } else if (activeSource === "file") {
-      const file = document.getElementById("pin-file").files[0];
+      const file = pendingModalPinFile || document.getElementById("pin-file").files[0];
       if (!file && pinId) {
         Store.updatePin(pinId, { tags });
-        _renderBoard(activeBoardId);
-        closeModal("modal-pin");
-        e.target.reset();
-        resetPinToggle();
+        renderAfterPinChange();
+        finishPinSubmit();
         return;
       }
       if (!file) return;
@@ -859,9 +1058,9 @@ export function bindModalEvents() {
         const imageUrl = await Store.uploadImage(file);
         if (pinId) {
           Store.updatePin(pinId, { tags, imageUrl, imageData: null });
-          _renderBoard(activeBoardId);
+          renderAfterPinChange();
         } else {
-          addPinAndRender({ boardId: activeBoardId, tags, imageUrl });
+          addPinAndRender({ boardId, tags, imageUrl });
         }
       } catch (err) {
         console.error("Image upload failed:", err);
@@ -870,18 +1069,16 @@ export function bindModalEvents() {
         reader.onload = () => {
           if (pinId) {
             Store.updatePin(pinId, { tags, imageData: reader.result, imageUrl: null });
-            _renderBoard(activeBoardId);
+            renderAfterPinChange();
           } else {
-            addPinAndRender({ boardId: activeBoardId, tags, imageData: reader.result });
+            addPinAndRender({ boardId, tags, imageData: reader.result });
           }
         };
         reader.readAsDataURL(file);
       }
-      closeModal("modal-pin");
-      e.target.reset();
-      resetPinToggle();
+      finishPinSubmit();
     } else if (activeSource === "saved") {
-      if (selectedSavedPinIds.size === 0) return;
+      if (!boardId || selectedSavedPinIds.size === 0) return;
 
       Array.from(selectedSavedPinIds).forEach((selectedId, index) => {
         const placement = getNewPinPlacement(index);
@@ -890,7 +1087,7 @@ export function bindModalEvents() {
 
         const attachedPin = Store.addPin({
           sharedPinId: sourcePin.sharedPinId || sourcePin.id,
-          boardId: activeBoardId,
+          boardId,
           tags: Array.isArray(sourcePin.tags) ? sourcePin.tags.slice() : [],
           imageUrl: sourcePin.imageUrl,
           imageData: sourcePin.imageData,
@@ -907,7 +1104,7 @@ export function bindModalEvents() {
       closeModal("modal-pin");
       e.target.reset();
       resetPinToggle();
-      _renderBoard(activeBoardId);
+      renderAfterPinChange();
     }
   });
 
@@ -915,11 +1112,7 @@ export function bindModalEvents() {
   document.getElementById("pin-tags-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      const val = e.target.value.trim().replace(/,$/g, "");
-      if (val && !currentPinTags.includes(val)) {
-        currentPinTags.push(val);
-        renderTagList();
-      }
+      addPinTagFromValue(e.target.value);
       e.target.value = "";
     }
     if (e.key === "Backspace" && e.target.value === "" && currentPinTags.length) {
@@ -927,6 +1120,8 @@ export function bindModalEvents() {
       renderTagList();
     }
   });
+
+  document.getElementById("pin-tags-input").addEventListener("focus", renderTagSuggestions);
 
   document.getElementById("tag-list").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-idx]");
@@ -966,9 +1161,15 @@ export function bindModalEvents() {
   // ── Confirm delete ─────────────────────────────
   document.getElementById("btn-confirm-delete").addEventListener("click", () => {
     if (pinToDelete) {
-      deletePinWithHistory(pinToDelete);
+      if (currentView === "board" && activeBoardId) {
+        deletePinWithHistory(pinToDelete);
+      } else {
+        Store.deletePin(pinToDelete);
+      }
       closeModal("modal-delete");
-      _renderBoard(activeBoardId);
+      closeModal("modal-pin");
+      if (currentView === "board" && activeBoardId) _renderBoard(activeBoardId);
+      else _render();
       pinToDelete = null;
     } else if (boardsToDelete) {
       boardsToDelete.forEach(id => Store.deleteBoard(id));
