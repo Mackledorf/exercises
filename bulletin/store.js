@@ -203,7 +203,7 @@ const Store = (function () {
         boardIds,
         placements,
       };
-    });
+    }).filter(pin => pin.boardIds.length > 0 || pin.source === "network");
 
     const groups = (groupsRes.data || []).map(g => ({
       id: g.id,

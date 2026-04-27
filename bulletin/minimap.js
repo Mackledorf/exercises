@@ -14,7 +14,7 @@ const AB_FLAGS = getABFlags();
 let _getPanBoundsWorld = null;
 
 function shouldSkipMinimap() {
-  return AB_FLAGS.noMinimap && (S.currentView === "board" || S.currentView === "home");
+  return S.isCompactViewport() || (AB_FLAGS.noMinimap && (S.currentView === "board" || S.currentView === "home"));
 }
 
 export function init({ getPanBoundsWorld }) {

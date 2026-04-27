@@ -126,12 +126,12 @@ export function getHomeLayoutMetrics() {
   }
 
   const coarsePointer = isCoarsePointer();
-  const bubbleSmall = 64;
-  const bubbleMedium = 112;
-  const bubbleLarge = coarsePointer ? 112 : 136;
-  const bubbleGap = 32;
-  const gridCellW = Math.min(168, Math.max(132, width - 48));
-  const gridCellH = 168;
+  const bubbleSmall = 56;
+  const bubbleMedium = 96;
+  const bubbleLarge = coarsePointer ? 108 : 124;
+  const bubbleGap = 28;
+  const gridCellW = Math.min(148, Math.max(112, width - 56));
+  const gridCellH = 148;
 
   return {
     compact,
@@ -156,7 +156,7 @@ export function getHomeLayoutMetrics() {
     previewPad: 12,
     previewMaxW: bubbleMedium - 18,
     previewMaxH: bubbleMedium - 18,
-    fitPadding: 52,
+    fitPadding: Math.min(112, Math.max(76, width * 0.24)),
   };
 }
 

@@ -1884,18 +1884,19 @@ body.network-mode .network-shell {
 
   .topbar-right {
     min-width: 0;
-    gap: 6px;
+    gap: 8px;
   }
 
   .topbar-profile {
     min-height: 44px;
-    max-width: 52px;
-    padding: 0 4px;
+    min-width: 58px;
+    max-width: none;
+    padding: 0 6px;
     margin: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .topbar-signout {
@@ -1960,25 +1961,16 @@ body.network-mode .network-shell {
   }
 
   .minimap-container {
-    right: calc(var(--app-safe-right) + 10px);
-    bottom: calc(var(--app-safe-bottom) + 76px);
-    gap: 5px;
+    display: none !important;
   }
 
   #minimap {
-    width: 132px;
-    height: 88px;
-    border-radius: 5px;
-    opacity: 0.62;
+    display: none !important;
   }
 
   .topbar-zoom {
     font-size: 11px;
     margin-right: 2px;
-  }
-
-  body.home-mode .minimap-container {
-    bottom: calc(var(--app-safe-bottom) + 72px);
   }
 
   #profile-view,
@@ -2085,16 +2077,14 @@ body.network-mode .network-shell {
 }
 
 @media (max-width: 380px) {
-  body.home-mode .minimap-container {
-    display: none !important;
-  }
-
   .topbar-logo img {
-    width: 86px;
+    width: 80px;
   }
 
   .topbar-profile {
-    max-width: 42px;
+    min-width: 54px;
+    padding: 0 4px;
+    font-size: 11px;
   }
 }
 

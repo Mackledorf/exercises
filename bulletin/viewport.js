@@ -8,6 +8,7 @@ import {
   HOME_WHEEL_GUARD_MS, PAN_BOUND_SCREENS, PIN_W, PIN_H,
   topbarEl, zoomLabel, minimapContainerEl, fabGroupLeft,
   TOPBAR_CLIP_BUFFER,
+  isCompactViewport,
 } from "./state.js";
 
 import { imageAspectCache, getPinImageSrc, clamp, normalizeRect, isSafariBrowser, getABFlags } from "./utils.js";
@@ -330,7 +331,9 @@ export function computeBoardFitTransform(pins) {
   const bounds = getPinsWorldBounds(pins);
   if (!bounds) return d3.zoomIdentity;
 
-  const pad = 200;
+  const pad = isCompactViewport()
+    ? Math.min(180, Math.max(120, width * 0.36))
+    : 200;
   const dx = bounds.width + pad * 2;
   const dy = bounds.height + pad * 2;
   const scale = Math.min(width / dx, height / dy, 1);

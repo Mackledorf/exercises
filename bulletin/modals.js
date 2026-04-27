@@ -481,7 +481,7 @@ export function getSavedPinsWithImages() {
 
   return Store.getAllPins()
     .filter((pin) => pin.imageData || pin.imageUrl)
-    .filter((pin) => !Array.isArray(pin.boardIds) || pin.boardIds.length === 0)
+    .filter((pin) => pin.source === "network" && (!Array.isArray(pin.boardIds) || pin.boardIds.length === 0))
     .sort((a, b) => {
       const aCreatedAt = Number.isFinite(a.createdAt) ? a.createdAt : Number(a.createdAt) || 0;
       const bCreatedAt = Number.isFinite(b.createdAt) ? b.createdAt : Number(b.createdAt) || 0;
@@ -886,11 +886,11 @@ async function addDroppedFilesToNetwork(files) {
   await Promise.all(files.map(async (file) => {
     try {
       const imageUrl = await Store.uploadImage(file);
-      Store.addPin({ imageUrl, tags: [] });
+      Store.addPin({ imageUrl, tags: [], source: "network" });
     } catch (err) {
       console.error("Image upload failed:", err);
       const imageData = await readFileAsDataUrl(file);
-      Store.addPin({ imageData, tags: [] });
+      Store.addPin({ imageData, tags: [], source: "network" });
     }
   }));
 
@@ -1067,15 +1067,17 @@ export function bindModalEvents() {
     if (activeSource === "url") {
       const url = document.getElementById("pin-url").value.trim();
       if (!url) return;
+      const source = pinModalContext === "network" ? "network" : undefined;
 
       if (pinId) {
         Store.updatePin(pinId, { tags, imageUrl: url, imageData: null });
         renderAfterPinChange();
       } else {
-        addPinAndRender({ boardId, tags, imageUrl: url });
+        addPinAndRender({ boardId, tags, imageUrl: url, source });
       }
       finishPinSubmit();
     } else if (activeSource === "file") {
+      const source = pinModalContext === "network" ? "network" : undefined;
       const file = pendingModalPinFile || document.getElementById("pin-file").files[0];
       if (!file && pinId) {
         Store.updatePin(pinId, { tags });
@@ -1091,7 +1093,7 @@ export function bindModalEvents() {
           Store.updatePin(pinId, { tags, imageUrl, imageData: null });
           renderAfterPinChange();
         } else {
-          addPinAndRender({ boardId, tags, imageUrl });
+          addPinAndRender({ boardId, tags, imageUrl, source });
         }
       } catch (err) {
         console.error("Image upload failed:", err);
@@ -1102,7 +1104,7 @@ export function bindModalEvents() {
             Store.updatePin(pinId, { tags, imageData: reader.result, imageUrl: null });
             renderAfterPinChange();
           } else {
-            addPinAndRender({ boardId, tags, imageData: reader.result });
+            addPinAndRender({ boardId, tags, imageData: reader.result, source });
           }
         };
         reader.readAsDataURL(file);

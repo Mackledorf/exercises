@@ -52,7 +52,7 @@ export function renderNetwork() {
   const viewportHeight = viewport?.height || window.innerHeight;
   const width = Math.max(320, wrap.clientWidth || viewportWidth);
   const height = Math.max(320, wrap.clientHeight || viewportHeight - 140);
-  const graph = buildNetworkGraph(Store.getAllPins(), width, height);
+  const graph = buildNetworkGraph(getCurrentNetworkPins(), width, height);
 
   const svg = d3.select(svgEl)
     .attr("viewBox", [0, 0, width, height])
@@ -212,6 +212,13 @@ function bindNetworkEvents() {
       if (_openAddPinModal) _openAddPinModal({ context: "network" });
     });
   }
+}
+
+function getCurrentNetworkPins() {
+  return Store.getAllPins().filter(pin => {
+    const boardIds = Array.isArray(pin.boardIds) ? pin.boardIds : [];
+    return boardIds.length > 0 || pin.source === "network";
+  });
 }
 
 function buildNetworkGraph(allPins, width, height) {
