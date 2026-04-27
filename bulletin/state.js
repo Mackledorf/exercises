@@ -131,7 +131,7 @@ export function getHomeLayoutMetrics() {
   const bubbleLarge = coarsePointer ? 108 : 124;
   const bubbleGap = 28;
   const gridCellW = Math.min(148, Math.max(112, width - 56));
-  const gridCellH = 148;
+  const gridCellH = 188;
 
   return {
     compact,

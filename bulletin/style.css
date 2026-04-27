@@ -242,8 +242,10 @@ body.browser-safari.safari-camera-moving .pin-img {
   transition: r 0.12s ease;
 }
 
-.quick-add-group:hover .quick-add-circle {
-  r: 20;
+@media (hover: hover) and (pointer: fine) {
+  .quick-add-group:hover .quick-add-circle {
+    r: 20;
+  }
 }
 
 @keyframes bubble-pop {
@@ -264,9 +266,11 @@ body.browser-safari.safari-camera-moving .pin-img {
   transition: opacity 0.18s ease;
 }
 
-.board-node:hover .board-label,
-.board-node:hover .board-count {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .board-node:hover .board-label,
+  .board-node:hover .board-count {
+    opacity: 1;
+  }
 }
 
 .group-node {
@@ -357,16 +361,18 @@ body.browser-safari.safari-camera-moving .pin-img {
   cursor: zoom-in;
 }
 
-.group-node:hover .group-edit-icon {
-  opacity: 0.8;
-}
+@media (hover: hover) and (pointer: fine) {
+  .group-node:hover .group-edit-icon {
+    opacity: 0.8;
+  }
 
-.group-node:hover .group-edit-icon:hover {
-  opacity: 1;
-}
+  .group-node:hover .group-edit-icon:hover {
+    opacity: 1;
+  }
 
-.group-node:hover .group-name {
-  opacity: 1;
+  .group-node:hover .group-name {
+    opacity: 1;
+  }
 }
 
 /* Color Swatches */
@@ -386,8 +392,10 @@ body.browser-safari.safari-camera-moving .pin-img {
   transition: transform 0.1s, border-color 0.1s;
 }
 
-.color-swatch:hover {
-  transform: scale(1.1);
+@media (hover: hover) and (pointer: fine) {
+  .color-swatch:hover {
+    transform: scale(1.1);
+  }
 }
 
 .color-swatch.active {
@@ -423,9 +431,11 @@ body.browser-safari.safari-camera-moving .pin-img {
   cursor: pointer;
 }
 
-.board-connection:hover {
-  stroke: rgba(255, 255, 255, 0.6);
-  stroke-width: 3;
+@media (hover: hover) and (pointer: fine) {
+  .board-connection:hover {
+    stroke: rgba(255, 255, 255, 0.6);
+    stroke-width: 3;
+  }
 }
 
 .group-bridge {
@@ -453,9 +463,11 @@ body.browser-safari.safari-camera-moving .pin-img {
   transition: stroke-opacity 0.18s ease, stroke-width 0.18s ease, opacity 0.18s ease;
 }
 
-.board-connection:hover {
-  stroke-opacity: 0.72;
-  stroke-width: 3;
+@media (hover: hover) and (pointer: fine) {
+  .board-connection:hover {
+    stroke-opacity: 0.72;
+    stroke-width: 3;
+  }
 }
 
 .board-connection.selected {
@@ -499,8 +511,10 @@ body.browser-safari.safari-camera-moving .pin-img {
   transition: fill 0.12s ease;
 }
 
-.board-connection-delete:hover .board-connection-delete-bg {
-  fill: rgba(220, 50, 50, 0.95);
+@media (hover: hover) and (pointer: fine) {
+  .board-connection-delete:hover .board-connection-delete-bg {
+    fill: rgba(220, 50, 50, 0.95);
+  }
 }
 
 .board-connection-delete-label {
@@ -520,17 +534,19 @@ body.browser-safari.safari-camera-moving .pin-img {
   pointer-events: auto !important;
 }
 
-.board-node:hover .board-edit-icon,
-.board-edit-icon:hover {
-  opacity: 0.8 !important;
-}
+@media (hover: hover) and (pointer: fine) {
+  .board-node:hover .board-edit-icon,
+  .board-edit-icon:hover {
+    opacity: 0.8 !important;
+  }
 
-.board-edit-icon:hover {
-  opacity: 1 !important;
-}
+  .board-edit-icon:hover {
+    opacity: 1 !important;
+  }
 
-.board-edit-icon:hover path {
-  stroke: #FFF !important;
+  .board-edit-icon:hover path {
+    stroke: #FFF !important;
+  }
 }
 
 .board-label {
@@ -545,8 +561,10 @@ body.browser-safari.safari-camera-moving .pin-img {
   transition: opacity 0.2s ease;
 }
 
-.board-label:hover {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .board-label:hover {
+    opacity: 1;
+  }
 }
 
 .board-count {
@@ -702,8 +720,10 @@ body.board-transition-mask-canvas #canvas {
   pointer-events: none;
 }
 
-.pin-sel-edit:hover .pin-sel-edit-bg {
-  fill: rgba(255, 255, 255, 0.92);
+@media (hover: hover) and (pointer: fine) {
+  .pin-sel-edit:hover .pin-sel-edit-bg {
+    fill: rgba(255, 255, 255, 0.92);
+  }
 }
 
 /* ── Semantic Zoom Culling (CSS-driven) ───────── */
@@ -750,8 +770,15 @@ body.topbar-auto-hidden .topbar {
   pointer-events: auto; /* Allow detection of hover */
 }
 
-body.topbar-auto-hidden .topbar:hover {
+@media (hover: hover) and (pointer: fine) {
+  body.topbar-auto-hidden .topbar:hover {
+    transform: translateY(0);
+  }
+}
+
+body.is-coarse-pointer.topbar-auto-hidden .topbar {
   transform: translateY(0);
+  pointer-events: none;
 }
 
 body.profile-mode .topbar {
@@ -802,8 +829,10 @@ body.profile-mode .topbar {
   pointer-events: all;
 }
 
-.topbar-breadcrumb .crumb-home:hover {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .topbar-breadcrumb .crumb-home:hover {
+    opacity: 1;
+  }
 }
 
 .topbar-breadcrumb .crumb-current,
@@ -841,9 +870,14 @@ body.profile-mode .topbar {
   pointer-events: all;
 }
 
-.topbar-profile:hover,
 .topbar-profile.active {
   opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .topbar-profile:hover {
+    opacity: 1;
+  }
 }
 
 /* ── Profile View ─────────────────────────────── */
@@ -872,6 +906,10 @@ body.profile-mode .topbar {
 
 .profile-header {
   margin-bottom: -12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .profile-user-name {
@@ -879,6 +917,12 @@ body.profile-mode .topbar {
   font-size: 32px;
   font-weight: 500;
   letter-spacing: -0.02em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-signout {
+  flex: 0 0 auto;
 }
 
 .profile-section-title {
@@ -1847,9 +1891,9 @@ body.network-mode .network-shell {
   }
 
   .topbar {
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    padding: 0 10px;
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) auto minmax(44px, 1fr);
+    padding: 0 12px;
+    gap: 4px;
   }
 
   .topbar-logo {
@@ -1858,22 +1902,25 @@ body.network-mode .network-shell {
   }
 
   .topbar-logo img {
-    width: 96px;
+    width: 84px;
     max-height: 18px;
   }
 
   .topbar-breadcrumb {
     min-width: 0;
     overflow: hidden;
-    gap: 6px;
-    font-size: 13px;
+    gap: 4px;
+    font-size: 12px;
     white-space: nowrap;
   }
 
   .topbar-breadcrumb .crumb {
+    flex: 0 1 auto;
+    max-width: 68px;
     min-height: 44px;
-    padding: 0 4px;
-    margin: 0 -4px;
+    padding: 0 5px;
+    margin: 0;
+    justify-content: center;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -1884,26 +1931,34 @@ body.network-mode .network-shell {
 
   .topbar-right {
     min-width: 0;
-    gap: 8px;
+    gap: 0;
   }
 
   .topbar-profile {
     min-height: 44px;
-    min-width: 58px;
-    max-width: none;
-    padding: 0 6px;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    justify-content: center;
+    padding: 0;
     margin: 0;
-    overflow: visible;
-    text-overflow: clip;
-    white-space: nowrap;
-    font-size: 12px;
+    overflow: hidden;
+    font-size: 0;
+    opacity: 0.78;
+  }
+
+  .topbar-profile::before {
+    content: "";
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    box-shadow: inset 0 -5px 0 -3px currentColor;
+    opacity: 0.9;
   }
 
   .topbar-signout {
-    width: 40px;
-    height: 44px;
-    justify-content: center;
-    padding: 0;
+    display: none;
   }
 
   .ab-badges {
@@ -1966,6 +2021,14 @@ body.network-mode .network-shell {
 
   #minimap {
     display: none !important;
+  }
+
+  .board-label,
+  .board-count,
+  .board-edit-icon,
+  .group-name,
+  .group-edit-icon {
+    opacity: 1;
   }
 
   .topbar-zoom {
@@ -2078,13 +2141,15 @@ body.network-mode .network-shell {
 
 @media (max-width: 380px) {
   .topbar-logo img {
-    width: 80px;
+    width: 72px;
   }
 
   .topbar-profile {
-    min-width: 54px;
-    padding: 0 4px;
-    font-size: 11px;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    padding: 0;
+    font-size: 0;
   }
 }
 
@@ -2939,9 +3004,11 @@ body.auth-mode #network-view {
   transition: opacity 0.15s;
 }
 
-.topbar-signout:hover {
-  opacity: 1;
-  color: #ff4d4f; /* Pinkish-red color */
+@media (hover: hover) and (pointer: fine) {
+  .topbar-signout:hover {
+    opacity: 1;
+    color: #ff4d4f; /* Pinkish-red color */
+  }
 }
 
 
@@ -2973,6 +3040,28 @@ body.auth-mode #network-view {
   background: #ff3b30;
   color: white;
   border-color: #ff3b30;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .profile-board-card:hover,
+  .saved-pin-tile:hover,
+  .fab:hover,
+  .align-btn:hover,
+  .fab-add-pin-btn:hover,
+  .fab-select-btn:hover,
+  .network-add-pin-btn:hover,
+  .explore-save-btn:hover {
+    transform: none;
+  }
+
+  .profile-board-card:hover {
+    opacity: 1;
+  }
+
+  .explore-pin-card:hover .explore-pin-overlay {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 /* Hide badges if none active or in production-like state if desired, 

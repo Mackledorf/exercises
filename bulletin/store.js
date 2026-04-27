@@ -208,6 +208,7 @@ const Store = (function () {
     const groups = (groupsRes.data || []).map(g => ({
       id: g.id,
       name: g.name || "Untitled Group",
+      color: g.color || null,
       createdAt: new Date(g.created_at).getTime(),
     }));
 

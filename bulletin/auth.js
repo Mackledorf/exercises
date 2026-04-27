@@ -248,6 +248,7 @@ const Auth = (function () {
   function _bindEvents() {
     const form = document.getElementById("auth-form");
     const signOutBtn = document.getElementById("topbar-signout");
+    const profileSignOutBtn = document.getElementById("btn-profile-signout");
     let isSignUp = false;
 
     if (form) {
@@ -322,10 +323,8 @@ const Auth = (function () {
       });
     }
 
-    if (signOutBtn) {
-      console.log("Binding signOutBtn click");
-      signOutBtn.addEventListener("click", async (e) => {
-        console.log("Signout clicked");
+    [signOutBtn, profileSignOutBtn].filter(Boolean).forEach((button) => {
+      button.addEventListener("click", async (e) => {
         e.preventDefault();
         try {
           await signOut();
@@ -334,7 +333,7 @@ const Auth = (function () {
           console.error("Sign out failed:", err);
         }
       });
-    }
+    });
   }
 
   return {

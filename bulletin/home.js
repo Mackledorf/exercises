@@ -569,6 +569,118 @@ function _setNodeHoverRadius(nodeId, visualRadius) {
   _transitionBubbles(400);
 }
 
+function shouldUseHomeHoverEffects() {
+  return typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+function getBoardMetadataLayout(metrics) {
+  const compact = metrics.compact || metrics.coarsePointer;
+  if (!compact) {
+    return {
+      labelMaxWidth: Math.max(180, metrics.hoverRadius * 1.55),
+      labelMaxLines: 1,
+      labelFontSize: 14,
+      labelLineHeight: 16,
+      labelCenterY: 4,
+      countY: 22,
+      countFontSize: 11,
+      editY: metrics.boardRadius + 12,
+      editHitRadius: 15,
+      editIconTransform: "translate(-8, -8) scale(0.65)",
+    };
+  }
+
+  return {
+    labelMaxWidth: Math.max(74, metrics.boardRadius * 1.58),
+    labelMaxLines: 2,
+    labelFontSize: 11,
+    labelLineHeight: 13,
+    labelCenterY: -5,
+    countY: 24,
+    countFontSize: 10,
+    editY: metrics.boardRadius + 22,
+    editHitRadius: 22,
+    editIconTransform: "translate(-8, -8) scale(0.7)",
+  };
+}
+
+function wrapBoardLabel(value, maxWidth, fontSize, maxLines) {
+  const text = String(value || "Untitled Board").trim() || "Untitled Board";
+  const maxChars = Math.max(6, Math.floor(maxWidth / Math.max(1, fontSize * 0.56)));
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let didTruncate = false;
+
+  function pushLongWord(word) {
+    let rest = word;
+    while (rest.length > maxChars && lines.length < maxLines) {
+      lines.push(rest.slice(0, maxChars));
+      rest = rest.slice(maxChars);
+    }
+    return rest;
+  }
+
+  words.forEach(word => {
+    const current = lines[lines.length - 1] || "";
+    const next = current ? `${current} ${word}` : word;
+
+    if (next.length <= maxChars) {
+      if (current) lines[lines.length - 1] = next;
+      else lines.push(next);
+      return;
+    }
+
+    if (lines.length >= maxLines) {
+      didTruncate = true;
+      return;
+    }
+
+    if (!current && word.length > maxChars) {
+      const rest = pushLongWord(word);
+      if (rest && lines.length < maxLines) lines.push(rest);
+      if (rest && lines.length >= maxLines) didTruncate = true;
+      return;
+    }
+
+    if (lines.length < maxLines) {
+      if (word.length > maxChars) {
+        const rest = pushLongWord(word);
+        if (rest && lines.length < maxLines) lines.push(rest);
+      } else {
+        lines.push(word);
+      }
+    }
+  });
+
+  if (lines.length === 0) lines.push("Untitled");
+
+  const joined = lines.join(" ");
+  if ((didTruncate || joined.length < text.length) && lines.length > 0) {
+    const lastIndex = lines.length - 1;
+    const budget = Math.max(3, maxChars - 3);
+    lines[lastIndex] = `${lines[lastIndex].slice(0, budget).trimEnd()}...`;
+  }
+
+  return lines.slice(0, maxLines);
+}
+
+function renderWrappedBoardLabel(selection, layout) {
+  selection.each(function(d) {
+    const text = d3.select(this);
+    const lines = wrapBoardLabel(d.name, layout.labelMaxWidth, layout.labelFontSize, layout.labelMaxLines);
+    const startY = layout.labelCenterY - ((lines.length - 1) * layout.labelLineHeight) / 2;
+
+    text.selectAll("tspan")
+      .data(lines)
+      .join("tspan")
+      .attr("x", 0)
+      .attr("y", (_, index) => startY + index * layout.labelLineHeight)
+      .text(line => line);
+  });
+}
+
 // ── Main render ──────────────────────────────────
 
 export function renderHome(boards) {
@@ -722,7 +834,7 @@ export function renderHome(boards) {
       zoomToGroupNode(d, layout);
     })
     .on("mouseenter", function(event, d) {
-      if (shouldSuspendHomeMotionEffects()) return;
+      if (shouldSuspendHomeMotionEffects() || !shouldUseHomeHoverEffects()) return;
       applyHomeFocus({ groupId: d.groupId });
       d3.select(this).raise();
       d3.select(this).select(".group-bubble")
@@ -732,7 +844,7 @@ export function renderHome(boards) {
       _setNodeHoverRadius(`gc-${d.groupId}`, metrics.groupHoverRadius);
     })
     .on("mouseleave", function(event, d) {
-      if (shouldSuspendHomeMotionEffects()) return;
+      if (shouldSuspendHomeMotionEffects() || !shouldUseHomeHoverEffects()) return;
       applyHomeFocus(null);
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(240)
@@ -796,6 +908,7 @@ export function renderHome(boards) {
 
   // ── Board bubbles (dark grey circles) ──────────
   const boardR = metrics.boardRadius;
+  const metadataLayout = getBoardMetadataLayout(metrics);
 
   const boardGroups = masterG.selectAll("g.board-node")
     .data(boards, d => d.id)
@@ -957,16 +1070,17 @@ export function renderHome(boards) {
     .style("mix-blend-mode", "multiply")
     .style("pointer-events", "none");
 
-  // Board name (visible on hover, rendered on top)
-  boardGroups.append("text")
+  // Board name (visible on hover/fine pointer, always visible on touch)
+  const boardLabels = boardGroups.append("text")
     .attr("class", "board-label")
-    .attr("y", 4)
-    .text(d => d.name);
+    .style("font-size", `${metadataLayout.labelFontSize}px`);
+  renderWrappedBoardLabel(boardLabels, metadataLayout);
 
   // Pin count (visible on hover)
   boardGroups.append("text")
     .attr("class", "board-count")
-    .attr("y", 22)
+    .attr("y", metadataLayout.countY)
+    .style("font-size", `${metadataLayout.countFontSize}px`)
     .text(d => {
       const count = Store.getPins(d.id).length;
       return count === 0 ? "no pins yet" : count + (count === 1 ? " pin" : " pins");
@@ -975,7 +1089,7 @@ export function renderHome(boards) {
   // Board edit icon (visible on hover)
   const editIconGroup = boardGroups.append("g")
     .attr("class", "board-edit-icon")
-    .attr("transform", `translate(0, ${boardR + 12})`) // Moved to bottom
+    .attr("transform", `translate(0, ${metadataLayout.editY})`)
     .attr("pointer-events", "all")
     .style("cursor", "pointer")
     .on("click", (event, d) => {
@@ -984,7 +1098,7 @@ export function renderHome(boards) {
     });
 
   editIconGroup.append("circle")
-    .attr("r", 15) // Slightly larger hit area
+    .attr("r", metadataLayout.editHitRadius)
     .attr("fill", "rgba(255,255,255,0.01)");
 
   // Using a path for the edit icon
@@ -995,7 +1109,7 @@ export function renderHome(boards) {
     .attr("stroke-width", "2")
     .attr("stroke-linecap", "round")
     .attr("stroke-linejoin", "round")
-    .attr("transform", "translate(-8, -8) scale(0.65)"); // Centered and scaled down properly
+    .attr("transform", metadataLayout.editIconTransform);
 
   if (window.lucide) {
     window.lucide.createIcons();
@@ -1004,7 +1118,7 @@ export function renderHome(boards) {
   // ── Board bubble hover animation (d3 transitions) ──
   boardGroups
     .on("mouseenter.bubble", function(event, d) {
-      if (shouldSuspendHomeMotionEffects()) return;
+      if (shouldSuspendHomeMotionEffects() || !shouldUseHomeHoverEffects()) return;
       applyHomeFocus({ boardId: d.id });
       const g = d3.select(this);
       g.raise(); // paint on top
@@ -1024,7 +1138,7 @@ export function renderHome(boards) {
       _setNodeHoverRadius(d.id, metrics.hoverRadius);
     })
     .on("mouseleave.bubble", function(event, d) {
-      if (shouldSuspendHomeMotionEffects()) return;
+      if (shouldSuspendHomeMotionEffects() || !shouldUseHomeHoverEffects()) return;
       applyHomeFocus(null);
       const g = d3.select(this);
       g.select(".board-bubble")

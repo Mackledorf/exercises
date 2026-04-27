@@ -953,9 +953,10 @@ export function bindModalEvents() {
     const id    = document.getElementById("board-id").value;
     const name  = document.getElementById("modal-board-title").textContent.trim();
     if (!name) return;
+    const selectedGroupColor = document.getElementById("group-color-value")?.value || "#FFFFFF";
 
     if (id === "__group_mode__") {
-      const newGroup = Store.addGroup({ name });
+      const newGroup = Store.addGroup({ name, color: selectedGroupColor });
       const boardIds = Array.from(multiSelectedBoardIds);
       boardIds.forEach(bid => {
         Store.updateBoard(bid, { groupId: newGroup.id });
@@ -964,7 +965,7 @@ export function bindModalEvents() {
       // Selection mode is managed by the caller via callbacks if needed
     } else if (id.startsWith("__group_edit__:")) {
       const groupId = id.split(":")[1];
-      const color = document.getElementById("group-color-value").value;
+      const color = selectedGroupColor;
       const deleteBtn = document.getElementById("btn-delete-board");
 
       Store.updateGroup(groupId, { name, color });
@@ -977,7 +978,7 @@ export function bindModalEvents() {
         const newNameInput = document.getElementById("board-new-group-name");
         const newName = newNameInput ? newNameInput.value.trim() : "";
         if (newName) {
-          const newGroup = Store.addGroup({ name: newName });
+          const newGroup = Store.addGroup({ name: newName, color: "#FFFFFF" });
           groupId = newGroup.id;
         } else {
           groupId = "";
