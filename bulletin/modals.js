@@ -229,16 +229,17 @@ function renderGroupColorSwatches(selectedColor) {
   container.innerHTML = "";
 
   const colors = [
-    "#ffffff", // Default/none
-    "#FFB7B2", // Salmon
-    "#FFDAC1", // Peach
-    "#E2F0CB", // Mint
-    "#B5EAD7", // Teal
-    "#C7CEEA", // Periwinkle
-    "#FF9AA2", // Pink
-    "#B8F2E6", // Aqua
-    "#F7AEF8", // Lavender
-    "#A0C4FF", // Sky
+    "#FFFFFF", // White/Default
+    "#FFADAD", // Red (Warm Pastel)
+    "#FFD6A5", // Orange
+    "#FDFFB6", // Yellow
+    "#CAFFBF", // Lime
+    "#9BFBC0", // Green/Mint
+    "#98F5E1", // Turquoise
+    "#A0C4FF", // Sky Blue
+    "#BDB2FF", // Indigo/Purple
+    "#FFC6FF", // Violet/Pink
+    "#FFFFFC", // Off-white
   ];
 
   // If selectedColor is not in list but exists, add it (edge case)
@@ -294,8 +295,10 @@ export function openAddPinModal(options = {}) {
     if (savedToggle) savedToggle.hidden = true;
     if (tagsInput) tagsInput.placeholder = "Tag this pin…";
     if (tagsHint) tagsHint.textContent = "Optional, but tags are what connect pins in Network.";
+    lockedPinTags = [];
+    renderTagList();
   } else {
-    lockedPinTags = getLockedBoardTagsForPin(null, activeBoardId);
+    lockedPinTags = [];
     renderTagList();
   }
 
@@ -313,8 +316,8 @@ export function openEditPinModal(pin) {
 
   document.getElementById("modal-pin-title").textContent = "Edit Pin";
   document.getElementById("pin-id").value = pin.id;
-  lockedPinTags = getLockedBoardTagsForPin(pin, pinModalContext === "board" ? activeBoardId : null);
-  currentPinTags = removeLockedTags(Array.isArray(pin.tags) ? pin.tags.slice() : [], lockedPinTags);
+  lockedPinTags = [];
+  currentPinTags = Array.isArray(pin.tags) ? pin.tags.slice() : [];
   renderTagList();
   document.querySelector("#form-pin button[type='submit']").textContent = "Update";
   document.getElementById("btn-pin-delete").textContent = "Remove";
@@ -365,13 +368,10 @@ export function openDeleteBoardConfirmation(boardIds) {
 
 export function renderTagList() {
   const list = document.getElementById("tag-list");
-  const lockedMarkup = lockedPinTags.map(t =>
-    `<span class="tag-pill tag-pill-locked" title="Board tag">${escapeHtml(t)}</span>`
-  ).join("");
   const editableMarkup = currentPinTags.map((t, i) =>
     `<span class="tag-pill">${escapeHtml(t)}<button type="button" data-idx="${i}">&times;</button></span>`
   ).join("");
-  list.innerHTML = lockedMarkup + editableMarkup;
+  list.innerHTML = editableMarkup;
   renderTagSuggestions();
 }
 

@@ -166,13 +166,13 @@ export function renderNetwork() {
   });
 
   simulation = d3.forceSimulation(graph.nodes)
-    .force("link", d3.forceLink(graph.links).id(d => d.id).distance(d => d.kind === "untagged" ? 140 : 160).strength(0.22))
-    .force("charge", d3.forceManyBody().strength(d => d.type === "tag" ? -1050 : -190))
+    .force("link", d3.forceLink(graph.links).id(d => d.id).distance(d => d.kind === "untagged" ? 20 : 40).strength(0.5))
+    .force("charge", d3.forceManyBody().strength(d => d.type === "tag" ? -400 : -20))
     .force("collide", d3.forceCollide().radius(networkCollisionRadius).iterations(4))
-    .force("pinOrbit", forcePinsAroundTags(graph.links).strength(0.035))
+    .force("pinOrbit", forcePinsAroundTags(graph.links).strength(0.12))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("x", d3.forceX(d => d.type === "tag" ? d.anchorX : width / 2).strength(d => d.type === "tag" ? 0.12 : 0.025))
-    .force("y", d3.forceY(d => d.type === "tag" ? d.anchorY : height / 2).strength(d => d.type === "tag" ? 0.12 : 0.025))
+    .force("x", d3.forceX(d => d.type === "tag" ? d.anchorX : width / 2).strength(d => d.type === "tag" ? 0.15 : 0.08))
+    .force("y", d3.forceY(d => d.type === "tag" ? d.anchorY : height / 2).strength(d => d.type === "tag" ? 0.15 : 0.08))
     .on("tick", () => {
       links
         .attr("x1", d => linkEndpoint(d.source, d.target).x)
@@ -316,12 +316,7 @@ function normalizeTags(tags) {
 }
 
 function getEffectivePinTags(pin) {
-  const boardTags = Array.isArray(pin.boardIds)
-    ? pin.boardIds.map(boardId => Store.getBoard(boardId)?.name).filter(Boolean)
-    : pin.boardId
-      ? [Store.getBoard(pin.boardId)?.name].filter(Boolean)
-      : [];
-  return normalizeTags([...boardTags, ...(Array.isArray(pin.tags) ? pin.tags : [])]);
+  return normalizeTags(Array.isArray(pin.tags) ? pin.tags : []);
 }
 
 function buildAdjacency(links) {

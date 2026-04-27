@@ -193,7 +193,7 @@ const Store = (function () {
       return {
         id: p.id,
         sharedPinId: p.shared_pin_id || p.id,
-        tags: Array.isArray(p.tags) ? p.tags : [],
+        tags: [], // WIPED: Fresh start with tags
         imageUrl: p.image_url || "",
         imageData: null, // no longer storing base64
         linkUrl: p.link_url || null,
@@ -219,6 +219,12 @@ const Store = (function () {
     }));
 
     _data = { boards, pins, groups, connections };
+
+    // Migration/Cleanup: Wipe all tags from DB for a fresh start
+    _sb().from("pins").update({ tags: [] }).neq("id", "00000000-0000-0000-0000-000000000000").then(({ error }) => {
+      if (error) console.error("Error wiping tags:", error);
+    });
+
     _ready = true;
   }
 
@@ -422,7 +428,7 @@ const Store = (function () {
     const pin = {
       id: pinId,
       sharedPinId: sharedPinId || pinId,
-      tags: _mergeTags(tags, _boardTagsForBoardIds(nextBoardIds)),
+      tags: _uniqueTags(tags),
       imageUrl: imageUrl || "",
       imageData: imageData || null,
       linkUrl: linkUrl || null,
@@ -486,10 +492,7 @@ const Store = (function () {
 
     const sharedPins = _data.pins.filter(entry => (entry.sharedPinId || entry.id) === sharedPinId);
     if ("tags" in nextChanges) {
-      nextChanges.tags = _mergeTags(
-        nextChanges.tags,
-        sharedPins.flatMap(entry => _boardTagsForBoardIds(entry.boardIds))
-      );
+      nextChanges.tags = _uniqueTags(nextChanges.tags);
     }
 
     // Update all pins sharing the same sharedPinId in cache
@@ -560,7 +563,6 @@ const Store = (function () {
       ...pin.placements[boardId],
       ...placement,
     });
-    pin.tags = _mergeTags(pin.tags, _boardTagsForBoardIds(pin.boardIds));
 
     const p = pin.placements[boardId];
     _sb().from("board_pins").upsert(_buildBoardPinPayload({
@@ -572,8 +574,6 @@ const Store = (function () {
     }), { onConflict: "pin_id,board_id" }).then(({ error }) => {
       if (error) _logSupabaseError("upsert board_pin (attach)", error);
     });
-
-    _dbUpdate("pins", id, { tags: pin.tags });
 
     return getPin(id, boardId);
   }

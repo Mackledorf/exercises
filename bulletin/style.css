@@ -325,21 +325,34 @@ body.browser-safari.safari-camera-moving .pin-img {
 }
 
 .group-edit-icon {
-  fill: #fff;
-  stroke: none;
   opacity: 0;
-  transition: opacity 0.2s, transform 0.2s;
-  cursor: pointer;
-  pointer-events: all;
+  transition: opacity 0.2s ease;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 10;
+}
+
+.group-edit-icon path {
+  fill: none;
+  stroke: #000 !important;
+  pointer-events: none;
+}
+
+.group-edit-icon circle {
+  pointer-events: auto;
+}
+
+.group-hit-area {
+  cursor: zoom-in;
 }
 
 .group-node:hover .group-edit-icon {
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .group-node:hover .group-edit-icon:hover {
   opacity: 1;
-  transform: scale(1.1);
 }
 
 .group-node:hover .group-name {
@@ -359,7 +372,7 @@ body.browser-safari.safari-camera-moving .pin-img {
   height: 24px;
   border-radius: 50%;
   cursor: pointer;
-  border: 2px solid transparent;
+  border: 1px solid rgba(0,0,0,0.1);
   transition: transform 0.1s, border-color 0.1s;
 }
 
@@ -369,6 +382,7 @@ body.browser-safari.safari-camera-moving .pin-img {
 
 .color-swatch.active {
   border-color: #171717;
+  border-width: 2px;
   transform: scale(1.1);
 }
 
@@ -377,6 +391,9 @@ body.browser-safari.safari-camera-moving .pin-img {
 }
 
 @media (prefers-color-scheme: dark) {
+  .color-swatch {
+    border-color: rgba(255,255,255,0.2);
+  }
   .color-swatch.active {
     border-color: #fff;
   }
@@ -495,7 +512,11 @@ body.browser-safari.safari-camera-moving .pin-img {
 
 .board-node:hover .board-edit-icon,
 .board-edit-icon:hover {
-  opacity: 0.9 !important;
+  opacity: 0.8 !important;
+}
+
+.board-edit-icon:hover {
+  opacity: 1 !important;
 }
 
 .board-edit-icon:hover path {
@@ -1523,7 +1544,7 @@ body.network-mode .network-shell {
 .network-empty {
   position: absolute;
   right: 24px;
-  top: 24px;
+  top: 90px;
   max-width: 280px;
   background: var(--alt-grey);
   border: 1px solid rgba(238, 235, 231, 0.18);

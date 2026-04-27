@@ -758,7 +758,7 @@ export function renderHome(boards) {
     // Group Edit Icon
     const groupEditIcon = g.append("g")
       .attr("class", "group-edit-icon")
-      .attr("transform", `translate(0, ${BUBBLE_SMALL / 2 + 16})`)
+      .attr("transform", "translate(0, 22)")
       .on("click", (event) => {
         event.stopPropagation();
         const group = Store.getGroups().find(gr => gr.id === groupNode.groupId);
@@ -768,21 +768,26 @@ export function renderHome(boards) {
       });
 
     groupEditIcon.append("circle")
-      .attr("r", 12)
+      .attr("r", 15) // Back to slightly larger hit area for easier clicking
       .attr("fill", "rgba(255,255,255,0.01)");
 
     groupEditIcon.append("path")
       .attr("d", "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z")
       .attr("fill", "none")
-      .attr("stroke", "currentColor")
+      .attr("stroke", "#000")
       .attr("stroke-width", "2")
       .attr("stroke-linecap", "round")
       .attr("stroke-linejoin", "round")
-      .style("opacity", "0.7");
+      .attr("transform", "translate(-8, -8) scale(0.65)");
 
     g.append("circle")
       .attr("class", "group-hit-area")
-      .attr("r", BUBBLE_LARGE / 2);
+      .attr("r", BUBBLE_LARGE / 2)
+      .style("pointer-events", "auto") // Re-enable pointer events
+      .style("fill", "transparent");  // Keep it invisible but interactive
+
+    // Move the edit icon to the front so it's above the hit-area
+    groupEditIcon.raise();
   });
 
   // ── Board bubbles (dark grey circles) ──────────
@@ -975,18 +980,18 @@ export function renderHome(boards) {
     });
 
   editIconGroup.append("circle")
-    .attr("r", 12)
+    .attr("r", 15) // Slightly larger hit area
     .attr("fill", "rgba(255,255,255,0.01)");
 
-  // Using a path instead of foreignObject for Safari compatibility
+  // Using a path for the edit icon
   editIconGroup.append("path")
     .attr("d", "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z")
     .attr("fill", "none")
-    .attr("stroke", "#EEEBE7")
-    .attr("stroke-width", "1.5")
+    .attr("stroke", "#FFF")
+    .attr("stroke-width", "2")
     .attr("stroke-linecap", "round")
     .attr("stroke-linejoin", "round")
-    .attr("transform", "scale(0.7) translate(-12, -12)");
+    .attr("transform", "translate(-8, -8) scale(0.65)"); // Centered and scaled down properly
 
   if (window.lucide) {
     window.lucide.createIcons();
