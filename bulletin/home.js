@@ -28,6 +28,19 @@ let homePreviewHydrateQueued = false;
 let lastHomeLayout = null;
 let connectionDrag = null;  // { sourceId, tempLine }
 let _bubbleNodes = [];       // deterministic bubble positions
+let connectModeActive = false;
+let pendingConnectionSourceId = null;
+
+const HOME_GROUP_COLORS = [
+  "#c7f28a",
+  "#ffd166",
+  "#8ecae6",
+  "#f4a261",
+  "#e9ff70",
+  "#b8f2e6",
+  "#f7aef8",
+  "#a0c4ff",
+];
 
 // ── Callback injection ───────────────────────────
 let _enterBoard = null;
@@ -90,6 +103,44 @@ export function measureBoardActionRowWidth() {
   return widthPx;
 }
 
+function hashString(value) {
+  const str = String(value || "");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getGroupColor(groupId) {
+  return HOME_GROUP_COLORS[hashString(groupId) % HOME_GROUP_COLORS.length];
+}
+
+function makeStraightPath(x1, y1, x2, y2) {
+  return `M${x1},${y1}L${x2},${y2}`;
+}
+
+function makeCurvedPath(x1, y1, x2, y2, key = "", curve = 0.16) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const bend = Math.min(120, Math.max(28, dist * curve));
+  const sign = hashString(key) % 2 === 0 ? 1 : -1;
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const cx = mx + (-dy / dist) * bend * sign;
+  const cy = my + (dx / dist) * bend * sign;
+  return `M${x1},${y1}Q${cx},${cy} ${x2},${y2}`;
+}
+
+function setHomeConnectMode(nextActive, { render = true } = {}) {
+  connectModeActive = !!nextActive;
+  if (!connectModeActive) pendingConnectionSourceId = null;
+  updateHomeActionRow();
+  if (render && currentView === "home" && typeof _render === "function") _render();
+}
+
 export function ensureHomeAddBoardButton() {
   let group = document.getElementById("home-add-board-group");
   if (!group) {
@@ -105,6 +156,7 @@ export function ensureHomeAddBoardButton() {
     button.className = "btn btn-primary fab-add-pin-btn home-add-board-btn";
     button.textContent = "+ Add Board";
     button.addEventListener("click", () => {
+      if (connectModeActive) setHomeConnectMode(false, { render: false });
       if (multiSelectedBoardIds.size > 1) {
         openGroupModal();
       } else {
@@ -118,10 +170,26 @@ export function ensureHomeAddBoardButton() {
     selectBtn.title = "Selection Mode";
     selectBtn.innerHTML = `<i data-lucide="square-dashed-mouse-pointer"></i>`;
     selectBtn.addEventListener("click", () => {
+      if (!selectionModeActive && connectModeActive) {
+        setHomeConnectMode(false, { render: false });
+      }
       _setSelectionModeActive(!selectionModeActive);
     });
 
+    const connectBtn = document.createElement("button");
+    connectBtn.id = "btn-home-connect-mode";
+    connectBtn.className = "fab-select-btn";
+    connectBtn.title = "Connect Boards";
+    connectBtn.innerHTML = `<i data-lucide="waypoints"></i>`;
+    connectBtn.addEventListener("click", () => {
+      if (!connectModeActive && selectionModeActive) {
+        _setSelectionModeActive(false);
+      }
+      setHomeConnectMode(!connectModeActive);
+    });
+
     btnWrapper.appendChild(button);
+    btnWrapper.appendChild(connectBtn);
     btnWrapper.appendChild(selectBtn);
     group.appendChild(btnWrapper);
     document.body.appendChild(group);
@@ -136,11 +204,22 @@ export function ensureHomeAddBoardButton() {
     const widthPx = measureBoardActionRowWidth();
   }
 
+  updateHomeActionRow();
+
   return group;
 }
 
 export function updateHomeActionRow() {
   const button = document.getElementById("btn-home-add-board");
+  const connectBtn = document.getElementById("btn-home-connect-mode");
+
+  if (connectBtn) {
+    connectBtn.classList.toggle("active", connectModeActive);
+    connectBtn.classList.toggle("is-pending", !!pendingConnectionSourceId);
+    connectBtn.title = pendingConnectionSourceId ? "Choose another board" : "Connect Boards";
+    connectBtn.setAttribute("aria-pressed", connectModeActive ? "true" : "false");
+  }
+
   if (!button) return;
 
   if (multiSelectedBoardIds.size > 1) {
@@ -366,6 +445,7 @@ export function computeHomeLayout() {
       groupNodes.push({
         groupId: entry.group.id,
         groupName: entry.group.name,
+        groupColor: getGroupColor(entry.group.id),
         cx,
         cy,
         boardIds,
@@ -485,6 +565,8 @@ function _resolveOverlaps() {
 /** D3-transition every board node <g> to its current _bubbleNodes position */
 function _transitionBubbles(durationMs) {
   if (shouldSuspendHomeMotionEffects()) return;
+  const nodesById = new Map(_bubbleNodes.map(node => [node.id, node]));
+
   _bubbleNodes.forEach(node => {
     if (node.isCenter) return;
     masterG.selectAll("g.board-node")
@@ -494,6 +576,28 @@ function _transitionBubbles(durationMs) {
       .ease(d3.easeCubicInOut)
       .attr("transform", `translate(${node.x},${node.y})`);
   });
+
+  masterG.selectAll("path.group-board-arm")
+    .transition("bubble-pos")
+    .duration(durationMs)
+    .ease(d3.easeCubicInOut)
+    .attr("d", d => {
+      const groupNode = nodesById.get(`gc-${d.groupId}`);
+      const boardNode = nodesById.get(d.boardId);
+      if (!groupNode || !boardNode) return d.path;
+      return makeStraightPath(groupNode.x, groupNode.y, boardNode.x, boardNode.y);
+    });
+
+  masterG.selectAll("path.board-connection")
+    .transition("bubble-pos")
+    .duration(durationMs)
+    .ease(d3.easeCubicInOut)
+    .attr("d", d => {
+      const sourceNode = nodesById.get(d.sourceId);
+      const targetNode = nodesById.get(d.targetId);
+      if (!sourceNode || !targetNode) return d.path;
+      return makeCurvedPath(sourceNode.x, sourceNode.y, targetNode.x, targetNode.y, d.id);
+    });
 }
 
 /** Called on hover enter/leave — changes a node's radius, resolves, transitions */
@@ -524,9 +628,13 @@ export function renderHome(boards) {
 
   const layout = computeHomeLayout();
   const { allBoardPositions, groupNodes, groupBounds } = layout;
+  const groupsById = new Map(groupNodes.map(groupNode => [groupNode.groupId, groupNode]));
+  const boardGroupIds = new Map(boards.map(board => [board.id, board.groupId || null]));
+
   boards.forEach(b => {
     const pos = allBoardPositions.get(b.id);
     if (pos) { b._x = pos.x; b._y = pos.y; }
+    b._groupColor = b.groupId ? getGroupColor(b.groupId) : null;
   });
 
   // ── Build bubble nodes for deterministic overlap resolution ──
@@ -593,6 +701,156 @@ export function renderHome(boards) {
 
   const defs = masterG.append("defs");
 
+  const connections = Store.getConnections();
+
+  const groupArmData = [];
+  groupNodes.forEach((groupNode) => {
+    groupNode.boardIds.forEach((boardId) => {
+      const boardPos = allBoardPositions.get(boardId);
+      if (!boardPos) return;
+      groupArmData.push({
+        id: `${groupNode.groupId}:${boardId}`,
+        groupId: groupNode.groupId,
+        boardId,
+        color: groupNode.groupColor,
+        x1: groupNode.cx,
+        y1: groupNode.cy,
+        x2: boardPos.x,
+        y2: boardPos.y,
+        path: makeStraightPath(groupNode.cx, groupNode.cy, boardPos.x, boardPos.y),
+      });
+    });
+  });
+
+  const connectionData = connections.map(c => {
+    const srcPos = allBoardPositions.get(c.sourceId);
+    const tgtPos = allBoardPositions.get(c.targetId);
+    if (!srcPos || !tgtPos) return null;
+    const sourceGroupId = boardGroupIds.get(c.sourceId);
+    const targetGroupId = boardGroupIds.get(c.targetId);
+    return {
+      ...c,
+      sourceGroupId,
+      targetGroupId,
+      x1: srcPos.x,
+      y1: srcPos.y,
+      x2: tgtPos.x,
+      y2: tgtPos.y,
+      path: makeCurvedPath(srcPos.x, srcPos.y, tgtPos.x, tgtPos.y, c.id),
+    };
+  }).filter(Boolean);
+
+  const bridgePairs = new Map();
+  connectionData.forEach((connection) => {
+    const sourceGroupId = connection.sourceGroupId;
+    const targetGroupId = connection.targetGroupId;
+    if (!sourceGroupId || !targetGroupId || sourceGroupId === targetGroupId) return;
+    const pair = [sourceGroupId, targetGroupId].sort();
+    const key = pair.join(":");
+    const existing = bridgePairs.get(key) || {
+      key,
+      sourceGroupId: pair[0],
+      targetGroupId: pair[1],
+      count: 0,
+      color: getGroupColor(pair[0]),
+    };
+    existing.count += 1;
+    bridgePairs.set(key, existing);
+  });
+
+  const bridgeData = Array.from(bridgePairs.values()).map((bridge) => {
+    const sourceGroup = groupsById.get(bridge.sourceGroupId);
+    const targetGroup = groupsById.get(bridge.targetGroupId);
+    if (!sourceGroup || !targetGroup) return null;
+    return {
+      ...bridge,
+      x1: sourceGroup.cx,
+      y1: sourceGroup.cy,
+      x2: targetGroup.cx,
+      y2: targetGroup.cy,
+      path: makeCurvedPath(sourceGroup.cx, sourceGroup.cy, targetGroup.cx, targetGroup.cy, bridge.key, 0.1),
+    };
+  }).filter(Boolean);
+
+  function applyHomeFocus(focus) {
+    const hasFocus = !!focus;
+    const relatedBoardIds = new Set();
+    const relatedGroupIds = new Set();
+    const relatedConnectionIds = new Set();
+    const relatedBridgeKeys = new Set();
+
+    if (focus?.groupId) {
+      relatedGroupIds.add(focus.groupId);
+      const groupNode = groupsById.get(focus.groupId);
+      groupNode?.boardIds.forEach(boardId => relatedBoardIds.add(boardId));
+    }
+
+    if (focus?.boardId) {
+      relatedBoardIds.add(focus.boardId);
+      const groupId = boardGroupIds.get(focus.boardId);
+      if (groupId) {
+        relatedGroupIds.add(groupId);
+        groupsById.get(groupId)?.boardIds.forEach(boardId => relatedBoardIds.add(boardId));
+      }
+    }
+
+    if (hasFocus) {
+      connectionData.forEach((connection) => {
+        const touchesFocus = relatedBoardIds.has(connection.sourceId) || relatedBoardIds.has(connection.targetId);
+        if (!touchesFocus) return;
+        relatedConnectionIds.add(connection.id);
+        relatedBoardIds.add(connection.sourceId);
+        relatedBoardIds.add(connection.targetId);
+        if (connection.sourceGroupId) relatedGroupIds.add(connection.sourceGroupId);
+        if (connection.targetGroupId) relatedGroupIds.add(connection.targetGroupId);
+      });
+
+      bridgeData.forEach((bridge) => {
+        if (relatedGroupIds.has(bridge.sourceGroupId) || relatedGroupIds.has(bridge.targetGroupId)) {
+          relatedBridgeKeys.add(bridge.key);
+        }
+      });
+    }
+
+    masterG.classed("home-focus-active", hasFocus);
+    masterG.selectAll("g.board-node")
+      .classed("is-focused", d => hasFocus && relatedBoardIds.has(d.id))
+      .classed("is-dimmed", d => hasFocus && !relatedBoardIds.has(d.id));
+    masterG.selectAll("g.group-node")
+      .classed("is-focused", d => hasFocus && relatedGroupIds.has(d.groupId))
+      .classed("is-dimmed", d => hasFocus && !relatedGroupIds.has(d.groupId));
+    masterG.selectAll("path.group-board-arm")
+      .classed("is-focused", d => hasFocus && relatedGroupIds.has(d.groupId) && relatedBoardIds.has(d.boardId))
+      .classed("is-dimmed", d => hasFocus && !(relatedGroupIds.has(d.groupId) && relatedBoardIds.has(d.boardId)));
+    masterG.selectAll("path.board-connection")
+      .classed("is-focused", d => hasFocus && relatedConnectionIds.has(d.id))
+      .classed("is-dimmed", d => hasFocus && !relatedConnectionIds.has(d.id));
+    masterG.selectAll("path.group-bridge")
+      .classed("is-focused", d => hasFocus && relatedBridgeKeys.has(d.key))
+      .classed("is-dimmed", d => hasFocus && !relatedBridgeKeys.has(d.key));
+  }
+
+  masterG.selectAll("path.group-bridge")
+    .data(bridgeData, d => d.key)
+    .join("path")
+    .attr("class", "group-bridge")
+    .attr("d", d => d.path)
+    .attr("stroke", d => d.color)
+    .attr("stroke-width", d => Math.min(8, 2 + d.count));
+
+  masterG.selectAll("path.group-board-arm")
+    .data(groupArmData, d => d.id)
+    .join("path")
+    .attr("class", "group-board-arm")
+    .attr("d", d => d.path)
+    .attr("stroke", d => d.color);
+
+  masterG.selectAll("path.board-connection")
+    .data(connectionData, d => d.id)
+    .join("path")
+    .attr("class", "board-connection")
+    .attr("d", d => d.path);
+
   // ── Group center bubbles (white) ───────────────
   const groupVisuals = masterG.selectAll("g.group-node")
     .data(groupNodes, d => d.groupId)
@@ -606,6 +864,7 @@ export function renderHome(boards) {
     })
     .on("mouseenter", function(event, d) {
       if (shouldSuspendHomeMotionEffects()) return;
+      applyHomeFocus({ groupId: d.groupId });
       d3.select(this).raise();
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(280)
@@ -615,6 +874,7 @@ export function renderHome(boards) {
     })
     .on("mouseleave", function(event, d) {
       if (shouldSuspendHomeMotionEffects()) return;
+      applyHomeFocus(null);
       d3.select(this).select(".group-bubble")
         .transition("bubble-hover").duration(240)
         .ease(d3.easeCubicInOut)
@@ -624,6 +884,11 @@ export function renderHome(boards) {
 
   groupVisuals.each(function(groupNode) {
     const g = d3.select(this);
+
+    g.append("circle")
+      .attr("class", "group-halo")
+      .attr("r", BUBBLE_SMALL / 2 + 10)
+      .attr("stroke", groupNode.groupColor);
 
     g.append("circle")
       .attr("class", "group-bubble")
@@ -640,24 +905,6 @@ export function renderHome(boards) {
       .attr("r", BUBBLE_LARGE / 2);
   });
 
-  // ── Connection edges between boards ────────────
-  const connections = Store.getConnections();
-  const connectionData = connections.map(c => {
-    const srcPos = allBoardPositions.get(c.sourceId);
-    const tgtPos = allBoardPositions.get(c.targetId);
-    if (!srcPos || !tgtPos) return null;
-    return { ...c, x1: srcPos.x, y1: srcPos.y, x2: tgtPos.x, y2: tgtPos.y };
-  }).filter(Boolean);
-
-  masterG.selectAll("line.board-connection")
-    .data(connectionData, d => d.id)
-    .join("line")
-    .attr("class", "board-connection")
-    .attr("x1", d => d.x1)
-    .attr("y1", d => d.y1)
-    .attr("x2", d => d.x2)
-    .attr("y2", d => d.y2);
-
   // ── Board bubbles (dark grey circles) ──────────
   const boardR = BUBBLE_MEDIUM / 2;
 
@@ -665,6 +912,8 @@ export function renderHome(boards) {
     .data(boards, d => d.id)
     .join("g")
     .attr("class", "board-node")
+    .classed("is-connect-mode", connectModeActive)
+    .classed("is-connect-source", d => d.id === pendingConnectionSourceId)
     .attr("transform", d => `translate(${d._x},${d._y})`)
     .on("mousedown", function(event, d) {
       if (!event.altKey) return;
@@ -683,6 +932,26 @@ export function renderHome(boards) {
     })
     .on("click", (event, d) => {
       if (event.altKey) return;
+      if (connectModeActive) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!pendingConnectionSourceId) {
+          pendingConnectionSourceId = d.id;
+          updateHomeActionRow();
+          _render();
+          return;
+        }
+        if (pendingConnectionSourceId === d.id) {
+          pendingConnectionSourceId = null;
+          updateHomeActionRow();
+          _render();
+          return;
+        }
+        Store.addConnection({ sourceId: pendingConnectionSourceId, targetId: d.id });
+        setHomeConnectMode(false, { render: false });
+        _render();
+        return;
+      }
       if (_isSelectionModeEnabled()) {
         if (multiSelectedBoardIds.has(d.id)) {
           multiSelectedBoardIds.delete(d.id);
@@ -711,6 +980,21 @@ export function renderHome(boards) {
   boardGroups.append("circle")
     .attr("class", "board-bubble")
     .attr("r", boardR);
+
+  boardGroups.each(function(d) {
+    if (!d._groupColor) return;
+    d3.select(this).insert("circle", ".board-bubble")
+      .attr("class", "board-group-ring")
+      .attr("r", boardR + 7)
+      .attr("stroke", d._groupColor);
+  });
+
+  boardGroups.each(function(d) {
+    if (d.id !== pendingConnectionSourceId) return;
+    d3.select(this).insert("circle", ".board-bubble")
+      .attr("class", "board-connect-source-ring")
+      .attr("r", boardR + 14);
+  });
 
   // Selection outline
   boardGroups.each(function(d) {
@@ -876,6 +1160,7 @@ export function renderHome(boards) {
   boardGroups
     .on("mouseenter.bubble", function(event, d) {
       if (shouldSuspendHomeMotionEffects()) return;
+      applyHomeFocus({ boardId: d.id });
       const g = d3.select(this);
       g.raise(); // paint on top
       g.select(".board-bubble")
@@ -895,6 +1180,7 @@ export function renderHome(boards) {
     })
     .on("mouseleave.bubble", function(event, d) {
       if (shouldSuspendHomeMotionEffects()) return;
+      applyHomeFocus(null);
       const g = d3.select(this);
       g.select(".board-bubble")
         .transition("bubble-hover").duration(240)
@@ -935,7 +1221,7 @@ export function renderHome(boards) {
   });
 
   // ── Connection click-to-delete ──
-  masterG.selectAll("line.board-connection")
+  masterG.selectAll("path.board-connection")
     .on("click", function(event, d) {
       event.stopPropagation();
       Store.deleteConnection(d.id);

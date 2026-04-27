@@ -251,6 +251,7 @@ body.browser-safari.safari-camera-moving .pin-img {
 
 .board-node {
   cursor: pointer;
+  transition: opacity 0.18s ease;
 }
 
 .board-node:hover .board-label,
@@ -260,6 +261,7 @@ body.browser-safari.safari-camera-moving .pin-img {
 
 .group-node {
   cursor: zoom-in;
+  transition: opacity 0.18s ease;
 }
 
 /* ── Bubble styles ────────────────────────────── */
@@ -267,6 +269,38 @@ body.browser-safari.safari-camera-moving .pin-img {
 .board-bubble {
   fill: rgba(60, 60, 60, 1);
   pointer-events: all;
+}
+
+.board-group-ring {
+  fill: none;
+  stroke-width: 3;
+  stroke-opacity: 0.72;
+  pointer-events: none;
+}
+
+.board-connect-source-ring {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+  stroke-opacity: 0.88;
+  pointer-events: none;
+}
+
+.board-node.is-connect-mode {
+  cursor: crosshair;
+}
+
+.board-node.is-connect-source .board-bubble {
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 2;
+}
+
+.group-halo {
+  fill: none;
+  stroke-width: 3;
+  stroke-opacity: 0.86;
+  pointer-events: none;
 }
 
 .group-bubble {
@@ -296,25 +330,71 @@ body.browser-safari.safari-camera-moving .pin-img {
 
 /* ── Board connections (home canvas) ──────────── */
 
+.group-bridge,
+.group-board-arm,
+.board-connection {
+  fill: none;
+}
+
+.group-bridge {
+  stroke-linecap: round;
+  stroke-opacity: 0.18;
+  pointer-events: none;
+  transition: stroke-opacity 0.18s ease, opacity 0.18s ease;
+}
+
+.group-board-arm {
+  stroke-width: 2;
+  stroke-opacity: 0.42;
+  stroke-linecap: round;
+  pointer-events: none;
+  transition: stroke-opacity 0.18s ease, opacity 0.18s ease;
+}
+
 .board-connection {
   stroke: var(--text);
-  stroke-width: 1.5;
-  stroke-opacity: 0.12;
+  stroke-width: 2;
+  stroke-opacity: 0.26;
   stroke-linecap: round;
   pointer-events: visibleStroke;
   cursor: pointer;
-  transition: stroke-opacity 0.18s ease;
+  transition: stroke-opacity 0.18s ease, stroke-width 0.18s ease, opacity 0.18s ease;
 }
 
 .board-connection:hover {
-  stroke-opacity: 0.45;
-  stroke-width: 2;
+  stroke-opacity: 0.72;
+  stroke-width: 3;
 }
 
 .board-connection.selected {
   stroke-opacity: 0.6;
   stroke-width: 2;
   stroke-dasharray: 6 3;
+}
+
+.home-focus-active .board-node.is-dimmed,
+.home-focus-active .group-node.is-dimmed {
+  opacity: 0.24;
+}
+
+.home-focus-active .group-board-arm.is-dimmed,
+.home-focus-active .board-connection.is-dimmed,
+.home-focus-active .group-bridge.is-dimmed {
+  opacity: 0.16;
+}
+
+.home-focus-active .group-board-arm.is-focused {
+  stroke-opacity: 0.82;
+  stroke-width: 2.5;
+}
+
+.home-focus-active .board-connection.is-focused {
+  stroke-opacity: 0.86;
+  stroke-width: 3;
+}
+
+.home-focus-active .group-bridge.is-focused {
+  stroke-opacity: 0.42;
 }
 
 .board-connection-delete {
@@ -1064,6 +1144,7 @@ body.zoom-ui-hidden .fab-center-group.visible {
   font-size: 12px;
   line-height: 1;
   height: 36px;
+  min-width: 110px;
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
@@ -1160,6 +1241,12 @@ body.zoom-ui-hidden .fab-center-group.visible {
   background: #3b82f6;
   border-color: #60a5fa;
   color: #fff;
+}
+
+.fab-select-btn.is-pending {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #171717;
 }
 
 .fab-select-btn svg {
