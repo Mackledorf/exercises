@@ -9,12 +9,24 @@ export function init({ render }) {
 
 // ── State ────────────────────────────────────────
 let activePopoverPinId = null;
+let searchQuery = "";
+let isInitialized = false;
 
 // ── Render ───────────────────────────────────────
 
 export async function renderExplore() {
   const grid = document.getElementById("explore-grid");
+  const searchInput = document.querySelector(".explore-search-input");
   if (!grid) return;
+
+  if (!isInitialized && searchInput) {
+    searchInput.disabled = false;
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      renderExplore();
+    });
+    isInitialized = true;
+  }
 
   grid.innerHTML = '<p class="explore-empty-msg">Loading pins…</p>';
 
@@ -36,16 +48,24 @@ export async function renderExplore() {
     }
   }
 
-  const pins = Array.from(seen.values())
+  let pins = Array.from(seen.values())
     .filter(p => p.imageUrl)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  if (searchQuery) {
+    pins = pins.filter(pin => {
+      const matchTag = pin.tags.some(t => t.toLowerCase().includes(searchQuery));
+      const matchBoard = (pin.boardNames || []).some(b => b.toLowerCase().includes(searchQuery));
+      return matchTag || matchBoard;
+    });
+  }
 
   grid.innerHTML = "";
 
   if (pins.length === 0) {
     const empty = document.createElement("p");
     empty.className = "explore-empty-msg";
-    empty.textContent = "Hmm... It's quiet in here.";
+    empty.textContent = searchQuery ? `No results for "${searchQuery}"` : "Hmm... It's quiet in here.";
     grid.appendChild(empty);
     return;
   }
@@ -59,6 +79,11 @@ export async function renderExplore() {
 
 export function destroyExplore() {
   dismissPopover();
+  searchQuery = "";
+  const searchInput = document.querySelector(".explore-search-input");
+  if (searchInput) {
+    searchInput.value = "";
+  }
 }
 
 // ── Pin Card ─────────────────────────────────────

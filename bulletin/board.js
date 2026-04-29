@@ -742,6 +742,15 @@ export function renderBoard(boardId) {
       if (e.button !== 0) return;
       if (_isSelectionModeEnabled() && spacebarHeld) return;
 
+      const isMobile = typeof window !== "undefined" && window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+      const isSelected = selectedPinId === d.id || multiSelectedPinIds.has(d.id);
+
+      // On mobile only: require the pin to be selected before it can be dragged.
+      // This prevents accidental drags while panning or zooming.
+      if (isMobile && !isSelected) {
+        return;
+      }
+
       e.stopPropagation();
       hitRect.setPointerCapture(e.pointerId);
 

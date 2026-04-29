@@ -708,7 +708,7 @@ const Store = (function () {
   async function getAllPublicPins() {
     const { data, error } = await _sb()
       .from("pins")
-      .select("*, board_pins(*)")
+      .select("*, board_pins(*, boards(name))")
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -730,6 +730,7 @@ const Store = (function () {
         createdAt: new Date(p.created_at).getTime(),
         boardId: bp?.board_id || null,
         boardIds: (p.board_pins || []).map(b => b.board_id),
+        boardNames: (p.board_pins || []).map(b => b.boards?.name).filter(Boolean),
         x: bp?.x ?? 0,
         y: bp?.y ?? 0,
         pinW: bp?.pin_w ?? null,
