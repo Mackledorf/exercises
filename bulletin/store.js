@@ -7,9 +7,171 @@ const Store = (function () {
   let _data = { boards: [], pins: [], groups: [], connections: [] };
   let _userId = null;
   let _ready = false;
+  let _demoMode = false;
+
+  const DEMO_BOARD_CONFIGS = [
+    {
+      name: "GRDS 255 Hot Sauce",
+      color: "#ff4a44",
+      files: [
+        "1479fa217ae511c598569ae3fb840315-2.jpg",
+        "3c92e3aee61e360c09aad21535926d1d.jpg",
+        "483fb03bf2c347be21146ce635a225cb.jpg",
+        "4aaaf2e07c22d85e7a191b04a8f3a493.jpg",
+        "5e7493c9fbb0d49cceedc7eb5eaff4cf-2.jpg",
+        "822466dbcc8902cd9dac5541c754ca17.jpg",
+        "85c2a8a52ce68e3c0e53b5c1ddb08438.jpg",
+        "92d2e776b0ed43eab3a0a53cc64d1bf2.jpg",
+        "aee133e814b0a99d7ea1e995713cbabd-2.jpg",
+        "cabdb4f7c394aa3c9e4dbaf40cbce82e.jpg",
+        "d19b72a4a93c33f8f5bf5e6cf6224752.jpg",
+        "e8ec1e2ff44664128c7eaa910aa0f43e-2.jpg",
+        "e9b082d220f1ac33c66a17e9fb28675c.jpg",
+      ],
+    },
+    {
+      name: "GRDS 271 Clock Moodboard",
+      color: "#f05f2f",
+      files: [
+        "1ee98d38cba4c5709242c3f448530ce4.jpg",
+        "2bd4dc9423051c6b2babb28791fdad35.jpg",
+        "37ad8a2b4084f8299eed80fab05c1e96-2.jpg",
+        "381505dd929409a09a5d1f7d363797c4-2.jpg",
+        "3d3438a386b66e6004c664cdeb9830eb.jpg",
+        "405f5773640e9cdb5118cbc2083f5e67-2.jpg",
+        "53e43aaf90560a0fe67ff1f489dc6b7e-2.jpg",
+        "5dffffe09823352d8f109ba3f7a69039.jpg",
+        "6dbe5aa94a84341c70cf346c11f5d140.jpg",
+        "72cc8fa06066f7ff717a55d4a2f6e8b6.jpg",
+        "7afbb5376b9fd405205d0cd0479f2552-2.jpg",
+        "802e6f5d55b9209e8747fb859ad1e6dc.jpg",
+        "8d633a5f29b500caed6cc55025f824ff.jpg",
+        "96fc89853b4210bda9c1481dde684f18-2.jpg",
+        "9ee1fe9f78fb781e5810b776a2951415-2.jpg",
+        "a715d7b9b207b06eb97643e3bd699185.jpg",
+        "b42fdc8e41edc94fccf368bfd4b14dcc.jpg",
+        "b7d04a278028b3b72dfaf9b941cf022f-2.jpg",
+        "be30655ca95a55d20c9348131e41da8b.jpg",
+        "c37a36a7561bc6806484e413726380ed.jpg",
+        "dea7785f3f7be6a34d2c22ee664bc7c1.jpg",
+      ],
+    },
+    {
+      name: "Helvetica",
+      color: "#2f7fd1",
+      files: [
+        "04e3373959d756093501143411e1a6b9.jpg",
+        "27bde0ee65e3d3d1886e70616c29d810.jpg",
+        "a09e229a0716d7fe0b6d17cc9fb42802.jpg",
+        "ced1f3e5651c00beb8e18c77ef174aea.jpg",
+        "d923600d2101f0cef8ef591bfe5f4c09.jpg",
+      ],
+    },
+    {
+      name: "Palms and Venice",
+      color: "#6eba72",
+      files: [
+        "06b69993d7fefbdb7a44df8f34873980.jpg",
+        "169010f0d5b8b26058face2f45cc7a9b.jpg",
+        "1ba2361c9540e268eaa89b4d5dee2977.jpg",
+        "2aab8d87b0c0582f45597079ce559c5d.jpg",
+        "552a5aaf3bcee70941a4f9a693be7ae5.jpg",
+        "ceb410786e32bc1a454a7d92c21d6167.jpg",
+        "e1c3446eab4243dcf946aa3660afecda.jpg",
+        "eb063ea48936fc12110e967fcc016c43.jpg",
+        "f8cc9483be104b2acd6895a0d9087ede.jpg",
+      ],
+    },
+    {
+      name: "Saved Works",
+      color: "#c7f28a",
+      files: [
+        "cosmos_1053255589.jpeg",
+        "cosmos_1058818968.jpeg",
+        "cosmos_1442779170.jpeg",
+        "cosmos_1481105096.jpeg",
+        "cosmos_1539479796.jpeg",
+        "cosmos_1607401651.jpeg",
+        "cosmos_2004016514.jpeg",
+        "cosmos_316989548.jpeg",
+        "cosmos_453807681.jpeg",
+        "cosmos_467791289.jpeg",
+        "cosmos_571512865.jpeg",
+        "cosmos_625591096.jpeg",
+        "cosmos_774006560.jpeg",
+        "cosmos_950462764.jpeg",
+      ],
+    },
+  ];
 
   function _sb() {
     return window.supabaseClient;
+  }
+
+  function _slug(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function _demoAssetPath(folder, file) {
+    return encodeURI(`assets/Bulletin Defaults/${folder}/${file}`);
+  }
+
+  function _demoPlacement(index, count) {
+    const cols = Math.max(1, Math.min(5, Math.ceil(Math.sqrt(count))));
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    const rows = Math.max(1, Math.ceil(count / cols));
+    const spacingX = 240;
+    const spacingY = 286;
+    const x = (col - (cols - 1) / 2) * spacingX + (row % 2 ? 36 : 0);
+    const y = (row - (rows - 1) / 2) * spacingY;
+
+    return { x, y, pinW: 168 };
+  }
+
+  function _initDemoData() {
+    const boards = [];
+    const pins = [];
+
+    DEMO_BOARD_CONFIGS.forEach((config, boardIndex) => {
+      const boardId = `demo-board-${_slug(config.name)}`;
+      boards.push({
+        id: boardId,
+        name: config.name,
+        description: "",
+        color: config.color || "#EEEBE7",
+        source: "demo",
+        arenaChannelId: null,
+        createdAt: boardIndex + 1,
+        groupId: null,
+      });
+
+      config.files.forEach((file, fileIndex) => {
+        const pinId = `demo-pin-${_slug(config.name)}-${fileIndex + 1}`;
+        pins.push({
+          id: pinId,
+          sharedPinId: pinId,
+          tags: [config.name],
+          imageUrl: _demoAssetPath(config.name, file),
+          imageData: null,
+          linkUrl: null,
+          source: "demo",
+          arenaBlockId: null,
+          createdAt: (boardIndex * 1000) + fileIndex + 1,
+          boardIds: [boardId],
+          placements: {
+            [boardId]: _demoPlacement(fileIndex, config.files.length),
+          },
+        });
+      });
+    });
+
+    _data = { boards, pins, groups: [], connections: [] };
+    _ready = true;
   }
 
   function _clone(value) {
@@ -38,24 +200,28 @@ const Store = (function () {
   // ── Async DB helpers (fire-and-forget for writes) ──
 
   function _dbInsert(table, row) {
+    if (_demoMode) return;
     _sb().from(table).insert(row).then(({ error }) => {
       if (error) console.error(`[Store] insert ${table}:`, error.message);
     });
   }
 
   function _dbUpdate(table, id, changes) {
+    if (_demoMode) return;
     _sb().from(table).update(changes).eq("id", id).then(({ error }) => {
       if (error) console.error(`[Store] update ${table}:`, error.message);
     });
   }
 
   function _dbDelete(table, id) {
+    if (_demoMode) return;
     _sb().from(table).delete().eq("id", id).then(({ error }) => {
       if (error) console.error(`[Store] delete ${table}:`, error.message);
     });
   }
 
   function _dbDeleteWhere(table, column, value) {
+    if (_demoMode) return;
     _sb().from(table).delete().eq(column, value).then(({ error }) => {
       if (error) console.error(`[Store] delete ${table} where ${column}=${value}:`, error.message);
     });
@@ -129,8 +295,14 @@ const Store = (function () {
 
   // ── Init: Load all data from Supabase ───────────
 
-  async function init(userId) {
+  async function init(userId, options = {}) {
     _userId = userId;
+    _demoMode = !!options.demo || _userId === "demo-user";
+
+    if (_demoMode) {
+      _initDemoData();
+      return;
+    }
 
     // Prevent malformed Supabase filters (for example eq(user_id, undefined)).
     if (typeof _userId !== "string" || _userId.trim().length === 0) {
@@ -306,6 +478,8 @@ const Store = (function () {
     );
 
     // DB: cascade deletes handle board_pins; also clean up connections
+    if (_demoMode) return;
+
     _dbDelete("boards", id);
     _sb().from("connections").delete()
       .or(`source_id.eq.${id},target_id.eq.${id}`)
@@ -368,6 +542,8 @@ const Store = (function () {
     });
 
     _dbDelete("groups", id);
+    if (_demoMode) return;
+
     // Un-group boards in DB
     _sb().from("boards").update({ group_id: null }).eq("group_id", id).then(({ error }) => {
       if (error) console.error("[Store] ungroup boards:", error.message);
@@ -451,6 +627,8 @@ const Store = (function () {
       _data.pins.push(pin);
     }
 
+    if (_demoMode) return getPin(pinId, nextBoardIds[0]);
+
     // DB: upsert pin row, then board_pins (must sequence — FK dependency)
     _sb().from("pins").upsert({
       id: pinId,
@@ -515,7 +693,7 @@ const Store = (function () {
     // Remove imageData from DB changes (not stored in Supabase)
     // imageData is only used transiently before upload
 
-    if (Object.keys(dbChanges).length > 0) {
+    if (!_demoMode && Object.keys(dbChanges).length > 0) {
       _sb().from("pins").update(dbChanges)
         .eq("shared_pin_id", sharedPinId)
         .eq("user_id", _userId)
@@ -548,7 +726,7 @@ const Store = (function () {
     if ("y" in changes) dbChanges.y = changes.y;
     if ("pinW" in changes) dbChanges.pin_w = changes.pinW;
 
-    if (Object.keys(dbChanges).length > 0) {
+    if (!_demoMode && Object.keys(dbChanges).length > 0) {
       _sb().from("board_pins").update(dbChanges)
         .eq("pin_id", id)
         .eq("board_id", boardId)
@@ -568,6 +746,8 @@ const Store = (function () {
       ...pin.placements[boardId],
       ...placement,
     });
+
+    if (_demoMode) return getPin(id, boardId);
 
     const p = pin.placements[boardId];
     _sb().from("board_pins").upsert(_buildBoardPinPayload({
@@ -597,6 +777,8 @@ const Store = (function () {
       // DB: delete the pin entirely if no boards left
       _dbDelete("pins", id);
     }
+
+    if (_demoMode) return boardScopedPin;
 
     // DB: remove board_pin row
     _sb().from("board_pins").delete()
@@ -679,6 +861,8 @@ const Store = (function () {
   // ── Image upload to Supabase Storage ────────────
 
   async function uploadImage(file) {
+    if (_demoMode) return URL.createObjectURL(file);
+
     const ext = file.name?.split(".").pop() || "jpg";
     const path = `${_userId}/${_uid()}.${ext}`;
 
@@ -696,6 +880,8 @@ const Store = (function () {
   }
 
   async function uploadBase64Image(dataUrl) {
+    if (_demoMode) return dataUrl;
+
     const res = await fetch(dataUrl);
     const blob = await res.blob();
     const ext = blob.type.split("/")[1] || "png";
@@ -706,6 +892,19 @@ const Store = (function () {
   // ── Explore: all public pins (cross-user) ───────
 
   async function getAllPublicPins() {
+    if (_demoMode) {
+      return _data.pins.map(pin => {
+        const defaultBoardId = pin.boardIds[0] || null;
+        const scopedPin = defaultBoardId ? _withBoardPlacement(pin, defaultBoardId) : pin;
+        return {
+          ...scopedPin,
+          boardNames: pin.boardIds
+            .map(boardId => _data.boards.find(board => board.id === boardId)?.name)
+            .filter(Boolean),
+        };
+      });
+    }
+
     const { data, error } = await _sb()
       .from("pins")
       .select("*, board_pins(*, boards(name))")
@@ -741,6 +940,7 @@ const Store = (function () {
   // ── Public API ──────────────────────────────────
   return {
     init,
+    isDemoMode: () => _demoMode,
     getBoards,
     getBoard,
     addBoard,

@@ -12,6 +12,13 @@ const Auth = (function () {
   let _authSubscription = null;
   let _authResolved = false;
   let _authFailSafeTimer = null;
+  let _isDemoMode = false;
+
+  const DEMO_USER = Object.freeze({
+    id: "demo-user",
+    email: "demo@bulletin.local",
+    isDemo: true,
+  });
 
   function _sb() {
     return window.supabaseClient;
@@ -80,6 +87,8 @@ const Auth = (function () {
   }
 
   async function _handleAuthState(event, session) {
+    if (_isDemoMode) return;
+
     _markAuthResolved();
 
     if (event === "SIGNED_OUT") {
@@ -107,6 +116,8 @@ const Auth = (function () {
   }
 
   async function _resolveInitialSession() {
+    if (_isDemoMode) return;
+
     try {
       const { data, error } = await _sb().auth.getSession();
       if (error) throw error;
@@ -171,6 +182,10 @@ const Auth = (function () {
     return _currentUser?.id || null;
   }
 
+  function isDemoMode() {
+    return _isDemoMode;
+  }
+
   // ── Auth actions ───────────────────────────────
 
   async function signUp(email, password) {
@@ -186,6 +201,14 @@ const Auth = (function () {
   }
 
   async function signOut() {
+    if (_isDemoMode) {
+      _isDemoMode = false;
+      _currentUser = null;
+      _clearSessionStartedAt();
+      _updateAuthUI();
+      return;
+    }
+
     const { error } = await _sb().auth.signOut();
     if (error) throw error;
     _currentUser = null;
@@ -200,6 +223,7 @@ const Auth = (function () {
 
     // Hide the main app
     document.body.classList.add("auth-mode");
+    document.body.classList.remove("demo-mode");
   }
 
   function _hideAuthView() {
@@ -215,17 +239,27 @@ const Auth = (function () {
       // Update profile button text to be generic
       const profileBtn = document.getElementById("topbar-profile");
       if (profileBtn) {
-        profileBtn.textContent = "Profile";
+        profileBtn.textContent = _currentUser.isDemo ? "Demo" : "Profile";
       }
       
       // Update profile page with username
       const nameEl = document.getElementById("profile-user-name");
       if (nameEl) {
-        nameEl.textContent = _currentUser.email?.split("@")[0] || "User";
+        nameEl.textContent = _currentUser.isDemo ? "Demo Mode" : (_currentUser.email?.split("@")[0] || "User");
       }
     } else {
       _showAuthView();
     }
+  }
+
+  function enterDemoMode() {
+    _isDemoMode = true;
+    _currentUser = DEMO_USER;
+    _markAuthResolved();
+    _clearSessionStartedAt();
+    document.body.classList.add("demo-mode");
+    _updateAuthUI();
+    if (_onAuthReady) _onAuthReady(_currentUser);
   }
 
   function _setError(msg) {
@@ -249,6 +283,7 @@ const Auth = (function () {
     const form = document.getElementById("auth-form");
     const signOutBtn = document.getElementById("topbar-signout");
     const profileSignOutBtn = document.getElementById("btn-profile-signout");
+    const demoBtn = document.getElementById("btn-demo-mode");
     let isSignUp = false;
 
     if (form) {
@@ -334,14 +369,24 @@ const Auth = (function () {
         }
       });
     });
+
+    if (demoBtn) {
+      demoBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        _setError("");
+        enterDemoMode();
+      });
+    }
   }
 
   return {
     init,
     getUser,
     getUserId,
+    isDemoMode,
     signUp,
     signIn,
     signOut,
+    enterDemoMode,
   };
 })();

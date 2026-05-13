@@ -617,7 +617,7 @@ async function bootApp(user) {
 
   _bootInFlight = (async () => {
     try {
-      await Store.init(user.id);
+      await Store.init(user.id, { demo: !!user.isDemo });
 
       if (document.fonts && document.fonts.ready) {
         await document.fonts.ready;
@@ -627,7 +627,7 @@ async function bootApp(user) {
       render();
 
       // Handle Are.na OAuth callback
-      if (typeof Arena !== "undefined") {
+      if (!user.isDemo && typeof Arena !== "undefined") {
         Arena.handleCallback().then(authed => {
           if (authed) {
             modals.refreshArenaModal();

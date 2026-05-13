@@ -115,24 +115,62 @@
     </div>
   </div>
 
-  <!-- Auth view (shown when not signed in) -->
+  <!-- Landing/auth view (shown when not signed in) -->
   <div id="auth-view" class="auth-view" hidden>
-    <div class="auth-container">
-      <div class="auth-logo">
-        <img src="assets/logotype.svg" alt="Bulletin" />
-      </div>
-      <p class="auth-subtitle">Your visual pin network.</p>
-      <form id="auth-form" class="auth-form" autocomplete="off">
-        <h2 id="auth-title" class="auth-form-title">Sign In</h2>
-        <div id="auth-error" class="auth-error" hidden></div>
-        <input type="email" id="auth-email" class="auth-input" placeholder="Email" required>
-        <input type="password" id="auth-password" class="auth-input" placeholder="Password" required minlength="6">
-        <input type="password" id="auth-confirm-password" class="auth-input" placeholder="Confirm Password" minlength="6" hidden>
-        <button type="submit" id="auth-submit" class="btn btn-primary auth-btn" data-label="Sign In">Sign In</button>
-      </form>
-      <p id="auth-toggle-text" class="auth-toggle-text">
-        Don't have an account? <a href="#" id="auth-toggle">Create one</a>
-      </p>
+    <div class="landing-shell">
+      <section class="landing-copy" aria-labelledby="landing-title">
+        <h1 id="landing-title" class="landing-title-logo-wrap">
+          <img class="landing-title-logo" src="assets/logotype.svg" alt="Bulletin" />
+        </h1>
+        <p class="landing-lede">A spatial moodboarding workspace for collecting references, arranging them on a canvas, and seeing how ideas cluster before they become a direction.</p>
+        <div class="landing-actions">
+          <button type="button" class="btn btn-primary landing-demo-btn" id="btn-demo-mode">
+            <i data-lucide="sparkles"></i>
+            <span>Enter Demo Mode</span>
+          </button>
+          <a class="landing-privacy-link" href="privacy.html">Privacy</a>
+        </div>
+        <div class="landing-points" aria-label="Bulletin highlights">
+          <span><i data-lucide="scan-search"></i>Collect visual research</span>
+          <span><i data-lucide="move"></i>Arrange on a canvas</span>
+          <span><i data-lucide="git-branch"></i>Connect related boards</span>
+        </div>
+      </section>
+
+      <section class="landing-preview" aria-label="Bulletin visual preview">
+        <div class="landing-preview-board board-one">
+          <span class="landing-preview-label">References</span>
+          <img src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=640&q=80" alt="Studio workspace reference" />
+        </div>
+        <div class="landing-preview-board board-two">
+          <span class="landing-preview-label">Materials</span>
+          <img src="https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=640&q=80" alt="Architectural material reference" />
+        </div>
+        <div class="landing-preview-board board-three">
+          <span class="landing-preview-label">Campaigns</span>
+          <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=640&q=80" alt="Outdoor campaign mood reference" />
+        </div>
+        <svg class="landing-preview-lines" viewBox="0 0 520 420" aria-hidden="true" focusable="false">
+          <path d="M152 138 C234 72 310 90 374 150" />
+          <path d="M172 218 C260 292 346 288 410 224" />
+          <path d="M212 146 C254 204 292 225 342 226" />
+        </svg>
+      </section>
+
+      <aside class="auth-container" aria-label="Account access">
+        <p class="auth-subtitle">Save your boards across devices.</p>
+        <form id="auth-form" class="auth-form" autocomplete="off">
+          <h2 id="auth-title" class="auth-form-title">Sign In</h2>
+          <div id="auth-error" class="auth-error" hidden></div>
+          <input type="email" id="auth-email" class="auth-input" placeholder="Email" required>
+          <input type="password" id="auth-password" class="auth-input" placeholder="Password" required minlength="6">
+          <input type="password" id="auth-confirm-password" class="auth-input" placeholder="Confirm Password" minlength="6" hidden>
+          <button type="submit" id="auth-submit" class="btn btn-primary auth-btn" data-label="Sign In">Sign In</button>
+        </form>
+        <p id="auth-toggle-text" class="auth-toggle-text">
+          Don't have an account? <a href="#" id="auth-toggle">Create one</a>
+        </p>
+      </aside>
     </div>
   </div>
 
