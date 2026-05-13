@@ -293,6 +293,50 @@ export function computeGroupForceLayout(groupId, boards, centerX, centerY, metri
   return { boardPositions };
 }
 
+function seededUnitValue(value, salt = 0) {
+  const str = `${value || ""}:${salt}`;
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) % 10000) / 10000;
+}
+
+function computeBoardClusterLayout(boards, centerX, centerY, metrics = getHomeLayoutMetrics()) {
+  const boardPositions = new Map();
+  if (!Array.isArray(boards) || boards.length === 0) return { boardPositions };
+
+  const collisionRadius = metrics.boardRadius + Math.max(12, metrics.bubbleGap * 0.36);
+  const seedRadius = Math.max(metrics.bubbleMedium * 0.72, collisionRadius);
+
+  const nodes = boards.map((board, index) => {
+    const angle = seededUnitValue(board.id || board.name || index, 1) * Math.PI * 2;
+    const radius = seedRadius * (0.3 + Math.sqrt(seededUnitValue(board.id || board.name || index, 2)) * Math.max(1, Math.sqrt(boards.length) * 0.58));
+    return {
+      id: board.id,
+      x: centerX + Math.cos(angle) * radius,
+      y: centerY + Math.sin(angle) * radius,
+    };
+  });
+
+  d3.forceSimulation(nodes)
+    .stop()
+    .velocityDecay(0.46)
+    .force("center", d3.forceCenter(centerX, centerY).strength(0.08))
+    .force("x", d3.forceX(centerX).strength(0.075))
+    .force("y", d3.forceY(centerY).strength(0.075))
+    .force("collide", d3.forceCollide(collisionRadius).strength(0.86).iterations(4))
+    .force("charge", d3.forceManyBody().strength(-8))
+    .tick(180);
+
+  nodes.forEach(node => {
+    boardPositions.set(node.id, { x: node.x, y: node.y });
+  });
+
+  return { boardPositions };
+}
+
 export function computeHomeLayout() {
   const metrics = getHomeLayoutMetrics();
   const boards = Store.getBoards();
@@ -325,20 +369,11 @@ export function computeHomeLayout() {
   const ungroupedSpanH = hasUngrouped ? (ungroupedRows - 1) * metrics.gridCellH : 0;
 
   if (hasUngrouped) {
-    const boardsInLastRow = ungrouped.length - (ungroupedRows - 1) * ungroupedCols;
-    const gridW = Math.max(0, (ungroupedCols - 1) * metrics.gridCellW);
-    const startX = width / 2 - gridW / 2;
-    const startY = Math.max(metrics.padY + 10, height * 0.24);
+    const clusterCenterY = Math.max(metrics.padY + metrics.boardRadius + 10, height * (metrics.compact ? 0.34 : 0.42));
+    const clustered = computeBoardClusterLayout(ungrouped, width / 2, clusterCenterY, metrics);
 
-    ungrouped.forEach((board, i) => {
-      const row = Math.floor(i / ungroupedCols);
-      const col = i % ungroupedCols;
-      const rowCols = row === ungroupedRows - 1 ? boardsInLastRow : ungroupedCols;
-      const rowOffset = (ungroupedCols - rowCols) * metrics.gridCellW / 2;
-      const pos = {
-        x: startX + rowOffset + col * metrics.gridCellW,
-        y: startY + row * metrics.gridCellH,
-      };
+    ungrouped.forEach((board) => {
+      const pos = clustered.boardPositions.get(board.id) || { x: width / 2, y: clusterCenterY };
       ungroupedPositions.set(board.id, pos);
       allBoardPositions.set(board.id, pos);
     });
