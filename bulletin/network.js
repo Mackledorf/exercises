@@ -177,13 +177,13 @@ export function renderNetwork() {
   simulation = d3.forceSimulation(graph.nodes)
     .velocityDecay(0.5)
     .alphaDecay(0.045)
-    .force("link", d3.forceLink(graph.links).id(d => d.id).distance(d => d.kind === "untagged" ? 20 : 40).strength(0.5))
-    .force("charge", d3.forceManyBody().strength(d => d.type === "tag" ? -400 : -20))
-    .force("collide", d3.forceCollide().radius(networkCollisionRadius).strength(0.72).iterations(3))
-    .force("pinOrbit", forcePinsAroundTags(graph.links).strength(0.12))
+    .force("link", d3.forceLink(graph.links).id(d => d.id).distance(d => d.kind === "untagged" ? 24 : 34).strength(0.38))
+    .force("charge", d3.forceManyBody().strength(d => d.type === "tag" ? -520 : -6))
+    .force("collide", d3.forceCollide().radius(networkCollisionRadius).strength(0.82).iterations(4))
+    .force("pinCluster", forcePinsTowardTagClusters(graph.links).strength(0.18))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("x", d3.forceX(d => d.type === "tag" ? d.anchorX : width / 2).strength(d => d.type === "tag" ? 0.15 : 0.08))
-    .force("y", d3.forceY(d => d.type === "tag" ? d.anchorY : height / 2).strength(d => d.type === "tag" ? 0.15 : 0.08))
+    .force("x", d3.forceX(d => d.type === "tag" ? d.anchorX : width / 2).strength(d => d.type === "tag" ? 0.16 : 0.025))
+    .force("y", d3.forceY(d => d.type === "tag" ? d.anchorY : height / 2).strength(d => d.type === "tag" ? 0.16 : 0.025))
     .on("tick", () => {
       links
         .attr("x1", d => linkEndpoint(d.source, d.target).x)
@@ -455,10 +455,12 @@ function moveConnectedPinsWithTag(tagNode, dx, dy, adjacency, nodes) {
   }
 }
 
-function forcePinsAroundTags(links) {
+function forcePinsTowardTagClusters(links) {
   let strength = 0.035;
 
   function force(alpha) {
+    const clusters = new Map();
+
     for (const link of links) {
       if (link.kind !== "tag") continue;
       const source = link.source;
@@ -467,16 +469,30 @@ function forcePinsAroundTags(links) {
       const tag = source.type === "tag" ? source : target.type === "tag" ? target : null;
       if (!pin || !tag) continue;
 
-      const siblings = Array.isArray(tag.pinIds) && tag.pinIds.length ? tag.pinIds : [pin.id];
-      const index = Math.max(0, siblings.indexOf(pin.id));
-      const angle = (-Math.PI / 2) + (index / Math.max(1, siblings.length)) * Math.PI * 2;
-      const radius = Math.max(82, Math.min(142, 78 + siblings.length * 5));
-      const targetX = tag.x + Math.cos(angle) * radius;
-      const targetY = tag.y + Math.sin(angle) * radius;
-
-      pin.vx += (targetX - pin.x) * strength * alpha;
-      pin.vy += (targetY - pin.y) * strength * alpha;
+      if (!clusters.has(tag.id)) clusters.set(tag.id, { tag, pins: [] });
+      clusters.get(tag.id).pins.push(pin);
     }
+
+    clusters.forEach(({ tag, pins }) => {
+      if (pins.length === 0) return;
+
+      const centroid = pins.reduce((acc, pin) => {
+        acc.x += pin.x;
+        acc.y += pin.y;
+        return acc;
+      }, { x: 0, y: 0 });
+      centroid.x /= pins.length;
+      centroid.y /= pins.length;
+
+      const targetX = (tag.x * 0.72) + (centroid.x * 0.28);
+      const targetY = (tag.y * 0.72) + (centroid.y * 0.28);
+      const clusterAlpha = strength * alpha;
+
+      pins.forEach(pin => {
+        pin.vx += (targetX - pin.x) * clusterAlpha;
+        pin.vy += (targetY - pin.y) * clusterAlpha;
+      });
+    });
   }
 
   force.strength = function(nextStrength) {
